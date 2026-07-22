@@ -163,7 +163,8 @@ def test_animated_archetypes_yield_distinct_gating_frames(contract):
     # each animated archetype yields >1 frame, all gate, frame 0 == its static build,
     # and not every frame is identical (there is real motion)
     from meristem_generators import build_archetype
-    cases = [("blob", {}), ("ghost", {}), ("quadruped", {}), ("flyer", {}), ("pickup", {"shape": "coin"})]
+    cases = [("blob", {}), ("ghost", {}), ("quadruped", {}), ("flyer", {}),
+             ("serpent", {}), ("spider", {}), ("pickup", {"shape": "coin"})]
     for name, cfg in cases:
         frames = archetype_frames(contract, name, cfg)
         assert frames and len(frames) >= 2, name
@@ -188,6 +189,22 @@ def test_flyer_builds_vary(contract):
     for b, arr in builds.items():
         res = validate(Image.fromarray(arr, "RGBA"), "enemy", contract)
         assert res.accepted, f"{b}: {res.reasons}"
+
+
+def test_serpent_and_spider_builds_vary(contract):
+    import numpy as np
+    from PIL import Image
+    from meristem_generators.creatures import build_serpent, build_spider
+    for fn, builds in ((build_serpent, ("cobra", "snake", "viper")),
+                       (build_spider, ("spider", "tarantula", "widow"))):
+        arrs = {b: fn(contract, {"build": b}) for b in builds}
+        vals = list(arrs.values())
+        for i in range(len(vals)):
+            for j in range(i + 1, len(vals)):
+                assert not np.array_equal(vals[i], vals[j])     # each build distinct
+        for b, arr in arrs.items():
+            res = validate(Image.fromarray(arr, "RGBA"), "enemy", contract)
+            assert res.accepted, f"{fn.__name__} {b}: {res.reasons}"
 
 
 def test_default_generate_frames_is_single(contract):

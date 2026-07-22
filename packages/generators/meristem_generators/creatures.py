@@ -257,3 +257,130 @@ def flyer_flap(contract, config=None) -> list[np.ndarray]:
     static build, so the idle sprite matches."""
     cfg = dict(config or {})
     return [build_flyer(contract, {**cfg, "wing_dy": d}) for d in (0, -3, 0, 3)]
+
+
+SERPENT_DEFAULT = {"color": (86, 158, 92), "build": "cobra"}
+
+# A reared side-view serpent: a coiled base, an S-rising neck, a raised head. `build`
+# swaps the neck/brow: cobra (flared hood), snake (plain), viper (horned brow).
+_SERPENT_BUILDS = {
+    "cobra": {"hood": True,  "horns": False},
+    "snake": {"hood": False, "horns": False},
+    "viper": {"hood": False, "horns": True},
+}
+
+
+def build_serpent(contract, config=None) -> np.ndarray:
+    """A reared serpent (facing right), parametric by colour + `build`. `tongue`
+    flicks the forked tongue and `head_dx` sways the head for the idle."""
+    cfg = {**SERPENT_DEFAULT, **(config or {})}
+    b = _SERPENT_BUILDS.get(cfg["build"], _SERPENT_BUILDS["cobra"])
+    body = Ramp(cfg["color"])
+    dark = outline_dark(cfg["color"])
+    w, h = contract.canvas_of("enemy")
+    cv = Canvas(w, h)
+    dx = int(cfg.get("head_dx", 0))
+
+    # --- coiled base (a loop resting on the ground) ---
+    cv.disc(24, 14, 5, 9, body.base)                 # coil mass
+    cv.clear_disc(24, 13, 2.2, 4.2)                  # the loop's hole
+    cv.disc(25, 15, 2.4, 5, body.shadow)             # under-coil shade
+    cv.disc(20, 9, 2, 3, body.highlight)             # lit top-left of coil
+
+    # --- rising neck: a gentle S from the coil up to the head (not a straight post) ---
+    neck = {20: (15, 18), 19: (15, 18), 18: (14, 17), 17: (13, 16), 16: (13, 16),
+            15: (14, 17), 14: (15, 18), 13: (16, 19), 12: (16, 19), 11: (16, 19)}
+    for r, (c0, c1) in neck.items():
+        cv.rect(r, r, c0, c1, body.base)
+        cv.px(r, c0, body.highlight); cv.px(r, c1, body.shadow)      # light left / shade right
+    if b["hood"]:                                    # cobra flare
+        cv.rect(12, 16, 11, 21, body.base)
+        cv.rect(12, 16, 20, 21, body.shadow); cv.rect(12, 16, 11, 12, body.highlight)
+        cv.px(14, 13, body.shadow); cv.px(14, 19, body.shadow)       # hood eye-spots
+
+    # --- head (top): a wedge narrowing to a snout up-right, swayed by head_dx ---
+    hx = 16 + dx
+    cv.rect(8, 11, hx - 2, hx + 2, body.base)        # head mass (wide jaw)
+    cv.rect(6, 8, hx, hx + 4, body.base)             # brow -> snout (up-right)
+    cv.rect(8, 9, hx - 2, hx - 1, body.highlight)    # lit cheek (top-left)
+    cv.rect(10, 11, hx + 1, hx + 2, body.shadow)     # under-jaw shade
+    if b["horns"]:                                   # viper brow horns
+        cv.px(5, hx + 1, dark); cv.px(5, hx + 3, dark)
+    cv.px(8, hx, (240, 214, 78)); cv.px(8, hx + 1, dark)             # eye (yellow + slit)
+    # forked tongue flick (from the snout tip, up-right)
+    if int(cfg.get("tongue", 0)):
+        cv.px(7, hx + 5, (214, 64, 78)); cv.px(7, hx + 6, (214, 64, 78))
+        cv.px(6, hx + 7, (214, 64, 78)); cv.px(8, hx + 7, (214, 64, 78))
+
+    cv.outline(dark)
+    return cv.array()
+
+
+def serpent_idle(contract, config=None) -> list[np.ndarray]:
+    """Idle: tongue flick + a 1px head sway. Frame 0 (no tongue, centred) is static."""
+    cfg = dict(config or {})
+    states = [(0, 0), (1, 0), (0, 1), (1, 0)]        # (tongue, head_dx)
+    return [build_serpent(contract, {**cfg, "tongue": t, "head_dx": d}) for t, d in states]
+
+
+SPIDER_DEFAULT = {"color": (74, 66, 82), "build": "spider"}
+
+# A front-view spider: abdomen + cephalothorax + 8 radiating bent legs. `build`
+# swaps markings/leg weight: spider (plain), tarantula (thick legs), widow (red mark).
+_SPIDER_BUILDS = {
+    "spider":    {"thick": False, "mark": None},
+    "tarantula": {"thick": True,  "mark": None},
+    "widow":     {"thick": False, "mark": (206, 54, 60)},
+}
+# leg anchors on the cephalothorax and their knee/foot targets (left side; right mirrors)
+_SPIDER_LEGS = [((10, 12), (6, 4), (8, 2)), ((11, 12), (9, 4), (13, 2)),
+                ((13, 12), (13, 4), (17, 3)), ((14, 12), (16, 5), (20, 5))]
+
+
+def build_spider(contract, config=None) -> np.ndarray:
+    """A front-view spider, parametric by colour + `build`. `leg_dy` twitches the
+    legs for the skitter idle."""
+    cfg = {**SPIDER_DEFAULT, **(config or {})}
+    b = _SPIDER_BUILDS.get(cfg["build"], _SPIDER_BUILDS["spider"])
+    body = Ramp(cfg["color"])
+    dark = outline_dark(cfg["color"])
+    w, h = contract.canvas_of("enemy")
+    cv = Canvas(w, h)
+    cx = 16
+    jig = int(cfg.get("leg_dy", 0))
+
+    # --- 8 bent legs (behind the body); alternate sides twitch on opposite frames ---
+    for i, ((ar, ac), (kr, kc), (fr, fc)) in enumerate(_SPIDER_LEGS):
+        for side in (-1, 1):
+            dy = jig if (i % 2 == 0) == (side < 0) else -jig      # opposite legs alternate
+            a = (ar, cx + side * (ac - cx))
+            k = (kr + dy, cx + side * (kc - cx))
+            f = (fr + dy, cx + side * (fc - cx))
+            cv.line(a[0], a[1], k[0], k[1], body.base)           # thigh
+            cv.line(k[0], k[1], f[0], f[1], body.shadow)         # shin (shaded)
+            if b["thick"]:                                       # tarantula: doubled
+                cv.line(a[0] + 1, a[1], k[0], k[1], body.base)
+
+    # --- body: abdomen (big, low) + cephalothorax (small, high) ---
+    cv.disc(19, cx, 5, 6, body.base)
+    cv.disc(21, cx + 1, 3, 4, body.shadow)           # lower-right shade
+    cv.disc(16, cx - 1, 2, 2.5, body.highlight)      # top-left sheen
+    if b["mark"]:                                    # widow hourglass
+        cv.px(19, cx, b["mark"]); cv.px(20, cx, b["mark"])
+        cv.px(18, cx, b["mark"]); cv.px(21, cx, b["mark"])
+    cv.disc(11, cx, 3, 4, body.base)                 # cephalothorax
+    cv.disc(10, cx - 1, 1.4, 1.6, body.highlight)
+
+    for ex in (cx - 2, cx, cx + 2):                  # cluster of eyes
+        cv.px(10, ex, dark)
+    cv.px(9, cx - 1, (240, 240, 250)); cv.px(9, cx + 1, (240, 240, 250))
+    cv.px(14, cx - 1, dark); cv.px(14, cx + 1, dark)  # chelicerae/fangs
+
+    cv.outline(dark)
+    return cv.array()
+
+
+def spider_idle(contract, config=None) -> list[np.ndarray]:
+    """Skitter: legs twitch, alternating sides. Frame 0 (leg_dy 0) is static."""
+    cfg = dict(config or {})
+    return [build_spider(contract, {**cfg, "leg_dy": d}) for d in (0, 1, 0, 1)]

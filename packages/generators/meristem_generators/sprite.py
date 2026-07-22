@@ -32,6 +32,23 @@ class Canvas:
             for c in range(c0, c1 + 1):
                 self.px(r, c, rgb)
 
+    def line(self, r0: int, c0: int, r1: int, c1: int, rgb: RGB) -> None:
+        """A 1px Bresenham line — for thin limbs (spider legs, antennae)."""
+        dr, dc = abs(r1 - r0), abs(c1 - c0)
+        sr = 1 if r0 < r1 else -1
+        sc = 1 if c0 < c1 else -1
+        err = dc - dr
+        r, c = r0, c0
+        while True:
+            self.px(r, c, rgb)
+            if r == r1 and c == c1:
+                break
+            e2 = 2 * err
+            if e2 > -dr:
+                err -= dr; c += sc
+            if e2 < dc:
+                err += dc; r += sr
+
     def disc(self, cy: float, cx: float, ry: float, rx: float, rgb: RGB) -> None:
         yy, xx = np.mgrid[0:self.h, 0:self.w]
         m = ((yy - cy) / ry) ** 2 + ((xx - cx) / rx) ** 2 <= 1.0
