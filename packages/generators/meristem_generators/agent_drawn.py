@@ -11,8 +11,68 @@ from __future__ import annotations
 import numpy as np
 from PIL import Image
 
-from .base import AssetSpec, Generator, render, parse_block, place_block
+from .base import AssetSpec, Generator, render, parse_block, place_block, outline, new_grid
 from .procedural import ProceduralGenerator
+
+
+def build_hero(contract) -> np.ndarray:
+    """A 32x32 front-facing hero built to the low-res sprite spec (docs/research/
+    02-character-sprites.md): head ~1/3, eyes as 1x2 dark dots at cols 13 & 18 with
+    4px of skin between (no center blob, no nose), selective outline, one light dir."""
+    w, h = contract.canvas_of("character")
+    C = contract.name_to_index
+    hair, hshad, skin = C["brown"], C["dark_grey"], C["peach"]
+    eye, mouth = C["black"], C["dark_purple"]
+    tunic, tshad = C["blue"], C["dark_blue"]
+    belt, pants, boot = C["yellow"], C["dark_grey"], C["black"]
+    g = new_grid(w, h)
+
+    def rect(r0, r1, c0, c1, col):
+        for r in range(r0, r1 + 1):
+            for c in range(c0, c1 + 1):
+                if 0 <= r < h and 0 <= c < w:
+                    g[r, c] = col
+
+    def px(r, c, col):
+        if 0 <= r < h and 0 <= c < w:
+            g[r, c] = col
+
+    # --- head: shaped hair + face window ---
+    rect(2, 2, 13, 18, hair)         # rounded top (narrow)
+    rect(3, 3, 12, 19, hair)
+    rect(4, 6, 11, 20, hair)         # main hair mass
+    rect(7, 13, 12, 19, skin)        # face skin, rows 7-13
+    rect(7, 9, 11, 11, hair)         # left sideburn
+    rect(7, 9, 20, 20, hair)         # right sideburn
+    px(7, 12, hair); px(7, 19, hair)  # fringe corners dipping onto the brow
+    rect(2, 6, 20, 20, hshad)        # hair shadow on the shade side (light top-left)
+    px(6, 19, hshad)
+    # eyes: 1x2 dark dots at cols 13 & 18, rows 9-10 (4px skin between)
+    rect(9, 10, 13, 13, eye)
+    rect(9, 10, 18, 18, eye)
+    px(12, 15, mouth); px(12, 16, mouth)   # a small mouth, 2 rows below the eyes
+
+    # --- neck ---
+    rect(14, 14, 14, 17, skin)
+
+    # --- torso + arms ---
+    rect(15, 21, 12, 19, tunic)
+    rect(16, 18, 11, 20, tunic)      # shoulders a touch wider
+    rect(15, 21, 19, 19, tshad)      # shadow down the shade side
+    rect(15, 20, 10, 10, tunic)      # left arm
+    rect(15, 20, 21, 21, tunic)      # right arm
+    rect(20, 21, 10, 10, skin)       # left hand
+    rect(20, 21, 21, 21, skin)       # right hand
+    rect(22, 22, 12, 19, belt)       # belt line
+
+    # --- legs + feet (gap on the col 15/16 seam) ---
+    rect(23, 28, 12, 14, pants)
+    rect(23, 28, 17, 19, pants)
+    rect(29, 29, 12, 14, boot)
+    rect(29, 29, 17, 19, boot)
+
+    outline(g, eye)                  # selective dark outline around the silhouette
+    return g
 
 CHAR = [
     "....000000....", "...04444440...", "..0444444440..", "..04ffffff40..",
@@ -138,6 +198,8 @@ class AgentDrawnGenerator(Generator):
         return (spec.asset_class, spec.name) in _BLOCKS or self._proc.supports(spec)
 
     def _grid(self, spec: AssetSpec, contract):
+        if spec.asset_class == "character":
+            return build_hero(contract)
         key = (spec.asset_class, spec.name)
         if key not in _BLOCKS:
             return None
