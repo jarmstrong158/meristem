@@ -8,6 +8,7 @@ f peach ; '.' = transparent. (Indices match the PICO-8 contract palette order.)
 """
 from __future__ import annotations
 
+import numpy as np
 from PIL import Image
 
 from .base import AssetSpec, Generator, render, parse_block, place_block
@@ -67,6 +68,45 @@ _BLOCKS = {
 }
 
 
+def _leg_columns(grid) -> tuple[list[int], list[int]]:
+    """Split the two legs by the central gap, from the bottom foot rows."""
+    h, w = grid.shape
+    rows = range(max(0, h - 4), h)
+    cols = [c for c in range(w) if any(grid[r, c] >= 0 for r in rows)]
+    mid = w // 2
+    return [c for c in cols if c < mid], [c for c in cols if c >= mid]
+
+
+def _lift_foot(grid, cols, dy: int = 1):
+    """Raise the foot (bottom rows) of one leg by dy, keeping the planted leg locked."""
+    if not cols:
+        return grid.copy()
+    out = grid.copy()
+    h = grid.shape[0]
+    foot_h = 3
+    top = h - foot_h
+    for c in cols:
+        for i in range(foot_h):
+            src = i + dy
+            out[top + i, c] = grid[top + src, c] if src < foot_h else -1
+    return out
+
+
+def _squash_body(grid, leg_top: int, dy: int = 1):
+    """Drop the head+torso block by dy while the feet stay planted — the step frame
+    is 1px shorter than standing (the weight-recoil dip). Feet do not move."""
+    out = np.full_like(grid, -1)
+    out[dy:leg_top + dy, :] = grid[0:leg_top, :]          # body lowered
+    keep = out[leg_top:, :]
+    out[leg_top:, :] = np.where(keep >= 0, keep, grid[leg_top:, :])  # legs/feet stay
+    return out
+
+
+def _bottom_opaque_row(grid) -> int:
+    rows = [r for r in range(grid.shape[0]) if (grid[r, :] >= 0).any()]
+    return rows[-1] if rows else grid.shape[0] - 1
+
+
 class AgentDrawnGenerator(Generator):
     name = "agent-drawn"
 
@@ -76,11 +116,37 @@ class AgentDrawnGenerator(Generator):
     def supports(self, spec: AssetSpec) -> bool:
         return (spec.asset_class, spec.name) in _BLOCKS or self._proc.supports(spec)
 
-    def generate(self, spec: AssetSpec, contract) -> Image.Image:
+    def _grid(self, spec: AssetSpec, contract):
         key = (spec.asset_class, spec.name)
         if key not in _BLOCKS:
-            return self._proc.generate(spec, contract)  # tiles reuse procedural
+            return None
         rows, anchor = _BLOCKS[key]
         w, h = contract.canvas_of(spec.asset_class)
-        grid = place_block(parse_block(rows), w, h, anchor)
+        return place_block(parse_block(rows), w, h, anchor)
+
+    def generate(self, spec: AssetSpec, contract) -> Image.Image:
+        grid = self._grid(spec, contract)
+        if grid is None:
+            return self._proc.generate(spec, contract)  # tiles reuse procedural
         return render(grid, contract.palette_rgb)
+
+    def generate_frames(self, spec: AssetSpec, contract) -> list[Image.Image]:
+        """A 4-frame front-facing walk cycle, built on animation principles (not a
+        sideways slide): contact-left -> passing -> contact-right -> passing.
+        Alternating single-foot lift + 1px body bob + opposed arm swing; the planted
+        foot stays locked. See docs/research/01-walk-cycle.md."""
+        if spec.variant == "walk":
+            idle = self._grid(spec, contract)
+            if idle is not None:
+                left_cols, right_cols = _leg_columns(idle)
+                leg_top = _bottom_opaque_row(idle) - 6           # legs ~ bottom 7 rows
+                # Standing/idle is the TALL neutral. Step frames are 1px shorter (body
+                # dips onto the planted foot) with the OTHER foot lifted. Feet stay
+                # planted otherwise. Play: step-L -> stand -> step-R -> stand.
+                f0 = _lift_foot(_squash_body(idle, leg_top), right_cols)  # contact-left
+                f1 = idle                                                 # passing/standing
+                f2 = _lift_foot(_squash_body(idle, leg_top), left_cols)   # contact-right
+                f3 = idle                                                 # passing/standing
+                pal = contract.palette_rgb
+                return [render(g, pal) for g in (f0, f1, f2, f3)]
+        return [self.generate(spec, contract)]

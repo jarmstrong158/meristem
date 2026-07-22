@@ -67,3 +67,23 @@ def test_generation_is_deterministic(backend, contract):
 def test_procedural_rejects_unknown_recipe(contract):
     with pytest.raises(NotImplementedError):
         get("procedural").generate(AssetSpec("item_icon", "spaceship"), contract)
+
+
+def test_walk_cycle_frames(contract):
+    spec = AssetSpec("character", "player", "walk")
+    frames = get("agent-drawn").generate_frames(spec, contract)
+    assert len(frames) == 4                              # step-stand-step-stand
+    w, h = contract.canvas_of("character")
+    for f in frames:
+        assert f.size == (w, h)
+        assert validate(f, "character", contract).accepted   # each frame passes the gate
+    import numpy as np
+    arrs = [np.asarray(f) for f in frames]
+    assert not np.array_equal(arrs[0], arrs[2])          # the two step frames differ (opposite feet)
+    assert np.array_equal(arrs[1], arrs[3])              # both stand frames identical
+
+
+def test_default_generate_frames_is_single(contract):
+    # a tile has no animation; generate_frames returns one frame
+    frames = get("procedural").generate_frames(AssetSpec("terrain_tile", "grass"), contract)
+    assert len(frames) == 1

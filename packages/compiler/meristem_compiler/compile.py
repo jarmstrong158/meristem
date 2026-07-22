@@ -57,8 +57,11 @@ def compile_project(manifest_path: str | Path, out_dir: str | Path) -> dict:
                   friction=params.get("friction", 400),
                   enemy_name=enemy["name"], enemy_hp=int(enemy["stats"].get("hp", 1)),
                   enemy_atk=int(enemy["stats"].get("atk", 1)))
+    player_walk = sorted(w["file"] for w in written
+                         if w.get("variant") == "walk" and w["name"] == player["sprite"])
     write_scenes(out,
-                 player_sprite=asset_filename(contract, "character", player["sprite"], "idle"),
+                 player_idle=asset_filename(contract, "character", player["sprite"], "idle"),
+                 player_walk=player_walk,
                  enemy_sprite=asset_filename(contract, "enemy", enemy["sprite"], "idle"),
                  heart_sprite="ui_heart.png", coin_sprite="ui_coin.png")
 

@@ -40,6 +40,10 @@ class Generator(ABC):
         """Return a native-size RGBA image conforming to the contract for spec.asset_class."""
         raise NotImplementedError
 
+    def generate_frames(self, spec: AssetSpec, contract) -> list[Image.Image]:
+        """Return the frames for an animated variant. Default: a single frame."""
+        return [self.generate(spec, contract)]
+
     def supports(self, spec: AssetSpec) -> bool:
         return True
 

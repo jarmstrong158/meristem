@@ -82,13 +82,62 @@ shape = SubResource("{shape_id}")
 '''
 
 
-def write_scenes(project_dir: Path, *, player_sprite: str, enemy_sprite: str,
+def _sprite_frames_tres(idle: str, walk: list[str]) -> str:
+    textures = [idle] + walk
+    ext = "".join(
+        f'[ext_resource type="Texture2D" path="res://assets/{t}" id="{i + 1}_f"]\n'
+        for i, t in enumerate(textures))
+    idle_frame = '{"duration": 1.0, "texture": ExtResource("1_f")}'
+    walk_frames = ", ".join(
+        f'{{"duration": 1.0, "texture": ExtResource("{i + 2}_f")}}' for i in range(len(walk)))
+    return f'''[gd_resource type="SpriteFrames" load_steps={len(textures) + 1} format=3]
+
+{ext}
+[resource]
+animations = [{{
+"frames": [{idle_frame}],
+"loop": true,
+"name": &"idle",
+"speed": 5.0
+}}, {{
+"frames": [{walk_frames}],
+"loop": true,
+"name": &"walk",
+"speed": 8.0
+}}]
+'''
+
+
+def _player_tscn() -> str:
+    return '''[gd_scene load_steps=4 format=3]
+
+[ext_resource type="SpriteFrames" path="res://scenes/player_frames.tres" id="1_frames"]
+[ext_resource type="Script" path="res://scripts/player.gd" id="2_scr"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_player"]
+size = Vector2(10, 16)
+
+[node name="Player" type="CharacterBody2D"]
+script = ExtResource("2_scr")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+offset = Vector2(0, -16)
+sprite_frames = ExtResource("1_frames")
+animation = &"idle"
+autoplay = "idle"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, -8)
+shape = SubResource("RectangleShape2D_player")
+'''
+
+
+def write_scenes(project_dir: Path, *, player_idle: str, player_walk: list[str], enemy_sprite: str,
                  heart_sprite: str, coin_sprite: str) -> None:
     sc = project_dir / "scenes"
     sc.mkdir(parents=True, exist_ok=True)
-    (sc / "player.tscn").write_text(
-        _actor_tscn("Player", f"res://assets/{player_sprite}", "res://scripts/player.gd",
-                    "RectangleShape2D_player", (10, 16)), encoding="utf-8")
+    (sc / "player_frames.tres").write_text(_sprite_frames_tres(player_idle, player_walk), encoding="utf-8")
+    (sc / "player.tscn").write_text(_player_tscn(), encoding="utf-8")
     (sc / "enemy.tscn").write_text(
         _actor_tscn("Enemy", f"res://assets/{enemy_sprite}", "res://scripts/enemy.gd",
                     "RectangleShape2D_enemy", (14, 10)), encoding="utf-8")

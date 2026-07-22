@@ -60,4 +60,23 @@ def compile_assets(domains: dict, assets_dir: str | Path) -> list[dict]:
         prov.write_sidecar(path)
         written.append({"class": spec.asset_class, "name": spec.name, "backend": backend,
                         "file": fname, "size": list(img.size)})
+
+    # animated variants: a walk cycle per character (dec-0011: agent-drawn)
+    for c in (domains.get("entities", {}) or {}).get("characters", []):
+        if not c.get("sprite"):
+            continue
+        spec = AssetSpec("character", c["sprite"], "walk")
+        gen = get(_BACKEND["character"])
+        for i, frame in enumerate(gen.generate_frames(spec, contract)):
+            v = validate(frame, "character", contract)
+            if not v.accepted:
+                raise ValueError(f"walk frame {i} for {c['sprite']} failed the gate: {v.reasons}")
+            fname = f"{contract.class_prefixes.get('character', 'char')}_{c['sprite']}_walk_{i}.png"
+            path = assets_dir / fname
+            frame.save(path)
+            Provenance(backend=_BACKEND["character"], contract_name=contract.name,
+                       contract_hash=contract.hash(), gate_version="0.1.0",
+                       source_sha256=Provenance.sha256_of_file(path)).write_sidecar(path)
+            written.append({"class": "character", "name": c["sprite"], "backend": _BACKEND["character"],
+                            "file": fname, "variant": "walk", "frame": i, "size": list(frame.size)})
     return written

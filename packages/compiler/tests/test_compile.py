@@ -29,13 +29,22 @@ def test_project_godot_written(project):
 def test_all_assets_and_sidecars(project):
     a = project / "assets"
     pngs = sorted(p.name for p in a.glob("*.png"))
-    assert len(pngs) == 9
+    assert len(pngs) == 13          # 9 base + 4 walk frames
     for png in pngs:
         assert (a / f"{png}.prov.json").exists()
     prov = json.loads((a / "char_player_idle.png.prov.json").read_text())
     assert prov["backend"] == "agent-drawn"
     tprov = json.loads((a / "tile_grass.png.prov.json").read_text())
     assert tprov["backend"] == "procedural"
+
+
+def test_player_is_animated(project):
+    frames = (project / "scenes" / "player_frames.tres").read_text(encoding="utf-8")
+    assert frames.count("_walk_") == 4          # four walk-cycle frame textures
+    assert '&"idle"' in frames and '&"walk"' in frames
+    assert "AnimatedSprite2D" in (project / "scenes" / "player.tscn").read_text(encoding="utf-8")
+    for i in range(4):
+        assert (project / "assets" / f"char_player_walk_{i}.png").exists()
 
 
 def test_ldtk_valid(project):
