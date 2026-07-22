@@ -43,6 +43,7 @@ DEFAULT_CONFIG = {
     "hair": (112, 68, 40),
     "shirt": (56, 126, 196),
     "pants": (78, 72, 98),
+    "hair_style": "short",
 }
 
 
@@ -89,8 +90,9 @@ def _shirt(cv, pose, shirt):
     _r(cv, 15, 19, 21, 21, shirt.shadow, u + pose.rarm_dy)   # right sleeve
 
 
-def _hair(cv, pose, hair):
-    u = pose.body_dy
+# ---- hair styles: a config knob over the shared head; each reads the pose so it
+#      animates for free. `bald` draws nothing. ----
+def _hair_short(cv, u, hair):
     _r(cv, 2, 2, 13, 18, hair.base, u); _r(cv, 3, 3, 12, 19, hair.base, u)
     _r(cv, 4, 5, 11, 20, hair.base, u); _r(cv, 6, 6, 12, 19, hair.base, u)
     _r(cv, 7, 9, 11, 11, hair.base, u); _r(cv, 7, 9, 20, 20, hair.base, u)   # sideburns
@@ -99,6 +101,37 @@ def _hair(cv, pose, hair):
     _r(cv, 3, 6, 19, 20, hair.shadow, u)                                      # cool shade side
     _p(cv, 7, 20, hair.shadow, u); _p(cv, 8, 20, hair.shadow, u); _p(cv, 9, 20, hair.shadow, u)
     _r(cv, 6, 6, 13, 18, hair.shadow, u)                                      # hairline cast shadow
+
+
+def _hair_long(cv, u, hair):
+    _hair_short(cv, u, hair)                                                   # same cap on top
+    _r(cv, 7, 18, 10, 11, hair.base, u); _r(cv, 7, 18, 20, 21, hair.base, u)  # falls past shoulders
+    _r(cv, 8, 18, 10, 10, hair.highlight, u)                                   # lit left fall
+    _r(cv, 8, 18, 21, 21, hair.shadow, u)                                      # shaded right fall
+    _r(cv, 18, 18, 10, 11, hair.shadow, u); _r(cv, 18, 18, 20, 21, hair.shadow, u)   # tips
+
+
+def _hair_ponytail(cv, u, hair):
+    _hair_short(cv, u, hair)
+    _r(cv, 5, 6, 20, 22, hair.base, u); _r(cv, 7, 14, 21, 22, hair.base, u)   # tail down the right
+    _r(cv, 7, 14, 22, 22, hair.shadow, u); _p(cv, 6, 21, hair.highlight, u)
+
+
+def _hair_spiky(cv, u, hair):
+    for c in (11, 13, 15, 17, 19):
+        _r(cv, 1, 3, c, c, hair.base, u)                                      # upright spikes
+    _r(cv, 4, 5, 11, 20, hair.base, u); _r(cv, 6, 6, 12, 19, hair.base, u)    # base mass
+    _r(cv, 7, 9, 11, 11, hair.base, u); _r(cv, 7, 9, 20, 20, hair.base, u)    # sideburns
+    _p(cv, 2, 13, hair.highlight, u); _p(cv, 2, 15, hair.highlight, u)
+    _r(cv, 4, 6, 19, 20, hair.shadow, u); _r(cv, 6, 6, 13, 18, hair.shadow, u)
+
+
+_HAIR = {"short": _hair_short, "long": _hair_long, "ponytail": _hair_ponytail,
+         "spiky": _hair_spiky, "bald": lambda cv, u, hair: None}
+
+
+def _hair(cv, pose, hair, style):
+    _HAIR.get(style, _hair_short)(cv, pose.body_dy, hair)
 
 
 def _face(cv, pose, eye, skin):
@@ -117,7 +150,7 @@ def build_frame(contract, config, pose) -> np.ndarray:
     _base_body(cv, pose, skin)
     _pants(cv, pose, pants, dark)
     _shirt(cv, pose, shirt)
-    _hair(cv, pose, hair)
+    _hair(cv, pose, hair, mats.get("hair_style", "short"))
     _face(cv, pose, dark, skin)
     cv.outline(dark)
     return cv.array()

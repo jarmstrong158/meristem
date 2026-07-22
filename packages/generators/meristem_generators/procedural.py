@@ -19,6 +19,10 @@ TILE_MATERIALS = {
     "dirt": (150, 108, 68),
     "water": (64, 124, 204),
     "stone": (150, 150, 160),
+    "sand": (214, 194, 138),
+    "snow": (226, 232, 242),
+    "lava": (216, 96, 44),
+    "brick": (168, 96, 82),
 }
 
 
@@ -28,7 +32,7 @@ def _rng(name: str) -> np.random.Generator:
 
 
 def build_tile(contract, name: str, *, speckle: float = 0.22, wave: bool = False,
-               cracks: bool = False) -> np.ndarray:
+               cracks: bool = False, brick: bool = False) -> np.ndarray:
     w, h = contract.canvas_of("terrain_tile")
     ramp = Ramp(TILE_MATERIALS[name])
     r = _rng(name)
@@ -55,6 +59,16 @@ def build_tile(contract, name: str, *, speckle: float = 0.22, wave: bool = False
                 img[y, x] = (*ramp.shadow, 255)
                 x = min(w - 1, max(0, x + int(r.integers(-1, 2))))
                 y = min(h - 1, y + 1)
+    if brick:                                      # running-bond courses (tileable)
+        for y in range(h):
+            band = y // 4
+            off = 0 if band % 2 == 0 else 4        # every other course shifts a half-brick
+            mortar_row = (y % 4 == 0)
+            for x in range(w):
+                if mortar_row or (x + off) % 8 == 0:
+                    img[y, x] = (*ramp.shadow, 255)      # mortar joints
+                elif y % 4 == 1:
+                    img[y, x] = (*ramp.highlight, 255)   # lit top edge of each brick
     return img
 
 
@@ -66,6 +80,10 @@ class ProceduralGenerator(Generator):
         "dirt": dict(speckle=0.22, cracks=True),
         "water": dict(speckle=0.0, wave=True),
         "stone": dict(speckle=0.14, cracks=True),
+        "sand": dict(speckle=0.16),
+        "snow": dict(speckle=0.08),
+        "lava": dict(speckle=0.10, wave=True),
+        "brick": dict(speckle=0.0, brick=True),
     }
 
     def supports(self, spec: AssetSpec) -> bool:

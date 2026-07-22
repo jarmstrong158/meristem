@@ -207,6 +207,42 @@ def test_serpent_and_spider_builds_vary(contract):
             assert res.accepted, f"{fn.__name__} {b}: {res.reasons}"
 
 
+def test_hair_styles_vary(contract):
+    import numpy as np
+    from PIL import Image
+    from meristem_generators.humanoid import build_humanoid
+    styles = ["short", "long", "ponytail", "spiky", "bald"]
+    arrs = {s: build_humanoid(contract, {"hair_style": s}) for s in styles}
+    vals = list(arrs.values())
+    for i in range(len(vals)):
+        for j in range(i + 1, len(vals)):
+            assert not np.array_equal(vals[i], vals[j])         # each style distinct
+    for s, a in arrs.items():
+        assert validate(Image.fromarray(a, "RGBA"), "character", contract).accepted, s
+
+
+def test_chest_builds_vary(contract):
+    import numpy as np
+    from PIL import Image
+    from meristem_generators.items import chest
+    arrs = {b: chest(contract, {"build": b}) for b in ("wood", "iron", "gold", "crystal")}
+    vals = list(arrs.values())
+    for i in range(len(vals)):
+        for j in range(i + 1, len(vals)):
+            assert not np.array_equal(vals[i], vals[j])         # each material distinct
+    for b, a in arrs.items():
+        assert validate(Image.fromarray(a, "RGBA"), "item_icon", contract).accepted, b
+
+
+def test_new_tiles_build_and_gate(contract):
+    from PIL import Image
+    from meristem_generators.procedural import build_tile, ProceduralGenerator
+    for name in ("sand", "snow", "lava", "brick"):
+        arr = build_tile(contract, name, **ProceduralGenerator._TILES[name])
+        res = validate(Image.fromarray(arr, "RGBA"), "terrain_tile", contract)
+        assert res.accepted, f"{name}: {res.reasons}"
+
+
 def test_default_generate_frames_is_single(contract):
     # a tile has no animation; generate_frames returns one frame
     frames = get("procedural").generate_frames(AssetSpec("terrain_tile", "grass"), contract)

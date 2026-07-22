@@ -227,11 +227,23 @@ def pickup_frames(contract, config=None) -> list[np.ndarray] | None:
 
 
 # ------------------------------- chest ------------------------------------
+# `build` swaps the body + band materials; `open` toggles the lid. wood/metal in
+# config still override the preset.
+_CHEST_BUILDS = {
+    "wood":    {"wood": (146, 96, 52),   "metal": (204, 172, 82)},
+    "iron":    {"wood": (108, 114, 126), "metal": (176, 182, 194)},
+    "gold":    {"wood": (200, 158, 66),  "metal": (242, 218, 122)},
+    "crystal": {"wood": (120, 96, 156),  "metal": (190, 216, 238)},
+}
+
+
 def chest(contract, config=None) -> np.ndarray:
-    cfg = {"wood": (146, 96, 52), "metal": (204, 172, 82), "open": False}
+    cfg = {"build": "wood", "open": False}
     cfg.update(config or {})
-    wood, metal = Ramp(cfg["wood"]), Ramp(cfg["metal"])
-    dark = outline_dark(cfg["wood"])
+    mat = _CHEST_BUILDS.get(cfg["build"], _CHEST_BUILDS["wood"])
+    wood = Ramp(cfg.get("wood", mat["wood"]))
+    metal = Ramp(cfg.get("metal", mat["metal"]))
+    dark = outline_dark(cfg.get("wood", mat["wood"]))
     cv = _icon(contract)
     cv.rect(8, 14, 3, 12, wood.base)                        # box body
     cv.rect(8, 14, 12, 12, wood.shadow); cv.rect(8, 9, 4, 6, wood.highlight)
