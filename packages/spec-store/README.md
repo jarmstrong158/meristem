@@ -47,6 +47,7 @@ Tools exposed:
 |---|---|---|
 | `list_domains` / `get_domain` / `get_manifest` | read | |
 | `set_domain(domain, value, actor, reason)` | **validated write** | the *only* mutation; schema-enforced, rejected not coerced |
+| `scaffold_project(title, genre, control, …)` | scaffold | fill all 8 domains with a valid strawman (the game-interview on-ramp) |
 | `diff_domain(domain, candidate)` | diff | preview a change |
 | `validate_all()` | validate | per-domain schemas + cross-references |
 

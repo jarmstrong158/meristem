@@ -50,6 +50,25 @@ class SpecService:
         self._persist()
         return {"accepted": True, "domain": domain, "version": self.store.version}
 
+    # ---- scaffold a strawman (game-interview on-ramp) ----
+    def scaffold_project(self, title: str = "Untitled", genre: str = "adventure",
+                         control: str = "top_down_controller",
+                         premise: str = "A hero sets out on a journey.",
+                         protagonist: str = "Hero", enemy: str = "Slime",
+                         biome: str = "grass") -> dict:
+        from .scaffold import strawman
+        try:
+            domains = strawman(title=title, genre=genre, control=control, premise=premise,
+                               protagonist=protagonist, enemy=enemy, biome=biome)
+        except ValueError as e:
+            return {"accepted": False, "errors": [str(e)]}
+        for domain, value in domains.items():
+            self.store.set_domain(domain, value, {"actor": "scaffold"})
+        self._persist()
+        report = self.store.validate_all()
+        return {"accepted": report.ok, "version": self.store.version,
+                "domains": sorted(domains), "validation": report.to_dict()}
+
     # ---- diff + whole-manifest validation ----
     def diff_domain(self, domain: str, candidate: dict) -> dict:
         return self.store.diff_domain(domain, candidate)
@@ -84,6 +103,14 @@ def build_server(service: Optional[SpecService] = None):
                           "This is the only write; there is no raw write-anything tool.")
     def set_domain(domain: str, value: dict, actor: str = "agent", reason: str = "") -> dict:
         return svc.set_domain(domain, value, actor, reason)
+
+    @mcp.tool(description="Scaffold a complete, valid strawman manifest from high-level answers "
+                          "(the game-interview on-ramp). Fills all 8 domains; the model then enriches.")
+    def scaffold_project(title: str = "Untitled", genre: str = "adventure",
+                         control: str = "top_down_controller",
+                         premise: str = "A hero sets out on a journey.",
+                         protagonist: str = "Hero", enemy: str = "Slime", biome: str = "grass") -> dict:
+        return svc.scaffold_project(title, genre, control, premise, protagonist, enemy, biome)
 
     @mcp.tool(description="Diff a candidate value for a domain against the stored value.")
     def diff_domain(domain: str, candidate: dict) -> dict:
