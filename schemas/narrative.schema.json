@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "meristem:narrative",
+  "title": "Narrative",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["premise"],
+  "properties": {
+    "premise": { "type": "string", "minLength": 1 },
+    "beats": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "factions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+          "name": { "type": "string", "minLength": 1 },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "characters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "role"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+          "name": { "type": "string", "minLength": 1 },
+          "role": { "type": "string", "minLength": 1 },
+          "faction": { "type": "string", "description": "references a factions id" }
+        }
+      }
+    }
+  }
+}

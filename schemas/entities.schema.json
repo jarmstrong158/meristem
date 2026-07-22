@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "meristem:entities",
+  "title": "Entities",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "characters": { "type": "array", "items": { "$ref": "#/$defs/entity" } },
+    "enemies": { "type": "array", "items": { "$ref": "#/$defs/entity" } },
+    "npcs": { "type": "array", "items": { "$ref": "#/$defs/entity" } }
+  },
+  "$defs": {
+    "entity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "stats"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        "name": { "type": "string", "minLength": 1 },
+        "stats": {
+          "type": "object",
+          "additionalProperties": { "type": "number" }
+        },
+        "behavior_archetype": {
+          "description": "References a mechanics archetype id (cross-ref enforced at validate_all).",
+          "type": "string"
+        },
+        "sprite": { "type": "string", "description": "asset name for the generator/gate" }
+      }
+    }
+  }
+}

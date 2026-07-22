@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "meristem:project",
+  "title": "Project",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["title", "genre", "camera", "control_scheme", "core_loop", "target_resolution"],
+  "properties": {
+    "title": { "type": "string", "minLength": 1 },
+    "genre": { "type": "string", "minLength": 1 },
+    "camera": { "enum": ["top_down", "side", "isometric"] },
+    "control_scheme": {
+      "description": "References a mechanics archetype id (cross-ref enforced at validate_all).",
+      "type": "string", "minLength": 1
+    },
+    "core_loop": { "type": "string", "minLength": 1 },
+    "target_resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["w", "h"],
+      "properties": {
+        "w": { "type": "integer", "minimum": 1 },
+        "h": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

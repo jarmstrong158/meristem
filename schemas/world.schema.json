@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "meristem:world",
+  "title": "World graph",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["regions"],
+  "properties": {
+    "regions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "biome", "tileset_ref"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+          "biome": { "type": "string", "minLength": 1 },
+          "tileset_ref": { "type": "string", "minLength": 1 },
+          "levels": {
+            "type": "array",
+            "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }
+          }
+        }
+      }
+    },
+    "connections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["from", "to"],
+        "properties": {
+          "from": { "type": "string", "description": "references a region id" },
+          "to": { "type": "string", "description": "references a region id" },
+          "bidirectional": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

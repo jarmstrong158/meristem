@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "meristem:items",
+  "title": "Items and gear",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "rarity_tiers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+          "name": { "type": "string", "minLength": 1 },
+          "weight": { "type": "number", "minimum": 0 }
+        }
+      }
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "slot"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+          "name": { "type": "string", "minLength": 1 },
+          "slot": { "enum": ["weapon", "armor", "accessory", "consumable", "key_item"] },
+          "rarity": { "type": "string", "description": "references a rarity_tiers id" },
+          "stats": { "type": "object", "additionalProperties": { "type": "number" } },
+          "icon": { "type": "string" }
+        }
+      }
+    },
+    "drop_tables": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["enemy_id", "drops"],
+        "properties": {
+          "enemy_id": { "type": "string", "description": "references entities.enemies id" },
+          "drops": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["item_id", "weight"],
+              "properties": {
+                "item_id": { "type": "string", "description": "references items id" },
+                "weight": { "type": "number", "exclusiveMinimum": 0 }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "meristem:economy",
+  "title": "Economy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["currency"],
+  "properties": {
+    "currency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "symbol": { "type": "string" }
+      }
+    },
+    "price_curves": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "formula", "base"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+          "formula": { "enum": ["linear", "exponential", "flat"] },
+          "base": { "type": "number", "minimum": 0 },
+          "growth": { "type": "number", "minimum": 0 }
+        }
+      }
+    },
+    "progression_pacing": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "xp_curve": { "enum": ["linear", "exponential", "flat"] },
+        "levels": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}
