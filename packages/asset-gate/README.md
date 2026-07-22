@@ -65,13 +65,23 @@ enough to produce an accurate Steam / itch.io AI disclosure.
 - exact canvas size for the class
 - tiles are fully opaque; sprites are repivoted per the contract anchor
 
-## Not yet implemented (Phase 1 remaining)
+## Collision, atlas, animation tags
 
-Collision-polygon derivation from the alpha channel, animation-tag metadata, and atlas packing with a
-JSON manifest. The `generate(spec, contract) -> Image` generator backends live in `packages/generators`.
+```bash
+asset-gate collision sprite.png --tolerance 1.0 --out sprite.collision.json
+asset-gate atlas icon_*.png --out sheet.png --manifest sheet.json --max-width 256
+```
+
+- **`collision`** derives a simplified collision polygon from the alpha channel (largest opaque loop,
+  Douglas-Peucker at a tolerance; holes ignored). Library: `asset_gate.collision.alpha_to_polygon`.
+- **`atlas`** shelf-packs frames into a sheet with a JSON manifest of frame rects + optional pivots +
+  **animation tags** (`asset_gate.atlas.AnimationTag`), ready for the compiler to emit Godot
+  `AtlasTexture` / `SpriteFrames`.
+
+The `generate(spec, contract) -> Image` generator backends live in `packages/generators`.
 
 ## Tests
 
 ```bash
-python -m pytest -q          # 20 tests
+python -m pytest -q          # 30 tests
 ```
