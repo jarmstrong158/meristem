@@ -187,3 +187,73 @@ def quadruped_idle(contract, config=None) -> list[np.ndarray]:
     build (head_dy 0)."""
     cfg = dict(config or {})
     return [build_quadruped(contract, {**cfg, "head_dy": d}) for d in (0, 0, 1, 0)]
+
+
+FLYER_DEFAULT = {"color": (92, 80, 112), "build": "bat"}
+
+# A front-view winged flyer — fills the bestiary's flying-enemy gap. `build` swaps
+# appendages over one skeleton (like the quadruped): membrane vs feather vs round
+# wings, ears vs beak. `wing_dy` raises/lowers the wings for the flap animation.
+_FLYER_BUILDS = {
+    "bat":  {"wing": "membrane", "ears": True,  "beak": False},
+    "bird": {"wing": "feather",  "ears": False, "beak": True},
+    "moth": {"wing": "round",    "ears": True,  "beak": False},
+}
+
+
+def _flyer_wing(cv, body, kind, wd, side):
+    """One wing: an ellipse off the shoulder, lit on top, shaded below. `side` is
+    -1 (left) / +1 (right); `wd` is the flap offset (negative = raised)."""
+    cx = 16
+    ecx = cx + side * 7                              # wing centre column
+    ecy = 12 + wd                                    # wing centre row (flap moves it)
+    ry, rx = (5, 7) if kind == "round" else (4, 7)
+    cv.disc(ecy, ecx, ry, rx, body.base)
+    cv.disc(ecy - 1, ecx - side * 2, ry * 0.55, rx * 0.5, body.highlight)   # upper-inner sheen
+    cv.disc(ecy + 2, ecx + side, ry * 0.5, rx * 0.55, body.shadow)          # lower shade
+    if kind == "membrane":                           # bat: scalloped trailing edge
+        for k in (-4, 0, 4):
+            cv.clear_disc(ecy + ry - 1, ecx + k, 2.4, 2.0)
+    elif kind == "feather":                          # bird: feather-separation lines
+        for k in (-3, 1):
+            cv.rect(ecy - 2, ecy + 3, ecx + k, ecx + k, body.shadow)
+
+
+def build_flyer(contract, config=None) -> np.ndarray:
+    """A front-view winged beast (bat/bird/moth), parametric by colour + `build`.
+    Wings sit behind a furry body; `wing_dy` drives the flap (see flyer_flap)."""
+    cfg = {**FLYER_DEFAULT, **(config or {})}
+    b = _FLYER_BUILDS.get(cfg["build"], _FLYER_BUILDS["bat"])
+    body = Ramp(cfg["color"])
+    dark = outline_dark(cfg["color"])
+    w, h = contract.canvas_of("enemy")
+    cv = Canvas(w, h)
+    cx = 16
+    wd = int(cfg.get("wing_dy", 0))
+
+    _flyer_wing(cv, body, b["wing"], wd, -1)         # wings first (behind body)
+    _flyer_wing(cv, body, b["wing"], wd, +1)
+
+    cv.disc(16, cx, 5, 3, body.base)                 # furry torso
+    cv.disc(13, cx - 1, 2, 2.5, body.highlight)      # lit chest (top-left)
+    cv.disc(19, cx + 1, 2, 2.5, body.shadow)         # lower-right shade
+    cv.disc(9, cx, 3, 3, body.base)                  # head
+    cv.disc(8, cx - 1, 1.4, 1.4, body.highlight)
+
+    if b["ears"]:                                    # upright ears
+        cv.rect(4, 7, cx - 4, cx - 3, body.base); cv.rect(4, 7, cx + 3, cx + 4, body.base)
+        cv.px(4, cx - 4, body.shadow); cv.px(4, cx + 4, body.shadow)
+    if b["beak"]:                                    # small down-beak
+        cv.px(11, cx, (240, 202, 96)); cv.px(12, cx, (198, 150, 62))
+
+    cv.rect(8, 9, cx - 1, cx - 1, (248, 250, 252)); cv.px(9, cx - 1, dark)   # eyes
+    cv.rect(8, 9, cx + 1, cx + 1, (248, 250, 252)); cv.px(9, cx + 1, dark)
+    cv.outline(dark)
+    return cv.array()
+
+
+def flyer_flap(contract, config=None) -> list[np.ndarray]:
+    """Wing-flap cycle: level -> up -> level -> down. Frame 0 (wing_dy 0) equals the
+    static build, so the idle sprite matches."""
+    cfg = dict(config or {})
+    return [build_flyer(contract, {**cfg, "wing_dy": d}) for d in (0, -3, 0, 3)]

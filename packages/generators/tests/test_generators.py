@@ -163,7 +163,7 @@ def test_animated_archetypes_yield_distinct_gating_frames(contract):
     # each animated archetype yields >1 frame, all gate, frame 0 == its static build,
     # and not every frame is identical (there is real motion)
     from meristem_generators import build_archetype
-    cases = [("blob", {}), ("ghost", {}), ("quadruped", {}), ("pickup", {"shape": "coin"})]
+    cases = [("blob", {}), ("ghost", {}), ("quadruped", {}), ("flyer", {}), ("pickup", {"shape": "coin"})]
     for name, cfg in cases:
         frames = archetype_frames(contract, name, cfg)
         assert frames and len(frames) >= 2, name
@@ -174,6 +174,20 @@ def test_animated_archetypes_yield_distinct_gating_frames(contract):
         assert any(not np.array_equal(arrs[0], a) for a in arrs[1:]), f"{name} has no motion"
     # a non-coin pickup opts out of animation
     assert archetype_frames(contract, "pickup", {"shape": "heart"}) is None
+
+
+def test_flyer_builds_vary(contract):
+    import numpy as np
+    from PIL import Image
+    from meristem_generators.creatures import build_flyer
+    builds = {b: build_flyer(contract, {"build": b}) for b in ("bat", "bird", "moth")}
+    arrs = list(builds.values())
+    for i in range(len(arrs)):
+        for j in range(i + 1, len(arrs)):
+            assert not np.array_equal(arrs[i], arrs[j])         # each build is distinct
+    for b, arr in builds.items():
+        res = validate(Image.fromarray(arr, "RGBA"), "enemy", contract)
+        assert res.accepted, f"{b}: {res.reasons}"
 
 
 def test_default_generate_frames_is_single(contract):
