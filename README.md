@@ -9,12 +9,27 @@ schema-validated project manifest is the single source of truth, and every downs
 Target output is a **Godot 4 project you can open, hand-edit, and ship to Steam or itch** without
 our involvement.
 
-> **Status:** Phases 0–4 done — the **vertical slice runs and is verified**. A hand-written manifest
-> compiles to a Godot 4.6 project that opens and runs, and both verifier loops pass: the assertion
-> loop measured the player's move speed at 80.0 = spec, and the visual loop captured the running game
-> (and caught an enemy standing on water). manifest → generators → gate → LDtk → Godot → verified.
-> Phase 5 (UI + distribution) remains. See [`DECISIONS.md`](DECISIONS.md) and
+> **Status:** Phases 0–4 done + Phase 5 on-ramp. The **vertical slice runs and is verified**, and a
+> few interview answers now scaffold a valid manifest that compiles to a running Godot project. Both
+> verifier loops pass (move speed 80.0 = spec; the visual loop caught — and I fixed — an enemy standing
+> on water). manifest → generators → gate → LDtk → Godot → verified. Remaining Phase 5: the MCP-Apps UI
+> and Claude Code plugin packaging. See [`DECISIONS.md`](DECISIONS.md) and
 > [`docs/research/00-bakeoff.md`](docs/research/00-bakeoff.md).
+
+## Quickstart
+
+```bash
+# 1. Describe your game — the game-interview skill asks ~5 questions and scaffolds a
+#    complete, valid manifest (or hand-write one; see examples/slice-01/manifest.json).
+# 2. Compile the manifest into a Godot 4 project:
+meristem-compile examples/slice-01/manifest.json --out build/my-game
+# 3. Verify it against its spec (assertion loop + visual capture):
+meristem-verify build/my-game --manifest examples/slice-01/manifest.json --godot /path/to/godot --visual
+# 4. Open build/my-game in Godot 4.6 — it's a normal project you own and can ship.
+```
+
+Skills (in `skills/`): **game-interview** (idea → manifest), **style-contract-author** (the visual
+style), **balance-reviewer** (design sanity pass).
 
 ## Principles (hard constraints)
 
