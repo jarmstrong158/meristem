@@ -47,3 +47,31 @@ def build_blob(contract, config=None) -> np.ndarray:
 
     cv.outline(dark)
     return cv.array()
+
+
+GHOST_DEFAULT = {"color": (224, 228, 244), "eyes": 2}
+
+
+def build_ghost(contract, config=None) -> np.ndarray:
+    """A floating ghost/wisp — domed top, wavy tail, hollow face. Distinct silhouette
+    from the blob; parametric by colour."""
+    cfg = {**GHOST_DEFAULT, **(config or {})}
+    body = Ramp(cfg["color"])
+    dark = outline_dark(cfg["color"])
+    w, h = contract.canvas_of("enemy")
+    cv = Canvas(w, h)
+    cx = w // 2
+
+    cv.disc(13, cx, 7, 8, body.base)                 # domed head
+    cv.rect(13, 25, cx - 8, cx + 7, body.base)       # body
+    for nx in (cx - 5, cx, cx + 5):                  # wavy tail (scallop notches)
+        cv.clear_disc(26, nx, 3.2, 2.4)
+    cv.disc(10, cx - 3, 3, 3.2, body.highlight)      # top-left sheen
+    cv.rect(13, 24, cx + 6, cx + 7, body.shadow)     # shade side
+    cv.rect(24, 25, cx - 3, cx + 2, body.shadow)     # under-shadow
+
+    for ex in (cx - 4, cx + 2):                      # hollow eyes
+        cv.rect(13, 15, ex, ex + 1, dark)
+    cv.rect(18, 19, cx - 1, cx, dark)                # small mouth
+    cv.outline(dark)
+    return cv.array()

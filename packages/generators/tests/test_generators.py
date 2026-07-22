@@ -107,13 +107,27 @@ def test_item_archetypes_are_parametric(contract):
     import numpy as np
     from PIL import Image
     from meristem_generators.items import weapon, consumable, pickup
-    sword, dagger = weapon(contract), weapon(contract, {"kind": "dagger"})
-    hp, mana = consumable(contract), consumable(contract, {"liquid": (70, 120, 230)})
+    sword, staff = weapon(contract), weapon(contract, {"kind": "staff"})
+    flask, bottle = consumable(contract), consumable(contract, {"shape": "bottle"})
+    mana = consumable(contract, {"shape": "bottle", "liquid": (70, 120, 230)})
     gem = pickup(contract, {"shape": "gem", "color": (90, 200, 230)})
-    assert not np.array_equal(sword, dagger)               # kind drives the sprite
-    assert not np.array_equal(hp, mana)                    # same code, different liquid
-    for arr in (sword, dagger, hp, mana, gem):
+    assert not np.array_equal(sword, staff)                # weapon kind drives the sprite
+    assert not np.array_equal(flask, bottle)               # potion shape varies
+    assert not np.array_equal(bottle, mana)                # same shape, different liquid
+    for arr in (sword, staff, flask, bottle, mana, gem):
         assert validate(Image.fromarray(arr, "RGBA"), "item_icon", contract).accepted
+
+
+def test_creature_archetypes_vary(contract):
+    import numpy as np
+    from PIL import Image
+    from meristem_generators.creatures import build_blob, build_ghost
+    blob, ghost = build_blob(contract), build_ghost(contract)
+    ghost_pink = build_ghost(contract, {"color": (240, 180, 190)})
+    assert not np.array_equal(blob, ghost)                 # distinct creature archetypes
+    assert not np.array_equal(ghost, ghost_pink)           # parametric colour
+    for arr in (blob, ghost, ghost_pink):
+        assert validate(Image.fromarray(arr, "RGBA"), "enemy", contract).accepted
 
 
 def test_default_generate_frames_is_single(contract):

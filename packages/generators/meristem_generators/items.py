@@ -107,19 +107,42 @@ def weapon(contract, config=None) -> np.ndarray:
 
 
 # ----------------------------- consumable ---------------------------------
-def consumable(contract, config=None) -> np.ndarray:
-    cfg = {"liquid": (214, 64, 78), "glass": (198, 214, 226), "cork": (132, 92, 56)}
-    cfg.update(config or {})
-    liquid, glass, cork = Ramp(cfg["liquid"]), Ramp(cfg["glass"]), Ramp(cfg["cork"])
-    cv = _icon(contract)
+def _cons_flask(cv, liquid, glass, cork):
     cv.disc(10, 8, 4, 4, liquid.base)                        # round flask of liquid
-    cv.disc(11, 10, 2, 2, liquid.shadow)                     # bottom-right shade
-    cv.disc(9, 6, 1.4, 1.6, liquid.highlight)                # top-left sheen
-    cv.rect(4, 6, 7, 9, glass.base)                          # neck
-    cv.px(4, 7, glass.highlight); cv.rect(4, 6, 9, 9, glass.shadow)
+    cv.disc(11, 10, 2, 2, liquid.shadow)
+    cv.disc(9, 6, 1.4, 1.6, liquid.highlight)
+    cv.rect(4, 6, 7, 9, glass.base); cv.px(4, 7, glass.highlight); cv.rect(4, 6, 9, 9, glass.shadow)
     cv.rect(6, 6, 5, 11, glass.base)                         # shoulders/rim
-    cv.rect(2, 3, 7, 9, cork.base); cv.px(3, 9, cork.shadow)  # cork
-    cv.px(8, 6, glass.highlight)                             # glass glint over liquid
+    cv.rect(2, 3, 7, 9, cork.base); cv.px(3, 9, cork.shadow)
+    cv.px(8, 6, glass.highlight)
+
+
+def _cons_bottle(cv, liquid, glass, cork):
+    cv.rect(6, 14, 5, 10, glass.base)                        # tall body
+    cv.rect(9, 14, 5, 10, liquid.base)                       # liquid (lower)
+    cv.rect(9, 14, 10, 10, liquid.shadow); cv.px(10, 5, liquid.highlight)
+    cv.rect(6, 8, 6, 9, glass.shadow); cv.px(6, 6, glass.highlight)   # glass above liquid
+    cv.rect(4, 6, 7, 8, glass.base)                          # neck
+    cv.rect(2, 3, 6, 9, cork.base); cv.px(3, 9, cork.shadow)  # cork
+    cv.px(11, 6, (255, 255, 255))                            # specular
+
+
+def _cons_vial(cv, liquid, glass, cork):
+    cv.rect(7, 14, 7, 9, glass.base)                         # thin tube
+    cv.rect(10, 14, 7, 9, liquid.base); cv.rect(10, 14, 9, 9, liquid.shadow)
+    cv.px(11, 7, liquid.highlight)
+    cv.rect(5, 6, 7, 9, cork.base); cv.px(6, 9, cork.shadow)  # stopper
+    cv.px(8, 7, glass.highlight)
+
+
+_CONS = {"flask": _cons_flask, "bottle": _cons_bottle, "vial": _cons_vial}
+
+
+def consumable(contract, config=None) -> np.ndarray:
+    cfg = {"shape": "flask", "liquid": (214, 64, 78), "glass": (198, 214, 226), "cork": (132, 92, 56)}
+    cfg.update(config or {})
+    cv = _icon(contract)
+    _CONS.get(cfg["shape"], _cons_flask)(cv, Ramp(cfg["liquid"]), Ramp(cfg["glass"]), Ramp(cfg["cork"]))
     cv.outline(outline_dark((70, 80, 96)))
     return cv.array()
 
