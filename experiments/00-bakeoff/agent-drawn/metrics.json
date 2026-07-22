@@ -1,0 +1,175 @@
+{
+  "tile_grass": {
+    "class": "terrain_tile",
+    "canvas_ok": true,
+    "palette": {
+      "opaque_px": 256,
+      "exact_match_pct": 100.0,
+      "unique_colors": 2,
+      "subset_of_palette": true
+    },
+    "alpha": {
+      "semi_transparent_px": 0,
+      "transparent_px_should_be_0": 0
+    },
+    "coverage": 1.0,
+    "grid_hash": "af9bbe2c0b9f6e3e",
+    "seam": 30
+  },
+  "tile_dirt": {
+    "class": "terrain_tile",
+    "canvas_ok": true,
+    "palette": {
+      "opaque_px": 256,
+      "exact_match_pct": 100.0,
+      "unique_colors": 2,
+      "subset_of_palette": true
+    },
+    "alpha": {
+      "semi_transparent_px": 0,
+      "transparent_px_should_be_0": 0
+    },
+    "coverage": 1.0,
+    "grid_hash": "469c433fbbcc32d7",
+    "seam": 30
+  },
+  "tile_water": {
+    "class": "terrain_tile",
+    "canvas_ok": true,
+    "palette": {
+      "opaque_px": 256,
+      "exact_match_pct": 100.0,
+      "unique_colors": 3,
+      "subset_of_palette": true
+    },
+    "alpha": {
+      "semi_transparent_px": 0,
+      "transparent_px_should_be_0": 0
+    },
+    "coverage": 1.0,
+    "grid_hash": "6ad955b075434c7d",
+    "seam": 30
+  },
+  "tile_stone": {
+    "class": "terrain_tile",
+    "canvas_ok": true,
+    "palette": {
+      "opaque_px": 256,
+      "exact_match_pct": 100.0,
+      "unique_colors": 3,
+      "subset_of_palette": true
+    },
+    "alpha": {
+      "semi_transparent_px": 0,
+      "transparent_px_should_be_0": 0
+    },
+    "coverage": 1.0,
+    "grid_hash": "52fae0d1289aa1e1",
+    "seam": 30
+  },
+  "char_player_idle": {
+    "class": "character",
+    "canvas_ok": true,
+    "palette": {
+      "opaque_px": 194,
+      "exact_match_pct": 100.0,
+      "unique_colors": 6,
+      "subset_of_palette": true
+    },
+    "alpha": {
+      "semi_transparent_px": 0
+    },
+    "coverage": 0.189,
+    "grid_hash": "5ea71c05aa19ffe2"
+  },
+  "enemy_slime_idle": {
+    "class": "enemy",
+    "canvas_ok": true,
+    "palette": {
+      "opaque_px": 307,
+      "exact_match_pct": 100.0,
+      "unique_colors": 4,
+      "subset_of_palette": true
+    },
+    "alpha": {
+      "semi_transparent_px": 0
+    },
+    "coverage": 0.3,
+    "grid_hash": "8af00ee4681764d1"
+  },
+  "icon_sword": {
+    "class": "item_icon",
+    "canvas_ok": true,
+    "palette": {
+      "opaque_px": 73,
+      "exact_match_pct": 100.0,
+      "unique_colors": 6,
+      "subset_of_palette": true
+    },
+    "alpha": {
+      "semi_transparent_px": 0
+    },
+    "coverage": 0.285,
+    "grid_hash": "3a48d173c0a32437"
+  },
+  "icon_potion": {
+    "class": "item_icon",
+    "canvas_ok": true,
+    "palette": {
+      "opaque_px": 100,
+      "exact_match_pct": 100.0,
+      "unique_colors": 5,
+      "subset_of_palette": true
+    },
+    "alpha": {
+      "semi_transparent_px": 0
+    },
+    "coverage": 0.391,
+    "grid_hash": "6242d430cc0ba25f"
+  },
+  "icon_key": {
+    "class": "item_icon",
+    "canvas_ok": true,
+    "palette": {
+      "opaque_px": 83,
+      "exact_match_pct": 100.0,
+      "unique_colors": 3,
+      "subset_of_palette": true
+    },
+    "alpha": {
+      "semi_transparent_px": 0
+    },
+    "coverage": 0.324,
+    "grid_hash": "0803ef81abdc1b1e"
+  },
+  "ui_heart": {
+    "class": "ui_element",
+    "canvas_ok": true,
+    "palette": {
+      "opaque_px": 105,
+      "exact_match_pct": 100.0,
+      "unique_colors": 4,
+      "subset_of_palette": true
+    },
+    "alpha": {
+      "semi_transparent_px": 0
+    },
+    "coverage": 0.41,
+    "grid_hash": "da9d36151791bdfe"
+  },
+  "ui_coin": {
+    "class": "ui_element",
+    "canvas_ok": true,
+    "palette": {
+      "opaque_px": 121,
+      "exact_match_pct": 100.0,
+      "unique_colors": 4,
+      "subset_of_palette": true
+    },
+    "alpha": {
+      "semi_transparent_px": 0
+    },
+    "coverage": 0.473,
+    "grid_hash": "a2f6e4ea780f0d09"
+  }
+}
