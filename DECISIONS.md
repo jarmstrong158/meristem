@@ -64,6 +64,13 @@ These are the expensive ones to relitigate — Phase 0 especially.
 **Decision:** a single generator interface `generate(spec, style_contract) -> Image`. The Phase 0 backends are the first implementations. A paid-API or future CC0-LoRA backend must be addable later **without touching the asset gate**. The asset gate normalizes/validates output regardless of source.
 **Tradeoff:** a small upfront abstraction; explicitly the *only* generator abstraction allowed (the "fourth abstraction layer, stop and ask" rule applies).
 
+### dec-0013 — Spec store: two-layer validation, one validated write, no raw write-anything
+**Problem:** a manifest that is the single source of truth must never hold an invalid or internally-inconsistent state, but JSON Schema alone can't express cross-domain references.
+**Decision:** validation is two layers. (1) **Schema at the write boundary** — `set_domain(domain, value)` is the *only* mutation, and it validates the whole domain against that domain's Draft-2020-12 schema and **rejects** (never coerces) on failure. (2) **Cross-references at `validate_all`** — drop tables → enemies/items, entity `behavior_archetype` → mechanics, world connections → regions, narrative faction → factions. There is no raw write-anything tool; every accepted mutation is versioned and recorded in history with provenance.
+**Also:** mechanics are **parameters over a fixed archetype library** (`platformer_controller`/`top_down_controller`/`turn_based_combat`), typed per-kind via JSON-Schema `if/then` — never freeform code (follows dec-0001).
+**Rejected:** (a) a single mega-schema with `$ref`s across domains — ref-resolution complexity, and it still can't do existence checks like "this id exists in another array"; (b) coercing/auto-fixing invalid writes — hides authoring errors, violates "reject, don't coerce"; (c) field-level patch tools — a partial write can't be validated as a coherent domain.
+**Tradeoff:** callers must submit a whole valid domain, not a one-field poke. Accepted deliberately: it keeps every stored state a fully-validated one.
+
 ### dec-0011 — The style-contract thesis HOLDS; per-class backend assignment = surfaces→procedural, objects→agent-drawn
 **Problem:** the whole project rests on whether a written style contract can make independent free generators produce one coherent game (dec-0010's experiment).
 **Decision:** thesis confirmed against the pre-registered bar. Ship both throwaway backends into Phase 1 as maintained implementations, assigned by class: **terrain tiles/textures → procedural** (deterministic, instant, ~0-token, texture is its strength); **all discrete objects (character, enemy, item icons, UI) → agent-drawn** (hand-authored, view-refine loop).
