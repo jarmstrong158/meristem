@@ -35,6 +35,8 @@ def test_registry_has_both_backends():
 @pytest.mark.parametrize("spec", SPECS, ids=lambda s: f"{s.asset_class}:{s.name}")
 def test_generated_asset_passes_gate(backend, spec, contract):
     gen = get(backend)
+    if not gen.supports(spec):                      # procedural makes tiles only (dec-0011/0021)
+        pytest.skip(f"{backend} does not build {spec.asset_class}:{spec.name}")
     img = gen.generate(spec, contract)
     w, h = contract.canvas_of(spec.asset_class)
     assert img.size == (w, h)
@@ -56,10 +58,12 @@ def test_normalize_accepts_generated(spec, contract):
     assert res.accepted, res.reasons
 
 
-@pytest.mark.parametrize("backend", ["procedural", "agent-drawn"])
-def test_generation_is_deterministic(backend, contract):
+@pytest.mark.parametrize("backend,spec", [
+    ("procedural", AssetSpec("terrain_tile", "grass")),
+    ("agent-drawn", AssetSpec("character", "player", "idle")),
+])
+def test_generation_is_deterministic(backend, spec, contract):
     gen = get(backend)
-    spec = AssetSpec("character", "player", "idle")
 
     def to_bytes(im):
         b = io.BytesIO(); im.save(b, "PNG"); return b.getvalue()

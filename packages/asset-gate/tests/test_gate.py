@@ -44,9 +44,9 @@ def test_reject_oversize_content(contract, make_rgba, to_img):
     assert any("exceeds canvas" in r for r in res.reasons)
 
 
-def test_offpalette_quantized_then_accepted(contract, make_rgba, to_img):
+def test_offpalette_quantized_then_accepted(locked_contract, make_rgba, to_img):
     arr = _solid(make_rgba, 16, 16, (250, 5, 70), box=(5, 5, 10, 10))  # near-red
-    res = normalize(to_img(arr), "item_icon", contract)
+    res = normalize(to_img(arr), "item_icon", locked_contract)         # locked -> quantized
     assert res.accepted
     assert res.report["subset_of_palette"]
 
@@ -130,9 +130,9 @@ def test_free_palette_rejects_over_budget(contract, make_rgba, to_img):
     assert any("budget" in r for r in res.reasons)
 
 
-def test_locked_class_still_rejects_offpalette(contract, make_rgba, to_img):
+def test_locked_class_still_rejects_offpalette(locked_contract, make_rgba, to_img):
     arr = _solid(make_rgba, 16, 16, (123, 45, 200))   # off-palette tile
-    res = validate(to_img(arr), "terrain_tile", contract)
+    res = validate(to_img(arr), "terrain_tile", locked_contract)
     assert not res.accepted
     assert any("locked palette" in r for r in res.reasons)
 

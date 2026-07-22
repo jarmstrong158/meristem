@@ -2,12 +2,12 @@
   "backend": "procedural",
   "contract_hash": "sha256:feaa81f962b43944132d6f175e065157",
   "contract_name": "bakeoff-pico8-v1",
-  "created_at": "2026-07-22T18:28:21+00:00",
+  "created_at": "2026-07-22T19:01:50+00:00",
   "gate_version": "0.1.0",
   "human_edited": false,
   "model": null,
   "model_version": null,
   "prompt": null,
   "seed": null,
-  "source_sha256": "sha256:1aa34d67f49c2a389e4fd8c05c65e58f6dd7cb7500eb07cc9fdfb4a88a500845"
+  "source_sha256": "sha256:22ad2e3bb370d41fef72ab94517c9ae0918795804293c9f7454417eddd8b46ec"
 }

@@ -113,7 +113,8 @@ class StyleContract:
                 grid_base_unit=int(d.get("grid", {}).get("base_unit", 16)),
                 naming_convention=naming.get("convention", "{class}_{name}.png"),
                 class_prefixes=naming.get("class_prefixes", {}),
-                free_palette_classes=d.get("palette", {}).get("free_classes", ["character", "enemy"]),
+                free_palette_classes=d.get("palette", {}).get(
+                    "free_classes", ["character", "enemy", "item_icon", "ui_element", "terrain_tile"]),
                 max_colors=int(d.get("palette", {}).get("max_colors", 15)),
                 raw=d,
             )

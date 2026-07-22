@@ -21,9 +21,10 @@ DEFAULT_STYLE_CONTRACT = {
     "name": "pico8-default-v1", "version": 1,
     "palette": {"source": "PICO-8 (Lexaloffle)", "license": "CC0",
                 "colors": [{"i": i, "hex": h, "name": n} for i, (h, n) in enumerate(_PICO8)],
-                # characters/enemies use per-material hue-shifted ramps (dec-0020),
+                # all sprites use per-material hue-shifted ramps (dec-0020/0021),
                 # validated against a colour budget, not this locked palette:
-                "free_classes": ["character", "enemy"], "max_colors": 15},
+                "free_classes": ["character", "enemy", "item_icon", "ui_element", "terrain_tile"],
+                "max_colors": 15},
     "canvas": {"terrain_tile": {"w": 16, "h": 16}, "character": {"w": 32, "h": 32},
                "enemy": {"w": 32, "h": 32}, "item_icon": {"w": 16, "h": 16},
                "ui_element": {"w": 16, "h": 16}},
