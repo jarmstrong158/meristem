@@ -18,6 +18,7 @@
 | `torch.cuda.is_available()` | `True` | device_count 1 |
 | Godot | 4.6.stable.official.89cea1439 | `C:\Users\jarms\repos\Godot_v4.6-stable_win64.exe` — `--headless --version` works |
 | ffmpeg | present | `…\ffmpegio\ffmpeg-downloader\…\ffmpeg.exe` |
+| **Pixelorama** | 1.1.10 (Godot 4.6.2) | `C:\Users\jarms\repos\Pixelorama\Pixelorama-Windows-64bit\Pixelorama.exe` — free/MIT pixel editor for the hand-edit path (dec-0004) |
 | ollama, llama.cpp | repos present | local **LLM** inference (not image diffusion) |
 
 ## Missing — and the free way to get each

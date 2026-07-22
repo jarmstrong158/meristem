@@ -64,8 +64,11 @@ for — or extend — an archetype:
 ## Hand-editing (free editor path)
 
 Generated assets are plain, editable PNGs you own. To hand-tune a sprite, open it in **Pixelorama**
-(free, MIT — the recommended editor) or **LibreSprite** (free). *Do not require Aseprite (paid).* After
-editing, re-run the gate to re-validate the edit stays within the standard:
+(free, MIT — the recommended editor) or **LibreSprite** (free). *Do not require Aseprite (paid).* Open
+an asset by passing it to the Pixelorama binary (`Pixelorama.exe path/to/asset.png`); the installed
+path on a given machine is recorded in `docs/environment.md`.
+
+After editing, re-run the gate to re-validate the edit stays within the standard:
 
 ```
 asset-gate validate <asset.png> --class <class> --contract <style-contract.json>
