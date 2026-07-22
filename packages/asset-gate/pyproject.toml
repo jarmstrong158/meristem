@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "meristem-asset-gate"
+version = "0.1.0"
+description = "Normalize any image to a style contract, or reject it with a specific reason."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+dependencies = [
+    "Pillow>=10",
+    "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.scripts]
+asset-gate = "asset_gate.cli:main"
+
+[tool.setuptools]
+packages = ["asset_gate"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

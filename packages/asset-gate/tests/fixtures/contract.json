@@ -1,0 +1,30 @@
+{
+  "name": "test-fixture-v1",
+  "version": 1,
+  "palette": {
+    "source": "PICO-8 subset (test fixture)",
+    "license": "CC0",
+    "colors": [
+      { "i": 0, "hex": "#000000", "name": "black" },
+      { "i": 1, "hex": "#FF004D", "name": "red" },
+      { "i": 2, "hex": "#00E436", "name": "green" },
+      { "i": 3, "hex": "#29ADFF", "name": "blue" },
+      { "i": 4, "hex": "#FFEC27", "name": "yellow" },
+      { "i": 5, "hex": "#FFF1E8", "name": "white" }
+    ]
+  },
+  "canvas": {
+    "terrain_tile": { "w": 16, "h": 16 },
+    "item_icon": { "w": 16, "h": 16 },
+    "character": { "w": 32, "h": 32 }
+  },
+  "outline": { "policy": "selective_dark_1px", "color_rule": "darkest_shade_of_subject_ramp", "fallback_color_index": 0 },
+  "shading": { "ramp_steps": 3, "light_direction": "top_left" },
+  "anchor": { "terrain_tile": "top_left", "item_icon": "center", "character": "bottom_center" },
+  "background": { "mode": "transparent", "alpha": "hard" },
+  "grid": { "base_unit": 16 },
+  "naming": {
+    "convention": "{class}_{name}[_{variant}].png",
+    "class_prefixes": { "terrain_tile": "tile", "item_icon": "icon", "character": "char" }
+  }
+}
