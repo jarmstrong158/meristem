@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Godot
+.godot/
+*.import
+export_presets.cfg
+
+# Models / large binaries (never commit weights)
+*.safetensors
+*.ckpt
+*.pt
+*.onnx
+models/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local scratch
+scratch/
+*.log
+
+# Xylem local stores (never commit)
+.context/
+.cambium/
