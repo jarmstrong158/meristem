@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "meristem-spec-store": {
+      "command": "python",
+      "args": ["-m", "meristem_spec_store.server"],
+      "env": {
+        "MERISTEM_MANIFEST": "${CLAUDE_PROJECT_DIR}/meristem.manifest.json"
+      }
+    }
+  }
+}

@@ -28,8 +28,15 @@ meristem-verify build/my-game --manifest examples/slice-01/manifest.json --godot
 # 4. Open build/my-game in Godot 4.6 — it's a normal project you own and can ship.
 ```
 
-Skills (in `skills/`): **game-interview** (idea → manifest), **style-contract-author** (the visual
-style), **balance-reviewer** (design sanity pass).
+Or install into Claude Code as a plugin:
+
+```
+/plugin marketplace add jarmstrong158/meristem
+/plugin install meristem@meristem
+```
+
+Skills (in `plugins/meristem/skills/`): **game-interview** (idea → manifest), **style-contract-author**
+(the visual style), **balance-reviewer** (design sanity pass).
 
 ## Principles (hard constraints)
 
@@ -64,7 +71,7 @@ style contract + spec manifest   (Phase 2, schema-enforced, single source of tru
 | `packages/spec-store/` | Stateful MCP server holding the schema-enforced manifest | 2 |
 | `packages/compiler/` | Deterministic spec → LDtk + Godot project (no LLM in path) | 3 |
 | `packages/verifier/` | Headless run: assertion loop + offscreen visual loop | 4 |
-| `skills/` | Judgment skills: game interview, style-contract author, balance reviewer | 5 |
+| `plugins/meristem/` | Claude Code plugin: the judgment skills + spec-store MCP server | 5 |
 | `experiments/00-bakeoff/` | The load-bearing calibration experiment | 0 |
 | `docs/` | `environment.md`, `licenses.md`, `architecture.md`, `research/` | — |
 

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "meristem",
+  "owner": { "name": "jarmstrong158" },
+  "description": "Meristem — AI-assisted 2D game creation: interview → valid manifest → Godot 4 project you own.",
+  "plugins": [
+    {
+      "name": "meristem",
+      "source": "./plugins/meristem",
+      "description": "The game-interview, style-contract-author, and balance-reviewer skills plus the spec-store MCP server.",
+      "category": "development",
+      "tags": ["gamedev", "godot", "pixel-art", "2d", "mcp"]
+    }
+  ]
+}

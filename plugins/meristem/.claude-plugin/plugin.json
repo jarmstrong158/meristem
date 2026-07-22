@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "meristem",
+  "displayName": "Meristem",
+  "version": "0.1.0",
+  "description": "AI-assisted 2D game creation: interview → schema-valid manifest → Godot 4 project you own.",
+  "author": { "name": "jarmstrong158", "url": "https://github.com/jarmstrong158" },
+  "homepage": "https://github.com/jarmstrong158/meristem",
+  "repository": "https://github.com/jarmstrong158/meristem",
+  "license": "MIT",
+  "keywords": ["gamedev", "godot", "pixel-art", "2d", "mcp"],
+  "mcpServers": "./.mcp.json"
+}
