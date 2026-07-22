@@ -81,30 +81,49 @@ QUADRUPED_DEFAULT = {"color": (150, 118, 86)}
 
 
 def build_quadruped(contract, config=None) -> np.ndarray:
-    """A four-legged beast (side view, facing right) — body, four legs, head + snout,
-    ear, tail. Parametric colour; a distinct silhouette from blob/ghost."""
+    """A side-view four-legged beast (facing right), built to the quadruped spec
+    (docs/research/03-quadruped.md): three masses on a curved spine; TWO sets of biped
+    legs — the far pair darker + offset + paws 1px higher (depth), front legs vertical,
+    back legs Z-bent; tucked belly, raised withers. Parametric colour."""
     cfg = {**QUADRUPED_DEFAULT, **(config or {})}
     body = Ramp(cfg["color"])
     dark = outline_dark(cfg["color"])
     w, h = contract.canvas_of("enemy")
     cv = Canvas(w, h)
 
-    cv.rect(15, 21, 9, 22, body.base)                # torso
-    cv.disc(18, 15, 4, 7, body.base)
-    cv.rect(13, 20, 21, 27, body.base)               # head
-    cv.rect(17, 19, 27, 29, body.base)               # snout
-    cv.rect(9, 13, 22, 24, body.base)                # ear
-    cv.rect(12, 17, 5, 9, body.base); cv.rect(10, 13, 4, 6, body.base)   # tail (up-curl)
-    for lx in (10, 13, 19, 22):                      # four legs
-        cv.rect(21, 28, lx, lx + 1, body.base)
+    # --- FAR leg pair (behind): shadow, thin, paws 1px high (row 27). Distinct columns. ---
+    cv.rect(15, 19, 7, 8, body.shadow); cv.rect(19, 27, 6, 7, body.shadow)   # far-back (Z)
+    cv.rect(27, 27, 5, 7, body.shadow)
+    cv.rect(15, 27, 16, 17, body.shadow); cv.rect(27, 27, 16, 18, body.shadow)  # far-front
 
-    cv.rect(14, 15, 10, 26, body.highlight)          # lit back
-    cv.rect(20, 21, 9, 22, body.shadow)              # belly shadow
-    for lx in (13, 22):                              # far legs in shadow
-        cv.rect(21, 28, lx, lx + 1, body.shadow)
-    cv.rect(29, 29, 10, 23, body.shadow)             # ground contact
+    # --- BODY loaf: curved back (withers high), belly at row 15, tucked toward rear ---
+    body_rows = {10: (19, 23), 11: (9, 25), 12: (7, 27), 13: (7, 28),
+                 14: (8, 27), 15: (10, 24)}
+    for r, (c0, c1) in body_rows.items():
+        cv.rect(r, r, c0, c1, body.base)
+    cv.rect(11, 12, 10, 23, body.highlight)          # spine highlight (top of back)
+    cv.rect(14, 15, 9, 25, body.shadow)              # belly underside (darkest)
 
-    cv.px(15, 25, (240, 240, 240)); cv.px(15, 26, dark)   # eye
-    cv.px(18, 29, dark)                              # nose
+    # --- NEAR leg pair (front): base, distinct columns, paws on ground (row 28) ---
+    cv.rect(15, 19, 11, 12, body.base); cv.rect(19, 28, 10, 11, body.base)   # near-back (Z-bend)
+    cv.rect(28, 28, 9, 11, body.base)
+    cv.rect(15, 28, 20, 21, body.base); cv.rect(28, 28, 20, 22, body.base)   # near-front (vertical)
+    cv.rect(15, 27, 20, 20, body.highlight)          # lit front edge
+
+    # --- HEAD + neck + muzzle (front-right) ---
+    cv.rect(11, 15, 20, 24, body.base)               # diagonal neck
+    cv.rect(8, 14, 23, 29, body.base)                # skull
+    cv.rect(12, 14, 28, 31, body.base)               # muzzle wedge (forward)
+    cv.rect(8, 9, 24, 28, body.highlight)            # skull top highlight
+    cv.rect(14, 14, 24, 31, body.shadow)             # muzzle/jaw underside
+    cv.px(13, 31, dark)                              # nose
+    cv.px(11, 28, dark)                              # eye (single pixel, high-front)
+    cv.rect(6, 8, 23, 24, body.base); cv.rect(6, 8, 26, 27, body.base)   # upright ears (top-back)
+    cv.px(8, 24, body.shadow); cv.px(8, 27, body.shadow)
+
+    # --- TAIL: from rump, sweeps down-left with a curl ---
+    cv.rect(12, 16, 4, 7, body.base); cv.rect(11, 13, 2, 5, body.base)
+    cv.rect(15, 16, 4, 6, body.shadow)               # underside
+
     cv.outline(dark)
     return cv.array()
