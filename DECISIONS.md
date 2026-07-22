@@ -71,6 +71,20 @@ These are the expensive ones to relitigate — Phase 0 especially.
 **Rejected:** (a) a single mega-schema with `$ref`s across domains — ref-resolution complexity, and it still can't do existence checks like "this id exists in another array"; (b) coercing/auto-fixing invalid writes — hides authoring errors, violates "reject, don't coerce"; (c) field-level patch tools — a partial write can't be validated as a coherent domain.
 **Tradeoff:** callers must submit a whole valid domain, not a one-field poke. Accepted deliberately: it keeps every stored state a fully-validated one.
 
+### dec-0014 — LDtk emission: resolved Tiles layer + IntGrid semantics, not auto-layer rules
+**Problem:** dec-0008 routes tiles through LDtk (the model writes semantic ints, not tile IDs). How should the *compiler* emit the `.ldtk`?
+**Decision:** the compiler emits a **resolved Tiles layer** — explicit `gridTiles` it computes deterministically from the semantic grid — paired with an **IntGrid layer** carrying the semantic values. It does **not** emit auto-layer rules.
+**Evidence (verified 2026-07-22 against ldtk.io/json v1.5.3 + godot-ldtk-importer 2.0.1 README):** the importer reads *baked* tiles, not the rule engine, so auto-rules must be pre-baked into `autoLayerTiles` anyway; authoring correct `autoRuleGroups`/`pattern` structures is fiddly and version-churny (`tileIds`→`tileRectsIds` in 1.5.0) for zero benefit in a generated pipeline. Emitting `.ldtk` with `jsonVersion "1.5.3"`, `externalLevels:false`, uid-linked tileset/layer/level.
+**Honors dec-0008:** the *LLM* still never writes tile IDs — the spec carries semantic ints (preserved in the IntGrid layer); the deterministic compiler resolves them to tiles. The `.ldtk` remains user-editable in the LDtk app.
+**Rejected:** auto-layer rules (fiddly, must pre-bake regardless); Tiled (dec-0008).
+**Tradeoff:** if a user hand-edits the level in LDtk, re-compiling from the manifest would overwrite it — acceptable until level layouts live in the manifest (a future `levels` domain; today the slice synthesizes the layout in the compiler).
+
+### dec-0015 — Vertical slice runs via a runtime ground builder; godot-ldtk-importer is the documented round-trip
+**Problem:** running the generated project *through* LDtk requires vendoring the godot-ldtk-importer addon and relying on its import hooks — heavy and fragile to verify for a first slice.
+**Decision:** the slice ships a tiny `world.gd` that builds the ground at runtime from a compiler-emitted `grove_01.grid.json` (Sprite2D per cell), so the project **runs in stock Godot 4.6 with zero addons** — verified: `--headless --import` then `--quit-after 5` both exit 0, no SCRIPT ERROR. The `.ldtk` is still emitted as the canonical, LDtk-editable level. The `godot-ldtk-importer` round-trip (edit `.ldtk` → reimport → `TileMapLayer`) is the documented production path, to be vendored after the slice.
+**Rejected:** vendoring the importer for the slice (harder to verify now); a native Godot `TileSet`/`TileMapLayer` (its `.tscn` cell binary format is as fiddly as `.ldtk`).
+**Tradeoff:** the level grid has two projections (`.ldtk` gridTiles + runtime `grid.json`), both from the *one* compiler-resolved grid, so they can't desync within a compile. Flagged follow-up: vendor the importer + move level layouts into the manifest so the `.ldtk` becomes the single runtime source.
+
 ### dec-0011 — The style-contract thesis HOLDS; per-class backend assignment = surfaces→procedural, objects→agent-drawn
 **Problem:** the whole project rests on whether a written style contract can make independent free generators produce one coherent game (dec-0010's experiment).
 **Decision:** thesis confirmed against the pre-registered bar. Ship both throwaway backends into Phase 1 as maintained implementations, assigned by class: **terrain tiles/textures → procedural** (deterministic, instant, ~0-token, texture is its strength); **all discrete objects (character, enemy, item icons, UI) → agent-drawn** (hand-authored, view-refine loop).

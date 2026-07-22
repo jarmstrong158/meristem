@@ -9,8 +9,10 @@ schema-validated project manifest is the single source of truth, and every downs
 Target output is a **Godot 4 project you can open, hand-edit, and ship to Steam or itch** without
 our involvement.
 
-> **Status:** Phase 0 (viability + calibration). Not yet usable. See [`DECISIONS.md`](DECISIONS.md)
-> and [`docs/research/00-bakeoff.md`](docs/research/00-bakeoff.md) for what's been settled and why.
+> **Status:** Phases 0–3 done — the **vertical slice runs**. A hand-written manifest compiles to a
+> Godot 4.6 project that opens and runs headless (exit 0, no script errors): manifest → generators →
+> gate → LDtk → Godot. Phases 4 (verifier) and 5 (UI/distribution) remain. See
+> [`DECISIONS.md`](DECISIONS.md) and [`docs/research/00-bakeoff.md`](docs/research/00-bakeoff.md).
 
 ## Principles (hard constraints)
 

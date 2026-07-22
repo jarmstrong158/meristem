@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "meristem-compiler"
+version = "0.1.0"
+description = "Deterministic spec -> Godot 4 project compiler (no LLM in the path)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "meristem-spec-store",
+    "meristem-asset-gate",
+    "meristem-generators",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.scripts]
+meristem-compile = "meristem_compiler.cli:main"
+
+[tool.setuptools]
+packages = ["meristem_compiler"]
+
+[tool.setuptools.package-data]
+meristem_compiler = ["templates/*.tmpl"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

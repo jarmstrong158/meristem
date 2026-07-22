@@ -1,0 +1,892 @@
+{
+  "meristem_manifest_version": 1,
+  "version": 8,
+  "domains": {
+    "style_contract": {
+      "$schema_note": "Hand-authored style contract for the Phase 0c calibration bake-off. Both the generators and the asset gate read this file. It is the 'style contract' the whole project's thesis is built on.",
+      "name": "bakeoff-pico8-v1",
+      "version": 1,
+      "palette": {
+        "source": "PICO-8 (Lexaloffle)",
+        "license": "CC0",
+        "license_url": "https://www.lexaloffle.com/pico-8.php?page=faq",
+        "note": "16 colors, locked. CC0 per Lexaloffle FAQ: palette + font are public domain, no attribution.",
+        "colors": [
+          {
+            "i": 0,
+            "hex": "#000000",
+            "name": "black"
+          },
+          {
+            "i": 1,
+            "hex": "#1D2B53",
+            "name": "dark_blue"
+          },
+          {
+            "i": 2,
+            "hex": "#7E2553",
+            "name": "dark_purple"
+          },
+          {
+            "i": 3,
+            "hex": "#008751",
+            "name": "dark_green"
+          },
+          {
+            "i": 4,
+            "hex": "#AB5236",
+            "name": "brown"
+          },
+          {
+            "i": 5,
+            "hex": "#5F574F",
+            "name": "dark_grey"
+          },
+          {
+            "i": 6,
+            "hex": "#C2C3C7",
+            "name": "light_grey"
+          },
+          {
+            "i": 7,
+            "hex": "#FFF1E8",
+            "name": "white"
+          },
+          {
+            "i": 8,
+            "hex": "#FF004D",
+            "name": "red"
+          },
+          {
+            "i": 9,
+            "hex": "#FFA300",
+            "name": "orange"
+          },
+          {
+            "i": 10,
+            "hex": "#FFEC27",
+            "name": "yellow"
+          },
+          {
+            "i": 11,
+            "hex": "#00E436",
+            "name": "green"
+          },
+          {
+            "i": 12,
+            "hex": "#29ADFF",
+            "name": "blue"
+          },
+          {
+            "i": 13,
+            "hex": "#83769C",
+            "name": "lavender"
+          },
+          {
+            "i": 14,
+            "hex": "#FF77A8",
+            "name": "pink"
+          },
+          {
+            "i": 15,
+            "hex": "#FFCCAA",
+            "name": "peach"
+          }
+        ]
+      },
+      "canvas": {
+        "terrain_tile": {
+          "w": 16,
+          "h": 16
+        },
+        "character": {
+          "w": 32,
+          "h": 32
+        },
+        "enemy": {
+          "w": 32,
+          "h": 32
+        },
+        "item_icon": {
+          "w": 16,
+          "h": 16
+        },
+        "ui_element": {
+          "w": 16,
+          "h": 16
+        }
+      },
+      "outline": {
+        "policy": "selective_dark_1px",
+        "note": "Outline the outer silhouette only, on the sides facing away from the light. Interior cluster boundaries may be left un-outlined (selective).",
+        "color_rule": "darkest_shade_of_subject_ramp",
+        "fallback_color_index": 0
+      },
+      "shading": {
+        "ramp_steps": 3,
+        "light_direction": "top_left",
+        "note": "Each material gets exactly 3 hue-shifted shades: shadow, base, highlight. Highlight faces top-left; shadow faces bottom-right."
+      },
+      "anchor": {
+        "terrain_tile": "top_left",
+        "character": "bottom_center",
+        "enemy": "bottom_center",
+        "item_icon": "center",
+        "ui_element": "center",
+        "note": "Anchor is the pivot the compiler uses when placing the asset. Characters/enemies pivot at the feet (bottom-center) so they stand on tiles; tiles pivot top-left to align to the grid origin."
+      },
+      "background": {
+        "mode": "transparent",
+        "alpha": "hard",
+        "note": "Fully transparent or fully opaque only. No semi-transparent (0 < alpha < 255) pixels anywhere. Terrain tiles are fully opaque edge to edge (no transparent pixels)."
+      },
+      "grid": {
+        "base_unit": 16,
+        "note": "All canvases are integer multiples of the 16px base unit. Content aligns to whole pixels; no sub-pixel placement."
+      },
+      "naming": {
+        "convention": "{class}_{name}[_{variant}].png",
+        "class_prefixes": {
+          "terrain_tile": "tile",
+          "character": "char",
+          "enemy": "enemy",
+          "item_icon": "icon",
+          "ui_element": "ui"
+        },
+        "examples": [
+          "tile_grass.png",
+          "char_player_idle.png",
+          "enemy_slime_idle.png",
+          "icon_sword.png",
+          "ui_heart.png"
+        ]
+      },
+      "asset_set": [
+        {
+          "class": "terrain_tile",
+          "name": "grass",
+          "materials": [
+            "green",
+            "dark_green"
+          ]
+        },
+        {
+          "class": "terrain_tile",
+          "name": "dirt",
+          "materials": [
+            "brown",
+            "dark_grey"
+          ]
+        },
+        {
+          "class": "terrain_tile",
+          "name": "water",
+          "materials": [
+            "blue",
+            "dark_blue"
+          ]
+        },
+        {
+          "class": "terrain_tile",
+          "name": "stone",
+          "materials": [
+            "light_grey",
+            "dark_grey"
+          ]
+        },
+        {
+          "class": "character",
+          "name": "player",
+          "variant": "idle",
+          "facing": "front",
+          "materials": [
+            "peach",
+            "blue",
+            "brown"
+          ]
+        },
+        {
+          "class": "enemy",
+          "name": "slime",
+          "variant": "idle",
+          "facing": "front",
+          "materials": [
+            "green",
+            "dark_green"
+          ]
+        },
+        {
+          "class": "item_icon",
+          "name": "sword",
+          "materials": [
+            "light_grey",
+            "brown"
+          ]
+        },
+        {
+          "class": "item_icon",
+          "name": "potion",
+          "materials": [
+            "red",
+            "light_grey"
+          ]
+        },
+        {
+          "class": "item_icon",
+          "name": "key",
+          "materials": [
+            "yellow",
+            "orange"
+          ]
+        },
+        {
+          "class": "ui_element",
+          "name": "heart",
+          "materials": [
+            "red",
+            "dark_purple"
+          ]
+        },
+        {
+          "class": "ui_element",
+          "name": "coin",
+          "materials": [
+            "yellow",
+            "orange"
+          ]
+        }
+      ]
+    },
+    "mechanics": {
+      "archetypes": [
+        {
+          "id": "hero",
+          "kind": "top_down_controller",
+          "params": {
+            "move_speed": 80,
+            "accel": 600,
+            "friction": 400,
+            "diagonal_normalized": true
+          }
+        }
+      ]
+    },
+    "project": {
+      "title": "Slime Grove",
+      "genre": "action-adventure",
+      "camera": "top_down",
+      "control_scheme": "hero",
+      "core_loop": "explore the grove, fight slimes, collect loot",
+      "target_resolution": {
+        "w": 320,
+        "h": 180
+      }
+    },
+    "narrative": {
+      "premise": "A young hero clears slimes from the overgrown grove.",
+      "beats": [
+        "arrive at the grove",
+        "meet the first slime",
+        "find the training sword"
+      ],
+      "factions": [
+        {
+          "id": "grove",
+          "name": "Grove Wardens"
+        }
+      ],
+      "characters": [
+        {
+          "id": "player",
+          "name": "Hero",
+          "role": "protagonist",
+          "faction": "grove"
+        }
+      ]
+    },
+    "entities": {
+      "characters": [
+        {
+          "id": "player",
+          "name": "Hero",
+          "stats": {
+            "hp": 20,
+            "atk": 4,
+            "def": 2,
+            "spd": 6
+          },
+          "behavior_archetype": "hero",
+          "sprite": "player"
+        }
+      ],
+      "enemies": [
+        {
+          "id": "slime",
+          "name": "Grove Slime",
+          "stats": {
+            "hp": 8,
+            "atk": 2,
+            "def": 1,
+            "spd": 3
+          },
+          "behavior_archetype": "hero",
+          "sprite": "slime"
+        }
+      ]
+    },
+    "items": {
+      "rarity_tiers": [
+        {
+          "id": "common",
+          "name": "Common",
+          "weight": 1
+        }
+      ],
+      "items": [
+        {
+          "id": "sword",
+          "name": "Training Sword",
+          "slot": "weapon",
+          "rarity": "common",
+          "stats": {
+            "atk": 2
+          },
+          "icon": "sword"
+        }
+      ],
+      "drop_tables": [
+        {
+          "enemy_id": "slime",
+          "drops": [
+            {
+              "item_id": "sword",
+              "weight": 1
+            }
+          ]
+        }
+      ]
+    },
+    "economy": {
+      "currency": {
+        "name": "Marks",
+        "symbol": "M"
+      },
+      "progression_pacing": {
+        "xp_curve": "linear",
+        "levels": 10
+      }
+    },
+    "world": {
+      "regions": [
+        {
+          "id": "grove",
+          "biome": "grass",
+          "tileset_ref": "grove_tiles",
+          "levels": [
+            "grove_01"
+          ]
+        }
+      ]
+    }
+  },
+  "history": [
+    {
+      "version": 1,
+      "domain": "style_contract",
+      "op": "set",
+      "at": "2026-07-22T14:27:13+00:00",
+      "provenance": {
+        "actor": "slice-builder"
+      },
+      "diff": {
+        "added": {
+          "outline": {
+            "policy": "selective_dark_1px",
+            "note": "Outline the outer silhouette only, on the sides facing away from the light. Interior cluster boundaries may be left un-outlined (selective).",
+            "color_rule": "darkest_shade_of_subject_ramp",
+            "fallback_color_index": 0
+          },
+          "$schema_note": "Hand-authored style contract for the Phase 0c calibration bake-off. Both the generators and the asset gate read this file. It is the 'style contract' the whole project's thesis is built on.",
+          "version": 1,
+          "shading": {
+            "ramp_steps": 3,
+            "light_direction": "top_left",
+            "note": "Each material gets exactly 3 hue-shifted shades: shadow, base, highlight. Highlight faces top-left; shadow faces bottom-right."
+          },
+          "grid": {
+            "base_unit": 16,
+            "note": "All canvases are integer multiples of the 16px base unit. Content aligns to whole pixels; no sub-pixel placement."
+          },
+          "naming": {
+            "convention": "{class}_{name}[_{variant}].png",
+            "class_prefixes": {
+              "terrain_tile": "tile",
+              "character": "char",
+              "enemy": "enemy",
+              "item_icon": "icon",
+              "ui_element": "ui"
+            },
+            "examples": [
+              "tile_grass.png",
+              "char_player_idle.png",
+              "enemy_slime_idle.png",
+              "icon_sword.png",
+              "ui_heart.png"
+            ]
+          },
+          "asset_set": [
+            {
+              "class": "terrain_tile",
+              "name": "grass",
+              "materials": [
+                "green",
+                "dark_green"
+              ]
+            },
+            {
+              "class": "terrain_tile",
+              "name": "dirt",
+              "materials": [
+                "brown",
+                "dark_grey"
+              ]
+            },
+            {
+              "class": "terrain_tile",
+              "name": "water",
+              "materials": [
+                "blue",
+                "dark_blue"
+              ]
+            },
+            {
+              "class": "terrain_tile",
+              "name": "stone",
+              "materials": [
+                "light_grey",
+                "dark_grey"
+              ]
+            },
+            {
+              "class": "character",
+              "name": "player",
+              "variant": "idle",
+              "facing": "front",
+              "materials": [
+                "peach",
+                "blue",
+                "brown"
+              ]
+            },
+            {
+              "class": "enemy",
+              "name": "slime",
+              "variant": "idle",
+              "facing": "front",
+              "materials": [
+                "green",
+                "dark_green"
+              ]
+            },
+            {
+              "class": "item_icon",
+              "name": "sword",
+              "materials": [
+                "light_grey",
+                "brown"
+              ]
+            },
+            {
+              "class": "item_icon",
+              "name": "potion",
+              "materials": [
+                "red",
+                "light_grey"
+              ]
+            },
+            {
+              "class": "item_icon",
+              "name": "key",
+              "materials": [
+                "yellow",
+                "orange"
+              ]
+            },
+            {
+              "class": "ui_element",
+              "name": "heart",
+              "materials": [
+                "red",
+                "dark_purple"
+              ]
+            },
+            {
+              "class": "ui_element",
+              "name": "coin",
+              "materials": [
+                "yellow",
+                "orange"
+              ]
+            }
+          ],
+          "name": "bakeoff-pico8-v1",
+          "palette": {
+            "source": "PICO-8 (Lexaloffle)",
+            "license": "CC0",
+            "license_url": "https://www.lexaloffle.com/pico-8.php?page=faq",
+            "note": "16 colors, locked. CC0 per Lexaloffle FAQ: palette + font are public domain, no attribution.",
+            "colors": [
+              {
+                "i": 0,
+                "hex": "#000000",
+                "name": "black"
+              },
+              {
+                "i": 1,
+                "hex": "#1D2B53",
+                "name": "dark_blue"
+              },
+              {
+                "i": 2,
+                "hex": "#7E2553",
+                "name": "dark_purple"
+              },
+              {
+                "i": 3,
+                "hex": "#008751",
+                "name": "dark_green"
+              },
+              {
+                "i": 4,
+                "hex": "#AB5236",
+                "name": "brown"
+              },
+              {
+                "i": 5,
+                "hex": "#5F574F",
+                "name": "dark_grey"
+              },
+              {
+                "i": 6,
+                "hex": "#C2C3C7",
+                "name": "light_grey"
+              },
+              {
+                "i": 7,
+                "hex": "#FFF1E8",
+                "name": "white"
+              },
+              {
+                "i": 8,
+                "hex": "#FF004D",
+                "name": "red"
+              },
+              {
+                "i": 9,
+                "hex": "#FFA300",
+                "name": "orange"
+              },
+              {
+                "i": 10,
+                "hex": "#FFEC27",
+                "name": "yellow"
+              },
+              {
+                "i": 11,
+                "hex": "#00E436",
+                "name": "green"
+              },
+              {
+                "i": 12,
+                "hex": "#29ADFF",
+                "name": "blue"
+              },
+              {
+                "i": 13,
+                "hex": "#83769C",
+                "name": "lavender"
+              },
+              {
+                "i": 14,
+                "hex": "#FF77A8",
+                "name": "pink"
+              },
+              {
+                "i": 15,
+                "hex": "#FFCCAA",
+                "name": "peach"
+              }
+            ]
+          },
+          "background": {
+            "mode": "transparent",
+            "alpha": "hard",
+            "note": "Fully transparent or fully opaque only. No semi-transparent (0 < alpha < 255) pixels anywhere. Terrain tiles are fully opaque edge to edge (no transparent pixels)."
+          },
+          "canvas": {
+            "terrain_tile": {
+              "w": 16,
+              "h": 16
+            },
+            "character": {
+              "w": 32,
+              "h": 32
+            },
+            "enemy": {
+              "w": 32,
+              "h": 32
+            },
+            "item_icon": {
+              "w": 16,
+              "h": 16
+            },
+            "ui_element": {
+              "w": 16,
+              "h": 16
+            }
+          },
+          "anchor": {
+            "terrain_tile": "top_left",
+            "character": "bottom_center",
+            "enemy": "bottom_center",
+            "item_icon": "center",
+            "ui_element": "center",
+            "note": "Anchor is the pivot the compiler uses when placing the asset. Characters/enemies pivot at the feet (bottom-center) so they stand on tiles; tiles pivot top-left to align to the grid origin."
+          }
+        },
+        "removed": {},
+        "changed": {},
+        "has_changes": true
+      }
+    },
+    {
+      "version": 2,
+      "domain": "mechanics",
+      "op": "set",
+      "at": "2026-07-22T14:27:13+00:00",
+      "provenance": {
+        "actor": "slice-builder"
+      },
+      "diff": {
+        "added": {
+          "archetypes": [
+            {
+              "id": "hero",
+              "kind": "top_down_controller",
+              "params": {
+                "move_speed": 80,
+                "accel": 600,
+                "friction": 400,
+                "diagonal_normalized": true
+              }
+            }
+          ]
+        },
+        "removed": {},
+        "changed": {},
+        "has_changes": true
+      }
+    },
+    {
+      "version": 3,
+      "domain": "project",
+      "op": "set",
+      "at": "2026-07-22T14:27:13+00:00",
+      "provenance": {
+        "actor": "slice-builder"
+      },
+      "diff": {
+        "added": {
+          "core_loop": "explore the grove, fight slimes, collect loot",
+          "title": "Slime Grove",
+          "target_resolution": {
+            "w": 320,
+            "h": 180
+          },
+          "control_scheme": "hero",
+          "camera": "top_down",
+          "genre": "action-adventure"
+        },
+        "removed": {},
+        "changed": {},
+        "has_changes": true
+      }
+    },
+    {
+      "version": 4,
+      "domain": "narrative",
+      "op": "set",
+      "at": "2026-07-22T14:27:13+00:00",
+      "provenance": {
+        "actor": "slice-builder"
+      },
+      "diff": {
+        "added": {
+          "beats": [
+            "arrive at the grove",
+            "meet the first slime",
+            "find the training sword"
+          ],
+          "factions": [
+            {
+              "id": "grove",
+              "name": "Grove Wardens"
+            }
+          ],
+          "characters": [
+            {
+              "id": "player",
+              "name": "Hero",
+              "role": "protagonist",
+              "faction": "grove"
+            }
+          ],
+          "premise": "A young hero clears slimes from the overgrown grove."
+        },
+        "removed": {},
+        "changed": {},
+        "has_changes": true
+      }
+    },
+    {
+      "version": 5,
+      "domain": "entities",
+      "op": "set",
+      "at": "2026-07-22T14:27:13+00:00",
+      "provenance": {
+        "actor": "slice-builder"
+      },
+      "diff": {
+        "added": {
+          "characters": [
+            {
+              "id": "player",
+              "name": "Hero",
+              "stats": {
+                "hp": 20,
+                "atk": 4,
+                "def": 2,
+                "spd": 6
+              },
+              "behavior_archetype": "hero",
+              "sprite": "player"
+            }
+          ],
+          "enemies": [
+            {
+              "id": "slime",
+              "name": "Grove Slime",
+              "stats": {
+                "hp": 8,
+                "atk": 2,
+                "def": 1,
+                "spd": 3
+              },
+              "behavior_archetype": "hero",
+              "sprite": "slime"
+            }
+          ]
+        },
+        "removed": {},
+        "changed": {},
+        "has_changes": true
+      }
+    },
+    {
+      "version": 6,
+      "domain": "items",
+      "op": "set",
+      "at": "2026-07-22T14:27:13+00:00",
+      "provenance": {
+        "actor": "slice-builder"
+      },
+      "diff": {
+        "added": {
+          "rarity_tiers": [
+            {
+              "id": "common",
+              "name": "Common",
+              "weight": 1
+            }
+          ],
+          "items": [
+            {
+              "id": "sword",
+              "name": "Training Sword",
+              "slot": "weapon",
+              "rarity": "common",
+              "stats": {
+                "atk": 2
+              },
+              "icon": "sword"
+            }
+          ],
+          "drop_tables": [
+            {
+              "enemy_id": "slime",
+              "drops": [
+                {
+                  "item_id": "sword",
+                  "weight": 1
+                }
+              ]
+            }
+          ]
+        },
+        "removed": {},
+        "changed": {},
+        "has_changes": true
+      }
+    },
+    {
+      "version": 7,
+      "domain": "economy",
+      "op": "set",
+      "at": "2026-07-22T14:27:13+00:00",
+      "provenance": {
+        "actor": "slice-builder"
+      },
+      "diff": {
+        "added": {
+          "progression_pacing": {
+            "xp_curve": "linear",
+            "levels": 10
+          },
+          "currency": {
+            "name": "Marks",
+            "symbol": "M"
+          }
+        },
+        "removed": {},
+        "changed": {},
+        "has_changes": true
+      }
+    },
+    {
+      "version": 8,
+      "domain": "world",
+      "op": "set",
+      "at": "2026-07-22T14:27:13+00:00",
+      "provenance": {
+        "actor": "slice-builder"
+      },
+      "diff": {
+        "added": {
+          "regions": [
+            {
+              "id": "grove",
+              "biome": "grass",
+              "tileset_ref": "grove_tiles",
+              "levels": [
+                "grove_01"
+              ]
+            }
+          ]
+        },
+        "removed": {},
+        "changed": {},
+        "has_changes": true
+      }
+    }
+  ]
+}
