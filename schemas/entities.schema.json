@@ -34,7 +34,7 @@
       "additionalProperties": false,
       "required": ["archetype"],
       "properties": {
-        "archetype": { "enum": ["humanoid", "blob", "ghost", "weapon", "consumable", "pickup", "tile"] },
+        "archetype": { "enum": ["humanoid", "blob", "ghost", "quadruped", "weapon", "consumable", "pickup", "chest", "projectile", "tile"] },
         "config": { "type": "object" }
       }
     }

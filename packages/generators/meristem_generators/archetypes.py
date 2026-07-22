@@ -13,9 +13,9 @@ from typing import Callable, Optional
 import numpy as np
 from PIL import Image
 
-from .creatures import build_blob, build_ghost
+from .creatures import build_blob, build_ghost, build_quadruped
 from .humanoid import build_humanoid, humanoid_walk
-from .items import consumable, pickup, weapon
+from .items import chest, consumable, pickup, projectile, weapon
 from .procedural import ProceduralGenerator, build_tile
 
 
@@ -36,9 +36,12 @@ ARCHETYPES: dict[str, Archetype] = {
     "humanoid":   Archetype("character", build_humanoid, humanoid_walk),
     "blob":       Archetype("enemy", build_blob),
     "ghost":      Archetype("enemy", build_ghost),
+    "quadruped":  Archetype("enemy", build_quadruped),
     "weapon":     Archetype("item_icon", weapon),
     "consumable": Archetype("item_icon", consumable),
     "pickup":     Archetype("item_icon", pickup),
+    "chest":      Archetype("item_icon", chest),
+    "projectile": Archetype("item_icon", projectile),
     "tile":       Archetype("terrain_tile", _tile_build),
 }
 

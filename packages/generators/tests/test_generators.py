@@ -118,6 +118,16 @@ def test_item_archetypes_are_parametric(contract):
         assert validate(Image.fromarray(arr, "RGBA"), "item_icon", contract).accepted
 
 
+def test_all_archetypes_build_and_gate(contract):
+    from PIL import Image
+    from meristem_generators import archetype_class, build_archetype, known_archetypes
+    assert len(known_archetypes()) >= 10
+    for name in known_archetypes():
+        cfg = {"name": "grass"} if name == "tile" else {}
+        im = build_archetype(contract, name, cfg)
+        assert validate(im, archetype_class(name), contract).accepted, name
+
+
 def test_creature_archetypes_vary(contract):
     import numpy as np
     from PIL import Image

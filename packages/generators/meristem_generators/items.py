@@ -209,3 +209,67 @@ def pickup(contract, config=None) -> np.ndarray:
     cv = _icon(contract, cls)
     _PICKUPS.get(cfg["shape"], _pickup_coin)(cv, cfg["color"])
     return cv.array()
+
+
+# ------------------------------- chest ------------------------------------
+def chest(contract, config=None) -> np.ndarray:
+    cfg = {"wood": (146, 96, 52), "metal": (204, 172, 82), "open": False}
+    cfg.update(config or {})
+    wood, metal = Ramp(cfg["wood"]), Ramp(cfg["metal"])
+    dark = outline_dark(cfg["wood"])
+    cv = _icon(contract)
+    cv.rect(8, 14, 3, 12, wood.base)                        # box body
+    cv.rect(8, 14, 12, 12, wood.shadow); cv.rect(8, 9, 4, 6, wood.highlight)
+    if cfg["open"]:
+        cv.rect(3, 5, 3, 12, wood.shadow)                   # lifted lid (behind)
+        cv.rect(6, 7, 4, 11, (255, 236, 150)); cv.px(6, 5, (255, 255, 210))   # gold inside
+    else:
+        cv.rect(5, 7, 3, 12, wood.base); cv.rect(4, 4, 4, 11, wood.base)      # domed lid
+        cv.rect(5, 5, 4, 7, wood.highlight); cv.rect(7, 7, 3, 12, wood.shadow)
+    for bc in (4, 11):                                       # metal bands
+        cv.rect(4, 14, bc, bc, metal.base)
+    cv.rect(9, 11, 7, 8, metal.base); cv.px(9, 7, metal.highlight)   # lock
+    cv.px(11, 7, dark)                                       # keyhole
+    cv.outline(dark)
+    return cv.array()
+
+
+# ----------------------------- projectile ---------------------------------
+def _pj_arrow(cv, color):
+    wood, metal = Ramp((150, 110, 62)), Ramp(_STEEL)
+    for i in range(8):                                       # shaft, low-left -> high-right
+        r, c = 12 - i, 3 + i
+        cv.px(r, c, wood.base); cv.px(r + 1, c, wood.shadow)
+    cv.rect(2, 4, 11, 13, metal.base); cv.px(2, 11, metal.highlight); cv.px(4, 13, metal.shadow)  # head
+    cv.rect(11, 13, 2, 4, Ramp(color).base)                 # fletching
+    cv.px(13, 2, Ramp(color).shadow)
+
+
+def _pj_fireball(cv, color):
+    fire = Ramp(color)
+    cv.disc(8, 9, 4, 4, fire.base); cv.disc(7, 8, 1.8, 1.8, fire.highlight)
+    cv.disc(9, 11, 1.8, 1.8, fire.shadow)
+    cv.px(6, 7, (255, 255, 210))                            # hot core
+    cv.px(12, 4, fire.base); cv.px(13, 3, fire.shadow); cv.px(11, 5, fire.highlight)  # trail
+
+
+def _pj_bolt(cv, color):
+    b = Ramp(color)
+    spans = {4: (7, 8), 5: (6, 9), 6: (5, 10), 7: (5, 10), 8: (6, 9), 9: (7, 8)}
+    for r, (c0, c1) in spans.items():
+        cv.rect(r, r, c0, c1, b.base)
+    cv.rect(4, 6, 6, 7, b.highlight)
+    cv.px(2, 7, b.base); cv.px(11, 8, b.base); cv.px(7, 3, b.base); cv.px(7, 12, b.base)  # points
+    cv.px(4, 7, (255, 255, 255))
+
+
+_PROJECTILES = {"arrow": _pj_arrow, "fireball": _pj_fireball, "bolt": _pj_bolt}
+
+
+def projectile(contract, config=None) -> np.ndarray:
+    cfg = {"kind": "arrow", "color": (232, 120, 44)}
+    cfg.update(config or {})
+    cv = _icon(contract)
+    _PROJECTILES.get(cfg["kind"], _pj_arrow)(cv, cfg["color"])
+    cv.outline(outline_dark(cfg["color"] if cfg["kind"] != "arrow" else (80, 80, 90)))
+    return cv.array()
