@@ -88,7 +88,9 @@ def normalize(
     if semi_before:
         warnings.append(f"{semi_before} semi-transparent px hardened at threshold {alpha_threshold}")
     arr = ops.enforce_hard_alpha(arr, alpha_threshold)
-    arr = palette_mod.quantize(arr, contract.palette_rgb, quantize)
+    free = contract.is_free_palette(asset_class)
+    if not free:                                   # free-palette assets keep their own ramps
+        arr = palette_mod.quantize(arr, contract.palette_rgb, quantize)
 
     if is_tile:
         # strict validation: full-bleed material
@@ -122,7 +124,10 @@ def normalize(
     # hard invariants that must always hold post-normalization
     if report["semi_transparent_px"] != 0:
         reasons.append(f"{report['semi_transparent_px']} semi-transparent px remain")
-    if not report["subset_of_palette"]:
+    if free:
+        if report["unique_colors"] > contract.max_colors:
+            reasons.append(f"{report['unique_colors']} colors exceeds the {contract.max_colors}-color budget")
+    elif not report["subset_of_palette"]:
         reasons.append(f"{report['unique_colors']} colors, not all in the locked palette")
 
     accepted = not reasons
@@ -159,7 +164,10 @@ def validate(image: Image.Image, asset_class: str, contract: StyleContract) -> G
         reasons.append(f"size {report['size']} != canvas [{cw}, {ch}]")
     if report["semi_transparent_px"]:
         reasons.append(f"{report['semi_transparent_px']} semi-transparent px")
-    if not report["subset_of_palette"]:
+    if contract.is_free_palette(asset_class):
+        if report["unique_colors"] > contract.max_colors:
+            reasons.append(f"{report['unique_colors']} colors exceeds the {contract.max_colors}-color budget")
+    elif not report["subset_of_palette"]:
         reasons.append("colors outside the locked palette")
     if contract.anchor_of(asset_class) == "top_left" and report["transparent_px"]:
         reasons.append(f"tile has {report['transparent_px']} transparent px (must be full-bleed)")

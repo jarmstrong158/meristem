@@ -41,8 +41,11 @@ def test_generated_asset_passes_gate(backend, spec, contract):
     # generators emit final, gate-conformant art -> validate (non-mutating) must accept
     res = validate(img, spec.asset_class, contract)
     assert res.accepted, f"{backend}/{spec.name}: {res.reasons}"
-    assert res.report["subset_of_palette"]
     assert res.report["semi_transparent_px"] == 0
+    if contract.is_free_palette(spec.asset_class):
+        assert res.report["unique_colors"] <= contract.max_colors   # within the colour budget
+    else:
+        assert res.report["subset_of_palette"]                      # locked-palette assets
 
 
 @pytest.mark.parametrize("spec", SPECS, ids=lambda s: f"{s.asset_class}:{s.name}")

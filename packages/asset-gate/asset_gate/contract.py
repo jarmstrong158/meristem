@@ -49,7 +49,14 @@ class StyleContract:
     grid_base_unit: int
     naming_convention: str
     class_prefixes: dict[str, str]
+    free_palette_classes: list[str] = field(default_factory=list)
+    max_colors: int = 15
     raw: dict = field(repr=False, default_factory=dict)
+
+    def is_free_palette(self, asset_class: str) -> bool:
+        """Free-palette classes (e.g. characters) use per-material hue-shifted ramps
+        (dec-0020) and are checked against a color budget, not the locked palette."""
+        return asset_class in self.free_palette_classes
 
     # ---- derived ----
     @property
@@ -106,6 +113,8 @@ class StyleContract:
                 grid_base_unit=int(d.get("grid", {}).get("base_unit", 16)),
                 naming_convention=naming.get("convention", "{class}_{name}.png"),
                 class_prefixes=naming.get("class_prefixes", {}),
+                free_palette_classes=d.get("palette", {}).get("free_classes", ["character", "enemy"]),
+                max_colors=int(d.get("palette", {}).get("max_colors", 15)),
                 raw=d,
             )
         except KeyError as e:

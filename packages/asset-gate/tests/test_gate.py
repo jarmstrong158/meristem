@@ -109,6 +109,34 @@ def test_provenance_populated_and_sidecar(contract, make_rgba, to_img, tmp_path)
     assert data["created_at"] == "2026-07-22T00:00:00+00:00"
 
 
+# --------------------------- free palette ---------------------------------
+def test_free_palette_accepts_offpalette_within_budget(contract, make_rgba, to_img):
+    # 'character' is a free-palette class -> off-locked-palette colours OK if within budget
+    arr = make_rgba(32, 32)
+    arr[10:20, 10:22, :3] = (123, 45, 200)      # not in the locked fixture palette
+    arr[10:20, 10:22, 3] = 255
+    res = validate(to_img(arr), "character", contract)
+    assert res.accepted, res.reasons
+    assert not res.report["subset_of_palette"]  # genuinely off the locked palette
+
+
+def test_free_palette_rejects_over_budget(contract, make_rgba, to_img):
+    arr = make_rgba(32, 32)
+    rng = np.random.default_rng(0)
+    arr[0:20, 0:20, :3] = rng.integers(0, 256, size=(20, 20, 3))   # far more than 15 colours
+    arr[0:20, 0:20, 3] = 255
+    res = validate(to_img(arr), "character", contract)
+    assert not res.accepted
+    assert any("budget" in r for r in res.reasons)
+
+
+def test_locked_class_still_rejects_offpalette(contract, make_rgba, to_img):
+    arr = _solid(make_rgba, 16, 16, (123, 45, 200))   # off-palette tile
+    res = validate(to_img(arr), "terrain_tile", contract)
+    assert not res.accepted
+    assert any("locked palette" in r for r in res.reasons)
+
+
 # ------------------------------ validate ----------------------------------
 def test_validate_roundtrip(contract, make_rgba, to_img):
     arr = _solid(make_rgba, 20, 20, (255, 0, 77), box=(6, 6, 12, 12))
