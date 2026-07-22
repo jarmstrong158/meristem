@@ -91,6 +91,7 @@ def test_walk_cycle_frames(contract):
 
 
 def test_blob_archetype_is_parametric(contract):
+    import numpy as np
     from meristem_generators.creatures import build_blob
     from PIL import Image
     green = build_blob(contract, {"color": (96, 200, 96)})
