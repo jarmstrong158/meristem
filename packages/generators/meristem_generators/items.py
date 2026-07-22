@@ -11,7 +11,7 @@ import numpy as np
 from .shading import Ramp
 from .sprite import Canvas, outline_dark
 
-_STEEL, _GOLD, _LEATHER = (176, 184, 198), (214, 176, 72), (122, 80, 48)
+_STEEL, _GOLD, _LEATHER, _WOOD = (176, 184, 198), (214, 176, 72), (122, 80, 48), (124, 84, 46)
 
 
 def _icon(contract, cls="item_icon") -> Canvas:
@@ -19,22 +19,90 @@ def _icon(contract, cls="item_icon") -> Canvas:
 
 
 # ------------------------------- weapon -----------------------------------
+def _vblade(cv, blade, c0, c1, r_top, r_bot, tip=True):
+    """A vertical blade: lit left edge, base, shadow right edge, pointed tip."""
+    if tip:
+        cv.px(r_top, (c0 + c1) // 2, blade.highlight)
+        r_top += 1
+    for c in range(c0, c1 + 1):
+        shade = blade.highlight if c == c0 else (blade.shadow if c == c1 else blade.base)
+        cv.rect(r_top, r_bot, c, c, shade)
+
+
+def _guard(cv, gold, r, c0, c1):
+    cv.rect(r, r, c0, c1, gold.base)
+    cv.px(r, c0, gold.highlight); cv.px(r, c1, gold.shadow)
+
+
+def _grip(cv, grip, gold, c0, c1, r0, r1):
+    cv.rect(r0, r1, c0, c1, grip.base); cv.rect(r0, r1, c1, c1, grip.shadow)
+    cv.rect(r1 + 1, r1 + 1, c0, c1, gold.base)              # pommel
+
+
+def _wp_sword(cv, blade, gold, grip, wood, orb, big=False):
+    if big:                                                  # greatsword
+        _vblade(cv, blade, 6, 9, 1, 10)
+        _guard(cv, gold, 11, 3, 12); cv.rect(12, 12, 4, 11, gold.shadow)
+        _grip(cv, grip, gold, 7, 8, 12, 14)
+    else:                                                    # sword
+        _vblade(cv, blade, 6, 8, 2, 10)
+        _guard(cv, gold, 11, 4, 11)
+        _grip(cv, grip, gold, 6, 8, 12, 13)
+
+
+def _wp_dagger(cv, blade, gold, grip, wood, orb):
+    _vblade(cv, blade, 7, 8, 4, 9)
+    _guard(cv, gold, 10, 5, 10)
+    _grip(cv, grip, gold, 7, 8, 11, 12)
+
+
+def _wp_axe(cv, blade, gold, grip, wood, orb):
+    cv.rect(2, 14, 7, 8, wood.base); cv.rect(2, 14, 8, 8, wood.shadow)   # haft
+    # axe head: a curved wedge on the upper-left
+    head = {2: (3, 6), 3: (2, 6), 4: (2, 6), 5: (3, 6)}
+    for r, (c0, c1) in head.items():
+        cv.rect(r, r, c0, c1, blade.base)
+    cv.rect(2, 3, 3, 4, blade.highlight); cv.rect(4, 5, 2, 3, blade.shadow)
+    cv.rect(2, 5, 9, 10, blade.base); cv.rect(3, 4, 10, 10, blade.shadow)  # small back spike
+    cv.px(14, 8, gold.base)
+
+
+def _wp_spear(cv, blade, gold, grip, wood, orb):
+    cv.rect(4, 15, 7, 8, wood.base); cv.rect(4, 15, 8, 8, wood.shadow)   # shaft
+    head = {1: (7, 7), 2: (6, 8), 3: (6, 8), 4: (6, 8), 5: (7, 7)}       # leaf tip
+    for r, (c0, c1) in head.items():
+        cv.rect(r, r, c0, c1, blade.base)
+    cv.rect(2, 4, 6, 6, blade.highlight); cv.rect(2, 4, 8, 8, blade.shadow)
+    cv.rect(5, 5, 5, 10, gold.base)                          # collar
+
+
+def _wp_staff(cv, blade, gold, grip, wood, orb):
+    cv.rect(4, 15, 7, 8, wood.base); cv.rect(4, 15, 8, 8, wood.shadow)   # shaft
+    o = Ramp(orb)
+    cv.disc(4, 7, 3, 3, o.base)                              # orb
+    cv.disc(3, 6, 1.3, 1.3, o.highlight)
+    cv.disc(5, 8, 1.4, 1.4, o.shadow)
+    cv.px(2, 6, (255, 255, 255))                             # glint
+
+
+_WEAPONS = {
+    "sword": lambda cv, b, g, gr, w, o: _wp_sword(cv, b, g, gr, w, o),
+    "dagger": _wp_dagger,
+    "greatsword": lambda cv, b, g, gr, w, o: _wp_sword(cv, b, g, gr, w, o, big=True),
+    "axe": _wp_axe,
+    "spear": _wp_spear,
+    "staff": _wp_staff,
+}
+
+
 def weapon(contract, config=None) -> np.ndarray:
-    cfg = {"kind": "sword", "blade": _STEEL, "hilt": _GOLD, "grip": _LEATHER}
+    cfg = {"kind": "sword", "blade": _STEEL, "hilt": _GOLD, "grip": _LEATHER,
+           "wood": _WOOD, "orb": (90, 200, 230)}
     cfg.update(config or {})
-    blade, gold, grip = Ramp(cfg["blade"]), Ramp(cfg["hilt"]), Ramp(cfg["grip"])
     cv = _icon(contract)
-    length = 9 if cfg["kind"] == "sword" else 6              # dagger is shorter
-    for i in range(length):                                  # diagonal blade, low-left -> high-right
-        r, c = 11 - i, 4 + i
-        cv.px(r, c, blade.base); cv.px(r, c + 1, blade.shadow)
-        cv.px(r - 1, c, blade.highlight)                     # lit (top-left) edge
-    cv.px(11 - length + 1, 4 + length, blade.highlight)      # tip glint
-    cv.rect(11, 12, 3, 6, gold.base)                         # crossguard
-    cv.px(11, 3, gold.highlight); cv.px(12, 6, gold.shadow)
-    cv.rect(12, 14, 3, 4, grip.base); cv.px(14, 4, grip.shadow)   # grip
-    cv.px(14, 3, gold.base)                                  # pommel
-    cv.outline(outline_dark((90, 90, 100)))
+    blade, gold, grip, wood = Ramp(cfg["blade"]), Ramp(cfg["hilt"]), Ramp(cfg["grip"]), Ramp(cfg["wood"])
+    _WEAPONS.get(cfg["kind"], _WEAPONS["sword"])(cv, blade, gold, grip, wood, cfg["orb"])
+    cv.outline(outline_dark((70, 72, 82)))
     return cv.array()
 
 

@@ -2,12 +2,12 @@
   "backend": "agent-drawn",
   "contract_hash": "sha256:feaa81f962b43944132d6f175e065157",
   "contract_name": "bakeoff-pico8-v1",
-  "created_at": "2026-07-22T21:13:44+00:00",
+  "created_at": "2026-07-22T21:28:50+00:00",
   "gate_version": "0.1.0",
   "human_edited": false,
   "model": null,
   "model_version": null,
   "prompt": null,
   "seed": null,
-  "source_sha256": "sha256:608286590e362ba890f3a43e66b289ec7e24eb9e1cf3e1070f13d4ea2814aa47"
+  "source_sha256": "sha256:eee4d7b3dbd69ecf4381e83802a02ecf082719177fd3cc9d2a804ed7738046a6"
 }
