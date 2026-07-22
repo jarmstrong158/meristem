@@ -29,7 +29,8 @@ def test_project_godot_written(project):
 def test_all_assets_and_sidecars(project):
     a = project / "assets"
     pngs = sorted(p.name for p in a.glob("*.png"))
-    assert len(pngs) == 13          # 9 base + 4 walk frames
+    # 9 base + 4 player-walk + 3 enemy idle-anim + 3 coin spin frames
+    assert len(pngs) == 19
     for png in pngs:
         assert (a / f"{png}.prov.json").exists()
     # provenance backend is now the archetype the sprite was built from (dec-0022)
@@ -46,6 +47,20 @@ def test_player_is_animated(project):
     assert "AnimatedSprite2D" in (project / "scenes" / "player.tscn").read_text(encoding="utf-8")
     for i in range(4):
         assert (project / "assets" / f"char_player_walk_{i}.png").exists()
+
+
+def test_enemy_and_coin_animated(project):
+    # the blob enemy animates: SpriteFrames + AnimatedSprite2D + idle-anim frames
+    ef = (project / "scenes" / "enemy_frames.tres").read_text(encoding="utf-8")
+    assert '&"idle"' in ef and ef.count("enemy_slime_") == 4          # idle + 3 anim frames
+    assert "AnimatedSprite2D" in (project / "scenes" / "enemy.tscn").read_text(encoding="utf-8")
+    for i in (1, 2, 3):
+        assert (project / "assets" / f"enemy_slime_anim_{i}.png").exists()
+    # the HUD coin spins
+    cf = (project / "scenes" / "coin_frames.tres").read_text(encoding="utf-8")
+    assert '&"spin"' in cf and cf.count("ui_coin") == 4               # idle + 3 spin frames
+    main = (project / "scenes" / "main.tscn").read_text(encoding="utf-8")
+    assert 'type="AnimatedSprite2D" parent="HUD"' in main
 
 
 def test_ldtk_valid(project):

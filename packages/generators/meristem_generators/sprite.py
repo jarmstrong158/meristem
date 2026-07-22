@@ -58,3 +58,28 @@ class Canvas:
 def outline_dark(base: RGB) -> RGB:
     """A near-black outline hued to a material (sel-out), not pure black."""
     return shadow(base, 0.66)
+
+
+# ---- palette-safe transforms for animation frames (no new colours, no alpha) ----
+def translate(arr: np.ndarray, dx: int = 0, dy: int = 0) -> np.ndarray:
+    """Rigid pixel shift with transparent fill (no wrap) — for float/bob frames."""
+    out = np.zeros_like(arr)
+    h, w = arr.shape[:2]
+    sr0, sr1 = max(0, -dy), min(h, h - dy)
+    sc0, sc1 = max(0, -dx), min(w, w - dx)
+    out[sr0 + dy:sr1 + dy, sc0 + dx:sc1 + dx] = arr[sr0:sr1, sc0:sc1]
+    return out
+
+
+def squeeze_h(arr: np.ndarray, factor: float) -> np.ndarray:
+    """Scale content horizontally about the centre with NEAREST (colour- and
+    alpha-exact, so the gate still passes). factor 1.0 = unchanged; <1 = narrower,
+    e.g. a coin turning toward edge-on."""
+    from PIL import Image
+    im = Image.fromarray(arr, "RGBA")
+    w, h = im.size
+    nw = max(2, int(round(w * factor)))
+    small = im.resize((nw, h), Image.NEAREST)
+    out = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    out.paste(small, ((w - nw) // 2, 0))
+    return np.asarray(out)

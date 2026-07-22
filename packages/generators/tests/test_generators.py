@@ -157,6 +157,25 @@ def test_quadruped_builds_vary(contract):
     assert np.array_equal(build_quadruped(contract, {"build": "griffon"}), builds["dog"])
 
 
+def test_animated_archetypes_yield_distinct_gating_frames(contract):
+    import numpy as np
+    from meristem_generators import archetype_frames, archetype_class
+    # each animated archetype yields >1 frame, all gate, frame 0 == its static build,
+    # and not every frame is identical (there is real motion)
+    from meristem_generators import build_archetype
+    cases = [("blob", {}), ("ghost", {}), ("quadruped", {}), ("pickup", {"shape": "coin"})]
+    for name, cfg in cases:
+        frames = archetype_frames(contract, name, cfg)
+        assert frames and len(frames) >= 2, name
+        for fr in frames:
+            assert validate(fr, archetype_class(name), contract).accepted, name
+        arrs = [np.asarray(f) for f in frames]
+        assert np.array_equal(arrs[0], np.asarray(build_archetype(contract, name, cfg))), f"{name} frame0"
+        assert any(not np.array_equal(arrs[0], a) for a in arrs[1:]), f"{name} has no motion"
+    # a non-coin pickup opts out of animation
+    assert archetype_frames(contract, "pickup", {"shape": "heart"}) is None
+
+
 def test_default_generate_frames_is_single(contract):
     # a tile has no animation; generate_frames returns one frame
     frames = get("procedural").generate_frames(AssetSpec("terrain_tile", "grass"), contract)

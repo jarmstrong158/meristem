@@ -13,9 +13,10 @@ from typing import Callable, Optional
 import numpy as np
 from PIL import Image
 
-from .creatures import build_blob, build_ghost, build_quadruped
+from .creatures import (build_blob, build_ghost, build_quadruped,
+                        blob_idle, ghost_idle, quadruped_idle)
 from .humanoid import build_humanoid, humanoid_walk
-from .items import chest, consumable, pickup, projectile, weapon
+from .items import chest, consumable, pickup, pickup_frames, projectile, weapon
 from .procedural import ProceduralGenerator, build_tile
 
 
@@ -34,12 +35,12 @@ class Archetype:
 
 ARCHETYPES: dict[str, Archetype] = {
     "humanoid":   Archetype("character", build_humanoid, humanoid_walk),
-    "blob":       Archetype("enemy", build_blob),
-    "ghost":      Archetype("enemy", build_ghost),
-    "quadruped":  Archetype("enemy", build_quadruped),
+    "blob":       Archetype("enemy", build_blob, blob_idle),
+    "ghost":      Archetype("enemy", build_ghost, ghost_idle),
+    "quadruped":  Archetype("enemy", build_quadruped, quadruped_idle),
     "weapon":     Archetype("item_icon", weapon),
     "consumable": Archetype("item_icon", consumable),
-    "pickup":     Archetype("item_icon", pickup),
+    "pickup":     Archetype("item_icon", pickup, pickup_frames),
     "chest":      Archetype("item_icon", chest),
     "projectile": Archetype("item_icon", projectile),
     "tile":       Archetype("terrain_tile", _tile_build),
@@ -62,7 +63,10 @@ def archetype_frames(contract, name: str, config: dict | None = None) -> Optiona
     a = _get(name)
     if a.frames is None:
         return None
-    return [Image.fromarray(f, "RGBA") for f in a.frames(contract, config or {})]
+    frames = a.frames(contract, config or {})       # a frame fn may itself opt out (None)
+    if not frames:
+        return None
+    return [Image.fromarray(f, "RGBA") for f in frames]
 
 
 def _get(name: str) -> Archetype:

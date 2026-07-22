@@ -82,29 +82,52 @@ shape = SubResource("{shape_id}")
 '''
 
 
-def _sprite_frames_tres(idle: str, walk: list[str]) -> str:
-    textures = [idle] + walk
+def _frames_tres(anims: list[tuple[str, list[str], float]]) -> str:
+    """A SpriteFrames resource holding one or more named looping animations.
+    `anims` is a list of (animation_name, [texture_files], speed)."""
+    textures: list[str] = []
+    for _, frs, _ in anims:
+        for t in frs:
+            if t not in textures:
+                textures.append(t)
+    idx = {t: i + 1 for i, t in enumerate(textures)}
     ext = "".join(
-        f'[ext_resource type="Texture2D" path="res://assets/{t}" id="{i + 1}_f"]\n'
-        for i, t in enumerate(textures))
-    idle_frame = '{"duration": 1.0, "texture": ExtResource("1_f")}'
-    walk_frames = ", ".join(
-        f'{{"duration": 1.0, "texture": ExtResource("{i + 2}_f")}}' for i in range(len(walk)))
+        f'[ext_resource type="Texture2D" path="res://assets/{t}" id="{idx[t]}_f"]\n'
+        for t in textures)
+    blocks = []
+    for name, frs, speed in anims:
+        fr = ", ".join(f'{{"duration": 1.0, "texture": ExtResource("{idx[t]}_f")}}' for t in frs)
+        blocks.append(f'{{\n"frames": [{fr}],\n"loop": true,\n"name": &"{name}",\n"speed": {speed}\n}}')
     return f'''[gd_resource type="SpriteFrames" load_steps={len(textures) + 1} format=3]
 
 {ext}
 [resource]
-animations = [{{
-"frames": [{idle_frame}],
-"loop": true,
-"name": &"idle",
-"speed": 5.0
-}}, {{
-"frames": [{walk_frames}],
-"loop": true,
-"name": &"walk",
-"speed": 8.0
-}}]
+animations = [{", ".join(blocks)}]
+'''
+
+
+def _animated_actor_tscn(node_name: str, frames_path: str, script_path: str,
+                         shape_id: str, shape_size: tuple[int, int], anim: str = "idle") -> str:
+    return f'''[gd_scene load_steps=4 format=3]
+
+[ext_resource type="SpriteFrames" path="{frames_path}" id="1_frames"]
+[ext_resource type="Script" path="{script_path}" id="2_scr"]
+
+[sub_resource type="RectangleShape2D" id="{shape_id}"]
+size = Vector2({shape_size[0]}, {shape_size[1]})
+
+[node name="{node_name}" type="CharacterBody2D"]
+script = ExtResource("2_scr")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+offset = Vector2(0, -16)
+sprite_frames = ExtResource("1_frames")
+animation = &"{anim}"
+autoplay = "{anim}"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, -8)
+shape = SubResource("{shape_id}")
 '''
 
 
@@ -132,22 +155,49 @@ shape = SubResource("RectangleShape2D_player")
 '''
 
 
-def write_scenes(project_dir: Path, *, player_idle: str, player_walk: list[str], enemy_sprite: str,
-                 heart_sprite: str, coin_sprite: str) -> None:
+def write_scenes(project_dir: Path, *, player_idle: str, player_walk: list[str],
+                 enemy_frames: list[str], heart_sprite: str, coin_frames: list[str]) -> None:
     sc = project_dir / "scenes"
     sc.mkdir(parents=True, exist_ok=True)
-    (sc / "player_frames.tres").write_text(_sprite_frames_tres(player_idle, player_walk), encoding="utf-8")
+    (sc / "player_frames.tres").write_text(
+        _frames_tres([("idle", [player_idle], 5.0), ("walk", player_walk, 8.0)]), encoding="utf-8")
     (sc / "player.tscn").write_text(_player_tscn(), encoding="utf-8")
-    (sc / "enemy.tscn").write_text(
-        _actor_tscn("Enemy", f"res://assets/{enemy_sprite}", "res://scripts/enemy.gd",
-                    "RectangleShape2D_enemy", (14, 10)), encoding="utf-8")
+
+    # Enemy: an AnimatedSprite2D idle loop when the archetype animates, else static.
+    if len(enemy_frames) > 1:
+        (sc / "enemy_frames.tres").write_text(
+            _frames_tres([("idle", enemy_frames, 6.0)]), encoding="utf-8")
+        (sc / "enemy.tscn").write_text(
+            _animated_actor_tscn("Enemy", "res://scenes/enemy_frames.tres", "res://scripts/enemy.gd",
+                                 "RectangleShape2D_enemy", (14, 10)), encoding="utf-8")
+    else:
+        (sc / "enemy.tscn").write_text(
+            _actor_tscn("Enemy", f"res://assets/{enemy_frames[0]}", "res://scripts/enemy.gd",
+                        "RectangleShape2D_enemy", (14, 10)), encoding="utf-8")
+
+    # HUD coin: a spinning AnimatedSprite2D when it has a spin cycle, else static.
+    if len(coin_frames) > 1:
+        (sc / "coin_frames.tres").write_text(
+            _frames_tres([("spin", coin_frames, 8.0)]), encoding="utf-8")
+        coin_ext = '[ext_resource type="SpriteFrames" path="res://scenes/coin_frames.tres" id="5_coin"]'
+        coin_node = ('[node name="Coin" type="AnimatedSprite2D" parent="HUD"]\n'
+                     'position = Vector2(12, 30)\n'
+                     'sprite_frames = ExtResource("5_coin")\n'
+                     'animation = &"spin"\n'
+                     'autoplay = "spin"')
+    else:
+        coin_ext = f'[ext_resource type="Texture2D" path="res://assets/{coin_frames[0]}" id="5_coin"]'
+        coin_node = ('[node name="Coin" type="Sprite2D" parent="HUD"]\n'
+                     'position = Vector2(12, 30)\n'
+                     'texture = ExtResource("5_coin")')
+
     (sc / "main.tscn").write_text(f'''[gd_scene load_steps=6 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="1_player"]
 [ext_resource type="PackedScene" path="res://scenes/enemy.tscn" id="2_enemy"]
 [ext_resource type="Script" path="res://scripts/world.gd" id="3_world"]
 [ext_resource type="Texture2D" path="res://assets/{heart_sprite}" id="4_heart"]
-[ext_resource type="Texture2D" path="res://assets/{coin_sprite}" id="5_coin"]
+{coin_ext}
 
 [node name="Main" type="Node2D"]
 
@@ -169,7 +219,5 @@ position = Vector2(160, 96)
 position = Vector2(12, 12)
 texture = ExtResource("4_heart")
 
-[node name="Coin" type="Sprite2D" parent="HUD"]
-position = Vector2(12, 30)
-texture = ExtResource("5_coin")
+{coin_node}
 ''', encoding="utf-8")

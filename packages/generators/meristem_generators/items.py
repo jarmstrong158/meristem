@@ -9,7 +9,7 @@ from __future__ import annotations
 import numpy as np
 
 from .shading import Ramp
-from .sprite import Canvas, outline_dark
+from .sprite import Canvas, outline_dark, squeeze_h
 
 _STEEL, _GOLD, _LEATHER, _WOOD = (176, 184, 198), (214, 176, 72), (122, 80, 48), (124, 84, 46)
 
@@ -209,6 +209,21 @@ def pickup(contract, config=None) -> np.ndarray:
     cv = _icon(contract, cls)
     _PICKUPS.get(cfg["shape"], _pickup_coin)(cv, cfg["color"])
     return cv.array()
+
+
+def coin_spin(contract, config=None) -> list[np.ndarray]:
+    """A spinning-coin cycle: full face -> narrowing -> edge-on sliver -> narrowing.
+    Built by squeezing the static coin horizontally (palette-safe), so frame 0 is
+    the static coin exactly."""
+    base = pickup(contract, {**(config or {}), "shape": "coin"})
+    return [squeeze_h(base, f) for f in (1.0, 0.55, 0.22, 0.55)]
+
+
+def pickup_frames(contract, config=None) -> list[np.ndarray] | None:
+    """Only the coin spins; other pickups are static."""
+    if (config or {}).get("shape", "coin") == "coin":
+        return coin_spin(contract, config)
+    return None
 
 
 # ------------------------------- chest ------------------------------------

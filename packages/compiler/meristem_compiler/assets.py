@@ -24,41 +24,46 @@ def compile_assets(domains: dict, assets_dir: str | Path) -> list[dict]:
     assets_dir.mkdir(parents=True, exist_ok=True)
     written: list[dict] = []
 
-    def emit(archetype, config, name_class, ident, variant=None, entity=None):
-        img = build_archetype(contract, archetype, config)
+    def write_image(img, archetype, name_class, ident, variant, entity, frame=None):
         res = validate(img, archetype_class(archetype), contract)
         if not res.accepted:
-            raise ValueError(f"{archetype}:{ident} failed the gate: {res.reasons}")
+            raise ValueError(f"{archetype}:{ident} {variant or ''} failed the gate: {res.reasons}")
         fname = asset_filename(contract, name_class, ident, variant)
         path = assets_dir / fname
         img.save(path)
         Provenance(backend=archetype, contract_name=contract.name, contract_hash=contract.hash(),
                    gate_version="0.1.0", source_sha256=Provenance.sha256_of_file(path)).write_sidecar(path)
-        written.append({"archetype": archetype, "entity": entity or ident, "file": fname,
-                        "variant": variant, "class": name_class})
+        rec = {"archetype": archetype, "entity": entity or ident, "file": fname,
+               "variant": variant, "class": name_class}
+        if frame is not None:
+            rec["frame"] = frame
+        written.append(rec)
         return fname
+
+    def emit(archetype, config, name_class, ident, variant=None, entity=None):
+        return write_image(build_archetype(contract, archetype, config),
+                            archetype, name_class, ident, variant, entity)
+
+    def emit_frames(archetype, config, name_class, ident, entity, anim, skip0):
+        # Animated archetypes: emit each frame. skip0 references an already-written
+        # frame 0 (the idle/static PNG) so it isn't duplicated on disk.
+        for i, fr in enumerate(archetype_frames(contract, archetype, config) or []):
+            if skip0 and i == 0:
+                continue
+            write_image(fr, archetype, name_class, ident, f"{anim}_{i}", entity, frame=i)
 
     ents = domains.get("entities", {}) or {}
     for c in ents.get("characters", []):
         sp = c.get("sprite") or {"archetype": "humanoid"}
         cfg = sp.get("config", {})
         emit(sp["archetype"], cfg, "character", c["id"], "idle", entity=c["id"])
-        frames = archetype_frames(contract, sp["archetype"], cfg)   # animated archetypes
-        for i, fr in enumerate(frames or []):
-            res = validate(fr, archetype_class(sp["archetype"]), contract)
-            if not res.accepted:
-                raise ValueError(f"{sp['archetype']}:{c['id']} walk {i}: {res.reasons}")
-            fn = asset_filename(contract, "character", c["id"], f"walk_{i}")
-            fr.save(assets_dir / fn)
-            Provenance(backend=sp["archetype"], contract_name=contract.name,
-                       contract_hash=contract.hash(), gate_version="0.1.0",
-                       source_sha256=Provenance.sha256_of_file(assets_dir / fn)).write_sidecar(assets_dir / fn)
-            written.append({"archetype": sp["archetype"], "entity": c["id"], "file": fn,
-                            "variant": "walk", "frame": i, "class": "character"})
+        emit_frames(sp["archetype"], cfg, "character", c["id"], c["id"], "walk", skip0=False)
 
     for e in ents.get("enemies", []):
         sp = e.get("sprite") or {"archetype": "blob"}
-        emit(sp["archetype"], sp.get("config", {}), "enemy", e["id"], "idle", entity=e["id"])
+        cfg = sp.get("config", {})
+        emit(sp["archetype"], cfg, "enemy", e["id"], "idle", entity=e["id"])
+        emit_frames(sp["archetype"], cfg, "enemy", e["id"], e["id"], "anim", skip0=True)
 
     for it in (domains.get("items", {}) or {}).get("items", []):
         sp = it.get("sprite")
@@ -67,6 +72,7 @@ def compile_assets(domains: dict, assets_dir: str | Path) -> list[dict]:
 
     for name, cfg in _HUD:                                           # fixed HUD pickups
         emit("pickup", cfg, "ui_element", name, entity=name)
+        emit_frames("pickup", cfg, "ui_element", name, name, "spin", skip0=True)
 
     for a in contract.raw.get("asset_set", []):                     # terrain tiles
         if a.get("class") == "terrain_tile":

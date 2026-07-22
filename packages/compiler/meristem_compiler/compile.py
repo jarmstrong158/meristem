@@ -57,13 +57,18 @@ def compile_project(manifest_path: str | Path, out_dir: str | Path) -> dict:
                   friction=params.get("friction", 400),
                   enemy_name=enemy["name"], enemy_hp=int(enemy["stats"].get("hp", 1)),
                   enemy_atk=int(enemy["stats"].get("atk", 1)))
-    player_walk = sorted(w["file"] for w in written
-                         if w.get("variant") == "walk" and w["entity"] == player["id"])
+    def frame_files(entity_id: str, prefix: str) -> list[str]:
+        return [w["file"] for w in sorted(written, key=lambda w: w.get("frame", 0))
+                if w["entity"] == entity_id and (w.get("variant") or "").startswith(prefix)]
+
+    player_walk = frame_files(player["id"], "walk_")
+    enemy_frames = [asset_filename(contract, "enemy", enemy["id"], "idle")] + frame_files(enemy["id"], "anim_")
+    coin_frames = [asset_filename(contract, "ui_element", "coin", None)] + frame_files("coin", "spin_")
     write_scenes(out,
                  player_idle=asset_filename(contract, "character", player["id"], "idle"),
                  player_walk=player_walk,
-                 enemy_sprite=asset_filename(contract, "enemy", enemy["id"], "idle"),
-                 heart_sprite="ui_heart.png", coin_sprite="ui_coin.png")
+                 enemy_frames=enemy_frames,
+                 heart_sprite="ui_heart.png", coin_frames=coin_frames)
 
     # 4. project.godot
     write_project_godot(out, name=project["title"], main_scene="res://scenes/main.tscn",

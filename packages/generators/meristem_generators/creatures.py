@@ -10,7 +10,7 @@ from __future__ import annotations
 import numpy as np
 
 from .shading import Ramp
-from .sprite import Canvas, outline_dark
+from .sprite import Canvas, outline_dark, translate
 
 BLOB_DEFAULT = {"color": (96, 200, 96), "size": "m", "eyes": 2}
 _SIZE = {"s": (6, 9), "m": (8, 11), "l": (10, 13)}   # (ry, rx)
@@ -24,6 +24,8 @@ def build_blob(contract, config=None) -> np.ndarray:
     cv = Canvas(w, h)
     cx = w // 2
     ry, rx = _SIZE.get(cfg["size"], _SIZE["m"])
+    sq = int(cfg.get("squash", 0))                    # squash-and-stretch (idle anim)
+    ry = max(3, ry - sq); rx = rx + sq                # squash: shorter + wider
     cy = h - ry - 2                                   # sit near the ground
 
     # --- silhouette + directional form shadow (light top-left) ---
@@ -47,6 +49,13 @@ def build_blob(contract, config=None) -> np.ndarray:
 
     cv.outline(dark)
     return cv.array()
+
+
+def blob_idle(contract, config=None) -> list[np.ndarray]:
+    """Squash-and-stretch idle: rest -> squash down -> rest -> stretch up. Frame 0
+    equals the static build (squash 0), so the compiler's idle sprite matches it."""
+    cfg = dict(config or {})
+    return [build_blob(contract, {**cfg, "squash": s}) for s in (0, 1, 0, -1)]
 
 
 GHOST_DEFAULT = {"color": (224, 228, 244), "eyes": 2}
@@ -75,6 +84,13 @@ def build_ghost(contract, config=None) -> np.ndarray:
     cv.rect(18, 19, cx - 1, cx, dark)                # small mouth
     cv.outline(dark)
     return cv.array()
+
+
+def ghost_idle(contract, config=None) -> list[np.ndarray]:
+    """Float bob: the whole ghost drifts up 2px and back (rigid translate, so no new
+    colours). Frame 0 is the un-shifted static build."""
+    base = build_ghost(contract, config)
+    return [translate(base, dy=d) for d in (0, -1, -2, -1)]
 
 
 QUADRUPED_DEFAULT = {"color": (150, 118, 86), "build": "dog"}
@@ -144,21 +160,30 @@ def build_quadruped(contract, config=None) -> np.ndarray:
     cv.rect(18, npaw, 21, 22, body.base)             # near-front
     cv.rect(18, npaw - 1, 21, 21, body.highlight)    # lit front edge
 
-    # --- HEAD + neck + muzzle (front-right); muzzle length is a build knob ---
+    # --- HEAD + neck + muzzle (front-right); muzzle length is a build knob.
+    # `head_dy` bobs the head (not the neck root) for a breathing idle. ---
     mz = b["muzzle"]
-    cv.rect(11, 15, 20, 24, body.base)               # diagonal neck
-    cv.rect(8, 14, 23, 29, body.base)                # skull
-    cv.rect(12, 14, 28, mz, body.base)               # muzzle wedge (juts to `mz`)
-    cv.rect(8, 9, 24, 28, body.highlight)            # skull top highlight
-    cv.rect(14, 14, 24, mz, body.shadow)             # muzzle/jaw underside
-    cv.px(13, mz, dark)                              # nose (tip of snout)
-    cv.px(11, 28, dark)                              # eye (single pixel, high-front)
+    hd = int(cfg.get("head_dy", 0))
+    cv.rect(11, 15, 20, 24, body.base)               # diagonal neck (fixed to body)
+    cv.rect(8 + hd, 14 + hd, 23, 29, body.base)      # skull
+    cv.rect(12 + hd, 14 + hd, 28, mz, body.base)     # muzzle wedge (juts to `mz`)
+    cv.rect(8 + hd, 9 + hd, 24, 28, body.highlight)  # skull top highlight
+    cv.rect(14 + hd, 14 + hd, 24, mz, body.shadow)   # muzzle/jaw underside
+    cv.px(13 + hd, mz, dark)                         # nose (tip of snout)
+    cv.px(11 + hd, 28, dark)                         # eye (single pixel, high-front)
     ear_top = 8 - b["ear"]                            # taller ears reach higher
-    cv.rect(ear_top, 8, 23, 24, body.base); cv.rect(ear_top, 8, 26, 27, body.base)
-    cv.px(8, 24, body.shadow); cv.px(8, 27, body.shadow)
+    cv.rect(ear_top + hd, 8 + hd, 23, 24, body.base); cv.rect(ear_top + hd, 8 + hd, 26, 27, body.base)
+    cv.px(8 + hd, 24, body.shadow); cv.px(8 + hd, 27, body.shadow)
 
     # --- TAIL: build-specific silhouette off the rump ---
     _quad_tail(cv, body, b["tail"])
 
     cv.outline(dark)
     return cv.array()
+
+
+def quadruped_idle(contract, config=None) -> list[np.ndarray]:
+    """Gentle breathing idle: the head dips 1px and lifts. Frame 0 is the static
+    build (head_dy 0)."""
+    cfg = dict(config or {})
+    return [build_quadruped(contract, {**cfg, "head_dy": d}) for d in (0, 0, 1, 0)]
