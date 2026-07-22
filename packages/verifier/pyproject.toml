@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "meristem-verifier"
+version = "0.1.0"
+description = "Two free verifier loops: headless assertions + offscreen visual critique."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = ["meristem-spec-store"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "meristem-compiler"]
+
+[project.scripts]
+meristem-verify = "meristem_verifier.cli:main"
+
+[tool.setuptools]
+packages = ["meristem_verifier"]
+
+[tool.setuptools.package-data]
+meristem_verifier = ["harness/*.gd", "harness/*.tscn"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -38,3 +38,7 @@ scratch/
 # Xylem local stores (never commit)
 .context/
 .cambium/
+
+# verifier scratch injected into compiled games
+examples/*/game/verifier/
+build/

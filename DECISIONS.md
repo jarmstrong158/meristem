@@ -71,6 +71,14 @@ These are the expensive ones to relitigate — Phase 0 especially.
 **Rejected:** (a) a single mega-schema with `$ref`s across domains — ref-resolution complexity, and it still can't do existence checks like "this id exists in another array"; (b) coercing/auto-fixing invalid writes — hides authoring errors, violates "reject, don't coerce"; (c) field-level patch tools — a partial write can't be validated as a coherent domain.
 **Tradeoff:** callers must submit a whole valid domain, not a one-field poke. Accepted deliberately: it keeps every stored state a fully-validated one.
 
+### dec-0016 — Phase 4 verifier: both loops work; dec-0007 offscreen capture CONFIRMED
+**Problem:** "it compiled and ran" is not "it is correct." The slice needed machine verification against its spec.
+**Decision + result:** two loops, both free, both proven on the slice.
+- **Assertion loop** (headless): derive assertions from the manifest, drive the compiled game under true `--headless` (physics runs, no renderer), measure. *`move_speed` measured 80.0 = spec.*
+- **Visual loop** (windowed): capture a real rendered frame and critique against spec-derived expectations. **dec-0007 is now CONFIRMED** — Godot's `--headless` can't render, but running windowed and calling `get_viewport().get_texture().get_image().save_png()` produces a valid frame on this Windows box (no Xvfb). The capture of the running slice showed a coherent game.
+**Finding (the visual loop earning its keep):** the capture revealed the **slime enemy placed on the water pond** — a placement bug no physics assertion catches. Follow-up: drive entity placement from the spec and keep enemies off impassable tiles (part of the dec-0015 "levels in the manifest" work).
+**Tradeoff:** the vision *verdict* is produced by the orchestrating model against the printed expectations checklist; the package produces the capture + checklist, not the judgment. Accepted — keeps the package free and model-agnostic.
+
 ### dec-0014 — LDtk emission: resolved Tiles layer + IntGrid semantics, not auto-layer rules
 **Problem:** dec-0008 routes tiles through LDtk (the model writes semantic ints, not tile IDs). How should the *compiler* emit the `.ldtk`?
 **Decision:** the compiler emits a **resolved Tiles layer** — explicit `gridTiles` it computes deterministically from the semantic grid — paired with an **IntGrid layer** carrying the semantic values. It does **not** emit auto-layer rules.
