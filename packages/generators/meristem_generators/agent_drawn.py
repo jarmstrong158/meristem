@@ -107,6 +107,27 @@ def _bottom_opaque_row(grid) -> int:
     return rows[-1] if rows else grid.shape[0] - 1
 
 
+def _swing_arms(grid, forward_side: str, hand_idx: int):
+    """Swing hands in opposition: the hand on `forward_side` moves down 1px (forward),
+    the other up 1px (back). Operates only on hand-colored pixels in the hand band, so
+    it never disturbs the torso or face."""
+    if hand_idx is None:
+        return grid
+    out = grid.copy()
+    h, w = grid.shape
+    mid = w // 2
+    band = range(max(0, h - 12), h - 8)          # hand rows only (excludes face + legs)
+    hands = [(r, c) for r in band for c in range(w) if grid[r, c] == hand_idx]
+    for r, c in hands:
+        side = "left" if c < mid else "right"
+        dy = 1 if side == forward_side else -1    # forward = down, back = up
+        out[r, c] = -1
+        nr = r + dy
+        if 0 <= nr < h:
+            out[nr, c] = hand_idx
+    return out
+
+
 class AgentDrawnGenerator(Generator):
     name = "agent-drawn"
 
@@ -143,9 +164,11 @@ class AgentDrawnGenerator(Generator):
                 # Standing/idle is the TALL neutral. Step frames are 1px shorter (body
                 # dips onto the planted foot) with the OTHER foot lifted. Feet stay
                 # planted otherwise. Play: step-L -> stand -> step-R -> stand.
-                f0 = _lift_foot(_squash_body(idle, leg_top), right_cols)  # contact-left
+                hand = contract.name_to_index.get("peach")
+                # opposition: screen-RIGHT foot steps -> screen-LEFT hand forward, & vice versa
+                f0 = _swing_arms(_lift_foot(_squash_body(idle, leg_top), right_cols), "left", hand)
                 f1 = idle                                                 # passing/standing
-                f2 = _lift_foot(_squash_body(idle, leg_top), left_cols)   # contact-right
+                f2 = _swing_arms(_lift_foot(_squash_body(idle, leg_top), left_cols), "right", hand)
                 f3 = idle                                                 # passing/standing
                 pal = contract.palette_rgb
                 return [render(g, pal) for g in (f0, f1, f2, f3)]

@@ -18,8 +18,11 @@ func _physics_process(delta: float) -> void:
 	if _anim != null:
 		if velocity.length() > 5.0:
 			_anim.play("walk")
+			# cadence tracks actual speed so the feet don't skate
+			_anim.speed_scale = clampf(velocity.length() / MOVE_SPEED, 0.4, 1.6)
 			if absf(dir.x) > 0.0:
 				_anim.flip_h = dir.x < 0.0
 		else:
 			_anim.play("idle")
+			_anim.speed_scale = 1.0
 	move_and_slide()
