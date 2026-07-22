@@ -91,10 +91,11 @@ def build_quadruped(contract, config=None) -> np.ndarray:
     w, h = contract.canvas_of("enemy")
     cv = Canvas(w, h)
 
-    # --- FAR leg pair (behind): shadow, thin, paws 1px high (row 27). Distinct columns. ---
-    cv.rect(15, 19, 7, 8, body.shadow); cv.rect(19, 27, 6, 7, body.shadow)   # far-back (Z)
-    cv.rect(27, 27, 5, 7, body.shadow)
-    cv.rect(15, 27, 16, 17, body.shadow); cv.rect(27, 27, 16, 18, body.shadow)  # far-front
+    # --- FAR leg pair (behind): shadow, thin 2px, paws 1px high (row 27). ---
+    # Legs sit at cols 6, 11, 16, 21 -> 3px gaps that survive the outline (a 2px
+    # gap gets closed when both sides are outlined, fusing the paws into a floor).
+    cv.rect(15, 27, 6, 7, body.shadow)               # far-back
+    cv.rect(15, 27, 16, 17, body.shadow)             # far-front
 
     # --- BODY loaf: curved back (withers high), belly at row 15, tucked toward rear ---
     body_rows = {10: (19, 23), 11: (9, 25), 12: (7, 27), 13: (7, 28),
@@ -104,11 +105,10 @@ def build_quadruped(contract, config=None) -> np.ndarray:
     cv.rect(11, 12, 10, 23, body.highlight)          # spine highlight (top of back)
     cv.rect(14, 15, 9, 25, body.shadow)              # belly underside (darkest)
 
-    # --- NEAR leg pair (front): base, distinct columns, paws on ground (row 28) ---
-    cv.rect(15, 19, 11, 12, body.base); cv.rect(19, 28, 10, 11, body.base)   # near-back (Z-bend)
-    cv.rect(28, 28, 9, 11, body.base)
-    cv.rect(15, 28, 20, 21, body.base); cv.rect(28, 28, 20, 22, body.base)   # near-front (vertical)
-    cv.rect(15, 27, 20, 20, body.highlight)          # lit front edge
+    # --- NEAR leg pair (front): base, thin 2px, on the ground (row 28) ---
+    cv.rect(15, 28, 11, 12, body.base)               # near-back
+    cv.rect(15, 28, 21, 22, body.base)               # near-front
+    cv.rect(15, 27, 21, 21, body.highlight)          # lit front edge
 
     # --- HEAD + neck + muzzle (front-right) ---
     cv.rect(11, 15, 20, 24, body.base)               # diagonal neck

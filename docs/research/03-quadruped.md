@@ -39,8 +39,14 @@ Identical vertical posts read as furniture. Give the pairs different bends:
   lightning bolt). This is the haunch, and it's what makes it an *animal*.
 
 Keep legs **thin (2px)** with **transparent gaps** between all four. Cols used:
-far-back ≈6, near-back ≈10, far-front ≈16, near-front ≈20 — gaps at 8–9, 12–15
-(the belly), 18–19.
+far-back 6, near-back 11, far-front 16, near-front 21 — evenly spaced.
+
+**Gaps must be ≥3px, not 2px.** The selective outline adds one dark pixel to
+each side of a gap, so a 2px gap gets both columns painted and the four legs
+**fuse into a floor bar** (the table again, from below). A 3px gap keeps its
+middle column transparent after outlining, so the legs stand free to the ground.
+For the same reason, don't add a bottom cast-shadow bar or inward-pointing paw
+toe-caps — both re-bridge the feet.
 
 ## 4. Body form (top-left light)
 
