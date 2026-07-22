@@ -140,6 +140,23 @@ def test_creature_archetypes_vary(contract):
         assert validate(Image.fromarray(arr, "RGBA"), "enemy", contract).accepted
 
 
+def test_quadruped_builds_vary(contract):
+    import numpy as np
+    from PIL import Image
+    from meristem_generators.creatures import build_quadruped
+    builds = {b: build_quadruped(contract, {"build": b}) for b in ("dog", "wolf", "boar", "cat")}
+    arrs = list(builds.values())
+    for i in range(len(arrs)):                              # every build is distinct
+        for j in range(i + 1, len(arrs)):
+            assert not np.array_equal(arrs[i], arrs[j])
+    for b, arr in builds.items():                          # and each still gates
+        res = validate(Image.fromarray(arr, "RGBA"), "enemy", contract)
+        assert res.accepted, f"{b}: {res.reasons}"
+        assert res.report["unique_colors"] <= contract.max_colors
+    # an unknown build falls back to the dog skeleton rather than crashing
+    assert np.array_equal(build_quadruped(contract, {"build": "griffon"}), builds["dog"])
+
+
 def test_default_generate_frames_is_single(contract):
     # a tile has no animation; generate_frames returns one frame
     frames = get("procedural").generate_frames(AssetSpec("terrain_tile", "grass"), contract)

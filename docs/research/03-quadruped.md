@@ -68,20 +68,24 @@ toe-caps — both re-bridge the feet.
   centered block reads as a bug or a mouth-blob (the character-face mistake).
 - **Ears** are two short uprights at the top-back of the skull.
 
-## 6. Parametric knobs (future)
+## 6. Parametric knobs (implemented)
 
-The build is colour-parametric today (`config.color`). The knobs a fuller
-library wants, all expressible over this same skeleton:
+Beyond `config.color`, the build takes `config.build` — a preset that reshapes
+the one skeleton via a handful of knobs (leg length, ear height, muzzle jut,
+tail style). Shipped in `_QUAD_BUILDS`:
 
-| variant | back | ears | muzzle | tail | proportion |
-|---------|------|------|--------|------|------------|
-| dog     | Z-bent | upright | short | curl up | balanced |
-| wolf    | Z-bent | tall pointed | long | low straight | leggy |
-| boar    | stubby | small | long snout | tiny | low + heavy |
-| cat     | deep Z | small | short | long S-curve | slim |
+| variant | legs | ears | muzzle | tail | reads as |
+|---------|------|------|--------|------|----------|
+| dog     | balanced (paw 28) | upright (2px) | short (col 30) | curl up | balanced hound |
+| wolf    | leggy (paw 29) | tall pointed (3px) | long (col 31) | low straight | lean predator |
+| boar    | short (paw 27) | small (1px) | long snout (col 31) | tiny stub | low & heavy |
+| cat     | balanced (paw 28) | small (1px) | short (col 29) | tall S-curve | slim feline |
 
 These are proportion + appendage swaps over the fixed archetype — the same
 "sprites are parameters over an archetype" principle as the rest of the library.
+Adding a variant is a row in the preset table, not new drawing code. The body
+loaf itself is shared (thick, per §1); the silhouette differences come entirely
+from the appendages, which is enough to read four distinct beasts at 1×.
 
 ## 7. The gate does not judge this
 

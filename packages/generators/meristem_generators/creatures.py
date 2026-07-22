@@ -77,25 +77,57 @@ def build_ghost(contract, config=None) -> np.ndarray:
     return cv.array()
 
 
-QUADRUPED_DEFAULT = {"color": (150, 118, 86)}
+QUADRUPED_DEFAULT = {"color": (150, 118, 86), "build": "dog"}
+
+# Proportion/appendage knobs over the fixed quadruped skeleton (research 03 §6).
+# paw   = ground row for the near legs (leg length; far paws sit 1px higher)
+# ear   = ear height in px (upright pointed vs small)
+# muzzle= how far the snout juts right (short face vs long snout)
+# tail  = tail style: "curl" up, "low" straight-down, "stub" tiny, "scurve" long S
+_QUAD_BUILDS = {
+    "dog":  {"paw": 28, "ear": 2, "muzzle": 30, "tail": "curl"},    # balanced
+    "wolf": {"paw": 29, "ear": 3, "muzzle": 31, "tail": "low"},     # leggy, tall ears, long
+    "boar": {"paw": 27, "ear": 1, "muzzle": 31, "tail": "stub"},    # low & heavy, long snout
+    "cat":  {"paw": 28, "ear": 1, "muzzle": 29, "tail": "scurve"},  # slim, short face
+}
+
+
+def _quad_tail(cv, body, style):
+    """Draw a build-specific tail off the rump (left edge, ~col 2-7)."""
+    if style == "curl":                              # dog: sweeps down then curls up
+        cv.rect(12, 16, 4, 7, body.base); cv.rect(11, 13, 2, 5, body.base)
+        cv.rect(15, 16, 4, 6, body.shadow)
+    elif style == "low":                             # wolf: long, hangs low & straight
+        cv.rect(13, 22, 4, 6, body.base)
+        cv.rect(18, 22, 4, 5, body.shadow)
+    elif style == "stub":                            # boar: tiny nub
+        cv.rect(13, 15, 5, 7, body.base)
+        cv.rect(15, 15, 5, 6, body.shadow)
+    elif style == "scurve":                          # cat: long, tall S-curve
+        cv.rect(9, 15, 5, 7, body.base); cv.rect(8, 10, 6, 9, body.base)
+        cv.rect(12, 15, 5, 5, body.shadow)
 
 
 def build_quadruped(contract, config=None) -> np.ndarray:
     """A side-view four-legged beast (facing right), built to the quadruped spec
-    (docs/research/03-quadruped.md): three masses on a curved spine; TWO sets of biped
-    legs — the far pair darker + offset + paws 1px higher (depth), front legs vertical,
-    back legs Z-bent; tucked belly, raised withers. Parametric colour."""
+    (docs/research/03-quadruped.md): a thick body loaf on a curved spine; TWO sets of
+    biped legs — the far pair darker + paws 1px higher (depth), the near pair on the
+    ground; legs hang *below* the body with 3px gaps so they read as four and never
+    fuse into a floor. Parametric by colour and `build` (dog/wolf/boar/cat) — the
+    build knobs (leg length, ears, muzzle, tail) reshape the one skeleton (§6)."""
     cfg = {**QUADRUPED_DEFAULT, **(config or {})}
+    b = _QUAD_BUILDS.get(cfg["build"], _QUAD_BUILDS["dog"])
     body = Ramp(cfg["color"])
     dark = outline_dark(cfg["color"])
     w, h = contract.canvas_of("enemy")
     cv = Canvas(w, h)
+    npaw, fpaw = b["paw"], b["paw"] - 1              # near on ground, far 1px higher
 
-    # --- FAR leg pair (behind): shadow, thin 2px, tuck under belly (row 17),
-    # paws 1px high (row 27). Legs at cols 6/11/16/21 -> 3px gaps that survive the
-    # outline (a 2px gap gets closed when both sides are outlined, fusing the paws). ---
-    cv.rect(17, 27, 6, 7, body.shadow)               # far-back
-    cv.rect(17, 27, 16, 17, body.shadow)             # far-front
+    # --- FAR leg pair (behind): shadow, thin 2px, tuck under belly (row 17).
+    # Legs at cols 6/11/16/21 -> 3px gaps that survive the outline (a 2px gap gets
+    # closed when both sides are outlined, fusing the paws into a floor). ---
+    cv.rect(17, fpaw, 6, 7, body.shadow)             # far-back
+    cv.rect(17, fpaw, 16, 17, body.shadow)           # far-front
 
     # --- BODY loaf: THICK. ~9 rows tall (9-17), wide (cols 6-28) with a WIDE belly
     # so the legs hang below it and the body reads as a full beast, not a rail. The
@@ -107,25 +139,26 @@ def build_quadruped(contract, config=None) -> np.ndarray:
     cv.rect(11, 13, 10, 22, body.highlight)          # broad spine highlight (top of back)
     cv.rect(16, 17, 8, 25, body.shadow)              # belly underside (darkest)
 
-    # --- NEAR leg pair (front): base, thin 2px, on the ground (row 28) ---
-    cv.rect(18, 28, 11, 12, body.base)               # near-back
-    cv.rect(18, 28, 21, 22, body.base)               # near-front
-    cv.rect(18, 27, 21, 21, body.highlight)          # lit front edge
+    # --- NEAR leg pair (front): base, thin 2px, on the ground ---
+    cv.rect(18, npaw, 11, 12, body.base)             # near-back
+    cv.rect(18, npaw, 21, 22, body.base)             # near-front
+    cv.rect(18, npaw - 1, 21, 21, body.highlight)    # lit front edge
 
-    # --- HEAD + neck + muzzle (front-right) ---
+    # --- HEAD + neck + muzzle (front-right); muzzle length is a build knob ---
+    mz = b["muzzle"]
     cv.rect(11, 15, 20, 24, body.base)               # diagonal neck
     cv.rect(8, 14, 23, 29, body.base)                # skull
-    cv.rect(12, 14, 28, 31, body.base)               # muzzle wedge (forward)
+    cv.rect(12, 14, 28, mz, body.base)               # muzzle wedge (juts to `mz`)
     cv.rect(8, 9, 24, 28, body.highlight)            # skull top highlight
-    cv.rect(14, 14, 24, 31, body.shadow)             # muzzle/jaw underside
-    cv.px(13, 31, dark)                              # nose
+    cv.rect(14, 14, 24, mz, body.shadow)             # muzzle/jaw underside
+    cv.px(13, mz, dark)                              # nose (tip of snout)
     cv.px(11, 28, dark)                              # eye (single pixel, high-front)
-    cv.rect(6, 8, 23, 24, body.base); cv.rect(6, 8, 26, 27, body.base)   # upright ears (top-back)
+    ear_top = 8 - b["ear"]                            # taller ears reach higher
+    cv.rect(ear_top, 8, 23, 24, body.base); cv.rect(ear_top, 8, 26, 27, body.base)
     cv.px(8, 24, body.shadow); cv.px(8, 27, body.shadow)
 
-    # --- TAIL: from rump, sweeps down-left with a curl ---
-    cv.rect(12, 16, 4, 7, body.base); cv.rect(11, 13, 2, 5, body.base)
-    cv.rect(15, 16, 4, 6, body.shadow)               # underside
+    # --- TAIL: build-specific silhouette off the rump ---
+    _quad_tail(cv, body, b["tail"])
 
     cv.outline(dark)
     return cv.array()
