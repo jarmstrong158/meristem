@@ -14,6 +14,7 @@ from PIL import Image
 from .base import AssetSpec, Generator
 from .procedural import ProceduralGenerator
 from .humanoid import build_humanoid, humanoid_walk
+from .creatures import build_blob
 
 
 # ===========================================================================
@@ -22,20 +23,6 @@ from .humanoid import build_humanoid, humanoid_walk
 # ===========================================================================
 from .sprite import Canvas, outline_dark
 from .shading import Ramp
-
-
-def build_slime(contract, materials=None):
-    body = Ramp((96, 200, 96))                 # green
-    cv = Canvas(*contract.canvas_of("enemy"))  # 32x32
-    cv.disc(24, 16, 8, 12, body.base)          # wide rounded dome sitting on the ground
-    cv.disc(20, 12, 3, 5, body.highlight)      # top-left sheen
-    cv.disc(28, 21, 4, 8, body.shadow)         # bottom-right shade
-    white, dark = (240, 245, 240), outline_dark(body.base)
-    cv.rect(22, 23, 12, 13, white); cv.rect(22, 23, 19, 20, white)   # eyes
-    cv.px(23, 12, dark); cv.px(23, 19, dark)                          # pupils
-    cv.px(26, 15, body.shadow); cv.px(26, 16, body.shadow)           # small mouth
-    cv.outline(dark)
-    return cv.array()
 
 
 def _icon(contract, cls="item_icon"):
@@ -123,7 +110,7 @@ def build_coin(contract, materials=None):
 
 _RGBA_BUILDERS = {
     ("character", "player"): build_humanoid,   # LPC-style layered humanoid (dec-0022)
-    ("enemy", "slime"): build_slime,
+    ("enemy", "slime"): build_blob,            # blob creature archetype (default: green)
     ("item_icon", "sword"): build_sword,
     ("item_icon", "potion"): build_potion,
     ("item_icon", "key"): build_key,

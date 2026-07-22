@@ -90,6 +90,18 @@ def test_walk_cycle_frames(contract):
     assert np.array_equal(arrs[1], arrs[3])              # both stand frames identical
 
 
+def test_blob_archetype_is_parametric(contract):
+    from meristem_generators.creatures import build_blob
+    from PIL import Image
+    green = build_blob(contract, {"color": (96, 200, 96)})
+    king = build_blob(contract, {"color": (80, 150, 235), "size": "l", "eyes": 3})
+    assert not np.array_equal(green, king)                      # config drives the sprite
+    for arr in (green, king):
+        res = validate(Image.fromarray(arr, "RGBA"), "enemy", contract)
+        assert res.accepted, res.reasons
+        assert res.report["unique_colors"] <= contract.max_colors
+
+
 def test_default_generate_frames_is_single(contract):
     # a tile has no animation; generate_frames returns one frame
     frames = get("procedural").generate_frames(AssetSpec("terrain_tile", "grass"), contract)
