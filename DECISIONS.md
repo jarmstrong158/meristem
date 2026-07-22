@@ -64,6 +64,20 @@ These are the expensive ones to relitigate — Phase 0 especially.
 **Decision:** a single generator interface `generate(spec, style_contract) -> Image`. The Phase 0 backends are the first implementations. A paid-API or future CC0-LoRA backend must be addable later **without touching the asset gate**. The asset gate normalizes/validates output regardless of source.
 **Tradeoff:** a small upfront abstraction; explicitly the *only* generator abstraction allowed (the "fourth abstraction layer, stop and ask" rule applies).
 
+### dec-0011 — The style-contract thesis HOLDS; per-class backend assignment = surfaces→procedural, objects→agent-drawn
+**Problem:** the whole project rests on whether a written style contract can make independent free generators produce one coherent game (dec-0010's experiment).
+**Decision:** thesis confirmed against the pre-registered bar. Ship both throwaway backends into Phase 1 as maintained implementations, assigned by class: **terrain tiles/textures → procedural** (deterministic, instant, ~0-token, texture is its strength); **all discrete objects (character, enemy, item icons, UI) → agent-drawn** (hand-authored, view-refine loop).
+**Evidence (docs/research/00-bakeoff.md):** a *blind* judge (no labels, no answer key) rated the mixed procedural-tiles + agent-drawn-sprites set **5/5 "one artist", 0 odd-one-out, 11/11 identified at 1×**, and rated the all-procedural set only 3/5 with three misreads (procedural heart→"gem", sword→"fishing rod", key→"seahorse"). Both backends were 100% palette-adherent, 0 semi-alpha, byte-deterministic.
+**Refined hypothesis:** procedural is weak not just at characters but at *all* small discrete objects — 16×16 procedural icons/UI lack intentional silhouette. Clean division: **procedural = surfaces, agent-drawn = objects.**
+**Rejected:** all-procedural (fails coherence + readability bar); all-agent-drawn (wasteful — procedural tiles are free/instant and judged equally coherent).
+**Tradeoff:** two backends to maintain instead of one — accepted, and exactly what the dec-0009 plugin boundary was built for. The blind 5/5 on a *mixed-backend* set is the load-bearing result: the contract, not a single generator, carries coherence.
+
+### dec-0012 — Base terrain tiles are generated as material, made tileable by the compiler (not a baked bevel)
+**Problem:** the uniform bevel that lifts *object* coherence makes base tiles self-contained lit squares that don't seam-match (seam score 30; visible per-tile borders in the mock scene).
+**Decision:** the generator emits terrain as flat *material* tiles; **tileability is produced at compile time via TilePipe2 autotiling / LDtk auto-layer rules** (dec-0008 already routes tiles through LDtk). The bevel/outline-as-coherence device is retained for discrete objects only.
+**Rejected:** baking bevels/edges into base tiles — breaks seamless tiling and fights the autotiler.
+**Tradeoff:** none — this is how autotiling pipelines are meant to work; the bake-off just made the reason concrete.
+
 ### dec-0010 — Bake-off rubric tightened and pre-registered before running
 **Problem:** a vibe-based rubric lets us rationalize whatever result we get. The bake-off's whole job is to falsify (or not) the style-contract thesis.
 **Decision:** the Phase 0c rubric is quantified, blind-judged where subjective, and its pass/fail bar is written down *before* generation (see docs/research/00-bakeoff.md, "Pre-registered rubric"). The thesis has an explicit failure condition; if it fails, the response is a different architecture, not more code.

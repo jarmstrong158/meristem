@@ -71,16 +71,82 @@ sees assets/sheets with **no backend labels and no expected-answer key**.
 
 ## Results
 
-*(appended after the run — not yet populated)*
+*Run 2026-07-22. Two backends over the 11-asset set. Local diffusion not run (cut, dec-0002).*
 
-### Per-metric measurements
-_TBD_
+### Per-metric measurements (objective)
 
-### Blind judging
-_TBD_
+| Metric | Procedural | Agent-drawn | Bar | Result |
+|---|---|---|---|---|
+| Palette adherence (post-norm) | 100% all 11 | 100% all 11 | 100% | ✅ both (by construction — index-grid backends) |
+| Alpha discipline (semi-transparent px) | 0 all 11 | 0 all 11 | 0 | ✅ both |
+| Tile transparent px | 0 all tiles | 0 all tiles | 0 | ✅ both |
+| Canvas size exact | ✅ 11/11 | ✅ 11/11 | exact | ✅ both |
+| Determinism (byte-identical rebuild) | ✅ | ✅ | required | ✅ both |
+| Tile seam discontinuity | 30 | 30 (tiles reused) | informational | ⚠️ see finding below |
 
-### Per-class backend assignment (the verdict)
-_TBD_
+The two clean backends are **palette-perfect and hard-alpha by construction** — they work in
+palette-index space, so the normalizer/gate has *zero* work to do on their output. That is itself the
+headline objective finding: license-safe procedural + agent-drawn output needs **no rescue** to pass the
+gate. (The normalizer earns its keep only on a non-palette source such as diffusion — which is cut.)
+
+### Blind judging (independent judge, no labels, no answer key)
+
+Judge saw two neutrally-named sets. **Set A = agent-drawn sprites + procedural tiles. Set B = all-procedural.**
+
+| | Set A (agent-drawn sprites) | Set B (all-procedural) |
+|---|---|---|
+| Coherence "one artist?" (1–5) | **5/5** | 3/5 |
+| Odd-one-out | **none** | position 9 (procedural key — "blobby/seahorse") |
+| Blind 1× identification | **11/11** read correctly | **8/11** — 3 misses |
+| Misreads | — | sword → "fishing rod/wand"; key → "unclear/seahorse"; **heart → "gem/diamond"** |
+| Mock scene | "coherent classic platformer screen… clean and legible" | "reads as a game screen" but pickup "nearly invisible/ambiguous", sprites "softer than the tiles" |
+
+Verbatim final: *"Set A is more visually coherent and readable overall… every asset reads instantly (5/5).
+Set B has strong tiles and a nice slime/coin, but three assets drag it down… making the set feel partly
+mismatched (3/5)."*
+
+### Per-class backend assignment (the verdict) — recorded as DECISIONS dec-0011
+
+| Asset class | Winner | Why |
+|---|---|---|
+| Terrain tiles / textures | **Procedural** | Both sets' tiles judged coherent; procedural is deterministic, instant, ~0-token, and texture/noise is its strength. Agent-drawn reused them. |
+| Character | **Agent-drawn** | Procedural character judged "rough proportions"; agent-drawn reads instantly as a hero. |
+| Enemy (slime) | Agent-drawn (procedural acceptable) | Both read as a slime; agent-drawn slightly cleaner. |
+| Item icons (sword/potion/key) | **Agent-drawn** | Procedural sword→"fishing rod", key→"seahorse" (2 blind misses). Agent-drawn all read correctly. |
+| UI (heart/coin) | **Agent-drawn** | Procedural **heart misread as a gem** — a hard readability failure at this size. Agent-drawn heart reads as a heart. |
+
+**Refinement of the going-in hypothesis.** We expected "procedural good at tiles/icons/UI, bad at
+characters." The blind test sharpened it: procedural is excellent at **tiles/textures** but weak at **all
+small discrete objects** (icons and UI too, not just characters) — a 16×16 procedural heart/key/sword
+doesn't carry enough intentional silhouette to read. The clean division is **procedural = surfaces,
+agent-drawn = objects.**
 
 ### Does the thesis hold?
-_TBD — measured against the fixed bar above, not adjusted to it._
+
+**YES — measured against the fixed pre-registered bar, not adjusted to it.**
+
+The bar: *there exists a per-class backend assignment whose 11-asset sheet meets (1) 100% palette + 0 alpha,
+(2) mean coherence ≥ 4/5 with no majority odd-one-out, (3) ≥ 10/11 blind 1× ID.*
+
+The **procedural-tiles + agent-drawn-sprites** assignment (Set A) hit **100% palette / 0 alpha / 5-of-5
+coherence / none odd-one-out / 11-of-11 identified** — every clause, with margin, and a blind judge
+independently called it a single artist's work. Crucially, that set **mixes two backends** and the judge
+still saw perfect unity, which is the real load-bearing claim: *a written style contract (locked palette +
+uniform outline + shading/anchor rules) constrains independent free generators hard enough that their
+combined output reads as one coherent game.* The all-procedural set (3/5, three misreads) shows the bar is
+discriminating, not a rubber stamp — it can fail, and one backend did.
+
+**Architectural consequence:** proceed as designed. The generator plugin boundary (dec-0009) is
+vindicated — different backends per asset class, unified by the contract + the asset gate, is not just
+viable but preferred. Phase 1 builds the real asset gate and promotes these two throwaway backends into
+maintained implementations.
+
+### Secondary finding — base tiles must not carry a baked bevel
+
+The uniform top-left bevel that helps *coherence* also makes each base tile a self-contained lit square,
+so tiles do not seam-match (seam score 30) and the mock-scene ground shows visible per-tile cell borders.
+**Consequence (DECISIONS dec-0012):** terrain in the real pipeline is generated as *material* tiles and
+assembled into seamless terrain via **TilePipe2 autotiling / LDtk auto-layer rules** at compile time — the
+generator produces the material, the compiler produces the tileability. Bevel-as-coherence-lever stays for
+discrete objects (outline + light direction), not for tiling surfaces.
+
