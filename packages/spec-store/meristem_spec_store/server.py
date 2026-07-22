@@ -81,6 +81,52 @@ def default_manifest_path() -> Path:
     return Path(os.environ.get("MERISTEM_MANIFEST", "meristem.manifest.json"))
 
 
+# ---- MCP Apps (SEP-1865, Final) spec-inspector panel ----
+SPEC_INSPECTOR_URI = "ui://meristem/spec-inspector.html"
+SPEC_INSPECTOR_HTML = """<!doctype html><html><head><meta charset="utf-8"><style>
+body{font:13px system-ui,sans-serif;margin:0;padding:12px;background:#1a1b26;color:#c0caf5}
+h2{margin:0 0 8px;font-size:15px}.ok{color:#9ece6a}.bad{color:#f7768e}
+.dom{display:flex;justify-content:space-between;padding:4px 8px;border-radius:6px;background:#24283b;margin:3px 0}
+.miss{opacity:.4}.err{color:#f7768e;font-size:12px;margin:2px 0 2px 8px}
+button{background:#7aa2f7;border:0;color:#1a1b26;padding:6px 10px;border-radius:6px;cursor:pointer;font-weight:600}
+</style></head><body>
+<h2>Meristem manifest <span id="ver"></span></h2>
+<div id="status"></div><div id="domains"></div><div id="errors"></div>
+<p><button id="reval">Re-validate</button></p>
+<script>
+let _id=0;
+function rpc(m,p){window.parent.postMessage({jsonrpc:"2.0",id:++_id,method:m,params:p},"*");}
+function render(sc){
+  if(!sc)return;
+  document.getElementById("ver").textContent=sc.version!=null?("v"+sc.version):"";
+  var v=sc.validation||{};
+  document.getElementById("status").innerHTML=v.ok
+    ?'<div class="ok">&#10003; valid &mdash; schemas + cross-references</div>'
+    :'<div class="bad">&#10007; invalid</div>';
+  var doms=sc.domains||{};
+  document.getElementById("domains").innerHTML=Object.keys(doms).map(function(d){
+    return '<div class="dom '+(doms[d]?'':'miss')+'"><span>'+d+'</span><span>'+(doms[d]?'\\u25CF':'\\u2014')+'</span></div>';}).join("");
+  var errs=[];var se=v.schema_errors||{};
+  for(var k in se){(se[k]||[]).forEach(function(e){errs.push(k+": "+e);});}
+  (v.crossref_errors||[]).forEach(function(e){errs.push("cross-ref: "+e);});
+  document.getElementById("errors").innerHTML=errs.map(function(e){return '<div class="err">&bull; '+e+'</div>';}).join("");
+}
+window.addEventListener("message",function(e){
+  var m=e.data||{};
+  if(m.method==="ui/notifications/tool-result"){render(m.params&&m.params.structuredContent);}
+});
+document.getElementById("reval").onclick=function(){rpc("tools/call",{name:"inspect_manifest",arguments:{}});};
+rpc("ui/initialize",{appInfo:{name:"meristem-spec-inspector"},capabilities:{}});
+</script></body></html>"""
+
+
+def _inspector_payload(store: SpecStore) -> dict:
+    return {"version": store.version,
+            "domains": {d: (store.domains.get(d) is not None) for d in DOMAINS},
+            "present": sorted(store.domains),
+            "validation": store.validate_all().to_dict()}
+
+
 def build_server(service: Optional[SpecService] = None):
     from mcp.server.fastmcp import FastMCP  # imported lazily so the lib works without mcp
 
@@ -119,6 +165,20 @@ def build_server(service: Optional[SpecService] = None):
     @mcp.tool(description="Validate the whole manifest: per-domain schemas + cross-references.")
     def validate_all() -> dict:
         return svc.validate_all()
+
+    # ---- MCP Apps (SEP-1865) spec-inspector panel + its tool ----
+    @mcp.resource(SPEC_INSPECTOR_URI, mime_type="text/html;profile=mcp-app",
+                  meta={"ui": {"csp": {"resourceDomains": []}}})
+    def spec_inspector_view() -> str:
+        return SPEC_INSPECTOR_HTML
+
+    @mcp.tool(
+        description="Show the manifest in an inline inspector panel (domains + validation). "
+                    "Returns the same data as structured content, so hosts without MCP-Apps still get it.",
+        meta={"ui": {"resourceUri": SPEC_INSPECTOR_URI}, "ui/resourceUri": SPEC_INSPECTOR_URI},
+    )
+    def inspect_manifest() -> dict:
+        return _inspector_payload(svc.store)
 
     return mcp
 

@@ -71,6 +71,13 @@ These are the expensive ones to relitigate — Phase 0 especially.
 **Rejected:** (a) a single mega-schema with `$ref`s across domains — ref-resolution complexity, and it still can't do existence checks like "this id exists in another array"; (b) coercing/auto-fixing invalid writes — hides authoring errors, violates "reject, don't coerce"; (c) field-level patch tools — a partial write can't be validated as a coherent domain.
 **Tradeoff:** callers must submit a whole valid domain, not a one-field poke. Accepted deliberately: it keeps every stored state a fully-validated one.
 
+### dec-0017 — MCP-Apps UI (SEP-1865 Final) with a mandatory structured fallback
+**Problem:** Phase 5 wants inline UI panels (spec inspector, etc.). SEP-1865 was a moving target in training data.
+**Decision:** implement against the **Final** SEP-1865 extension (verified 2026-01-26): a spec-inspector panel served as a `ui://meristem/spec-inspector.html` **resource** with mimeType **`text/html;profile=mcp-app`**; the `inspect_manifest` tool links it via `_meta.ui.resourceUri` (plus the legacy flat `ui/resourceUri` for host back-comfort). The tool **always returns the same data as `structuredContent`**, so hosts that don't render MCP-Apps still get a useful result — the fallback is a complement, not an afterthought. The panel uses the raw `postMessage` JSON-RPC bridge (no SDK dependency); it receives data via `ui/notifications/tool-result`.
+**Evidence:** `mcp 1.27.0`'s `FastMCP.resource(mime_type=..., meta=...)` and `FastMCP.tool(meta=...)` are exactly the primitives SEP-1865 needs — no extra dependency; matches the official `ext-apps` Python examples.
+**Rejected:** the community `mcp-ui` PyPI port (defaults to superseded MCP-UI content types, not the `mcp-app` profile); older mimeType strings (`text/html+mcp`, `text/html+skybridge`); embedding UI inline in tool results (spec requires predeclared `ui://` resources).
+**Tradeoff:** panels only render in hosts advertising the `io.modelcontextprotocol/ui` extension — hence the always-on structured fallback. More panels (sprite contact-sheet approve/reject, palette editor, world graph) are follow-ups; the pattern is proven with the inspector.
+
 ### dec-0016 — Phase 4 verifier: both loops work; dec-0007 offscreen capture CONFIRMED
 **Problem:** "it compiled and ran" is not "it is correct." The slice needed machine verification against its spec.
 **Decision + result:** two loops, both free, both proven on the slice.

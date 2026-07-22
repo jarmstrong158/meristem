@@ -50,6 +50,7 @@ Tools exposed:
 | `scaffold_project(title, genre, control, …)` | scaffold | fill all 8 domains with a valid strawman (the game-interview on-ramp) |
 | `diff_domain(domain, candidate)` | diff | preview a change |
 | `validate_all()` | validate | per-domain schemas + cross-references |
+| `inspect_manifest()` | UI panel | renders an inline spec-inspector (MCP Apps / SEP-1865); returns the same data as structured content for hosts without panel support |
 
 There is **no raw write-anything tool** — you set a whole domain and it is validated against that
 domain's schema before it is accepted. Every accepted mutation is recorded in history with provenance.

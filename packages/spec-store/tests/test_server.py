@@ -40,9 +40,31 @@ def test_unknown_domain_read(svc):
 def test_build_server_registers_tools(tmp_path):
     svc = SpecService(tmp_path / "m.json")
     mcp = build_server(svc)
-    # FastMCP exposes registered tools; names should include our six
+    # FastMCP exposes registered tools; names should include our set
     import asyncio
     tools = asyncio.run(mcp.list_tools())
     names = {t.name for t in tools}
     assert {"list_domains", "get_domain", "get_manifest", "set_domain",
-            "diff_domain", "validate_all"} <= names
+            "diff_domain", "validate_all", "scaffold_project", "inspect_manifest"} <= names
+
+
+def test_mcp_apps_ui_resource_registered(tmp_path):
+    import asyncio
+    from meristem_spec_store.server import SPEC_INSPECTOR_URI
+    svc = SpecService(tmp_path / "m.json")
+    mcp = build_server(svc)
+    resources = asyncio.run(mcp.list_resources())
+    match = [r for r in resources if str(r.uri) == SPEC_INSPECTOR_URI]
+    assert match, [str(r.uri) for r in resources]
+    # SEP-1865 Final mimeType (verified)
+    assert match[0].mimeType == "text/html;profile=mcp-app"
+
+
+def test_inspector_payload_shape(tmp_path):
+    from meristem_spec_store.server import _inspector_payload
+    svc = SpecService(tmp_path / "m.json")
+    svc.scaffold_project(title="Panel Test")
+    payload = _inspector_payload(svc.store)
+    assert payload["validation"]["ok"]
+    assert payload["domains"]["project"] is True
+    assert "project" in payload["present"]
