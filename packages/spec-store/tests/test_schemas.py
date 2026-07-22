@@ -30,6 +30,20 @@ def test_mechanics_conditional_params():
     assert validate_domain("mechanics", good) == []
 
 
+def test_sprite_descriptor_validation():
+    base = {"id": "hero", "name": "Hero", "stats": {"hp": 1}}
+    ok = {"characters": [{**base, "sprite": {"archetype": "humanoid"}}]}
+    assert validate_domain("entities", ok) == []
+    bad_arch = {"characters": [{**base, "sprite": {"archetype": "dragon"}}]}
+    assert validate_domain("entities", bad_arch)                 # unknown archetype -> error
+    no_arch = {"characters": [{**base, "sprite": {"config": {}}}]}
+    assert validate_domain("entities", no_arch)                  # archetype is required
+    # items carry the same descriptor
+    item_ok = {"items": [{"id": "wp", "name": "Blade", "slot": "weapon",
+                          "sprite": {"archetype": "weapon", "config": {"kind": "greatsword"}}}]}
+    assert validate_domain("items", item_ok) == []
+
+
 def test_project_enum_rejected():
     bad = {"title": "T", "genre": "rpg", "camera": "vr", "control_scheme": "x",
            "core_loop": "loop", "target_resolution": {"w": 320, "h": 180}}

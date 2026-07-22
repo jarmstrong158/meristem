@@ -1,6 +1,6 @@
 {
   "meristem_manifest_version": 1,
-  "version": 8,
+  "version": 10,
   "domains": {
     "style_contract": {
       "$schema_note": "Hand-authored style contract for the Phase 0c calibration bake-off. Both the generators and the asset gate read this file. It is the 'style contract' the whole project's thesis is built on.",
@@ -316,7 +316,9 @@
             "spd": 6
           },
           "behavior_archetype": "hero",
-          "sprite": "player"
+          "sprite": {
+            "archetype": "humanoid"
+          }
         }
       ],
       "enemies": [
@@ -330,7 +332,9 @@
             "spd": 3
           },
           "behavior_archetype": "hero",
-          "sprite": "slime"
+          "sprite": {
+            "archetype": "blob"
+          }
         }
       ]
     },
@@ -351,7 +355,12 @@
           "stats": {
             "atk": 2
           },
-          "icon": "sword"
+          "sprite": {
+            "archetype": "weapon",
+            "config": {
+              "kind": "sword"
+            }
+          }
         }
       ],
       "drop_tables": [
@@ -885,6 +894,129 @@
         },
         "removed": {},
         "changed": {},
+        "has_changes": true
+      }
+    },
+    {
+      "version": 9,
+      "domain": "entities",
+      "op": "set",
+      "at": "2026-07-22T21:39:16+00:00",
+      "provenance": {},
+      "diff": {
+        "added": {},
+        "removed": {},
+        "changed": {
+          "characters": [
+            [
+              {
+                "id": "player",
+                "name": "Hero",
+                "stats": {
+                  "hp": 20,
+                  "atk": 4,
+                  "def": 2,
+                  "spd": 6
+                },
+                "behavior_archetype": "hero",
+                "sprite": "player"
+              }
+            ],
+            [
+              {
+                "id": "player",
+                "name": "Hero",
+                "stats": {
+                  "hp": 20,
+                  "atk": 4,
+                  "def": 2,
+                  "spd": 6
+                },
+                "behavior_archetype": "hero",
+                "sprite": {
+                  "archetype": "humanoid"
+                }
+              }
+            ]
+          ],
+          "enemies": [
+            [
+              {
+                "id": "slime",
+                "name": "Grove Slime",
+                "stats": {
+                  "hp": 8,
+                  "atk": 2,
+                  "def": 1,
+                  "spd": 3
+                },
+                "behavior_archetype": "hero",
+                "sprite": "slime"
+              }
+            ],
+            [
+              {
+                "id": "slime",
+                "name": "Grove Slime",
+                "stats": {
+                  "hp": 8,
+                  "atk": 2,
+                  "def": 1,
+                  "spd": 3
+                },
+                "behavior_archetype": "hero",
+                "sprite": {
+                  "archetype": "blob"
+                }
+              }
+            ]
+          ]
+        },
+        "has_changes": true
+      }
+    },
+    {
+      "version": 10,
+      "domain": "items",
+      "op": "set",
+      "at": "2026-07-22T21:39:16+00:00",
+      "provenance": {},
+      "diff": {
+        "added": {},
+        "removed": {},
+        "changed": {
+          "items": [
+            [
+              {
+                "id": "sword",
+                "name": "Training Sword",
+                "slot": "weapon",
+                "rarity": "common",
+                "stats": {
+                  "atk": 2
+                },
+                "icon": "sword"
+              }
+            ],
+            [
+              {
+                "id": "sword",
+                "name": "Training Sword",
+                "slot": "weapon",
+                "rarity": "common",
+                "stats": {
+                  "atk": 2
+                },
+                "sprite": {
+                  "archetype": "weapon",
+                  "config": {
+                    "kind": "sword"
+                  }
+                }
+              }
+            ]
+          ]
+        },
         "has_changes": true
       }
     }

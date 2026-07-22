@@ -1,6 +1,9 @@
-"""Compile the manifest's assets: pick the backend per class (dec-0011:
-surfaces->procedural, objects->agent-drawn), generate, gate, and write PNGs +
-provenance sidecars into the Godot project."""
+"""Compile the manifest's assets by ARCHETYPE (dec-0022).
+
+Every entity/item declares `sprite: {archetype, config}`; the compiler dispatches to
+the generator's archetype registry, gates the result, and writes a PNG + provenance
+sidecar. Files are named by class-prefix + entity/item id (stable across archetypes).
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -9,32 +12,10 @@ from asset_gate import validate
 from asset_gate.contract import StyleContract
 from asset_gate.naming import asset_filename
 from asset_gate.provenance import Provenance
-from meristem_generators import AssetSpec, get
+from meristem_generators import archetype_class, archetype_frames, build_archetype
 
-# dec-0011 assignment
-_BACKEND = {"terrain_tile": "procedural", "character": "agent-drawn",
-            "enemy": "agent-drawn", "item_icon": "agent-drawn", "ui_element": "agent-drawn"}
-_HUD = ("heart", "coin")
-
-
-def plan_assets(domains: dict, contract: StyleContract) -> list[tuple[AssetSpec, str]]:
-    plan: list[tuple[AssetSpec, str]] = []
-    ents = domains.get("entities", {}) or {}
-    for c in ents.get("characters", []):
-        if c.get("sprite"):
-            plan.append((AssetSpec("character", c["sprite"], "idle"), _BACKEND["character"]))
-    for e in ents.get("enemies", []):
-        if e.get("sprite"):
-            plan.append((AssetSpec("enemy", e["sprite"], "idle"), _BACKEND["enemy"]))
-    for it in (domains.get("items", {}) or {}).get("items", []):
-        if it.get("icon"):
-            plan.append((AssetSpec("item_icon", it["icon"]), _BACKEND["item_icon"]))
-    for ui in _HUD:
-        plan.append((AssetSpec("ui_element", ui), _BACKEND["ui_element"]))
-    for a in contract.raw.get("asset_set", []):
-        if a.get("class") == "terrain_tile":
-            plan.append((AssetSpec("terrain_tile", a["name"]), _BACKEND["terrain_tile"]))
-    return plan
+_HUD = [("heart", {"shape": "heart", "color": [226, 62, 84]}),
+        ("coin", {"shape": "coin", "color": [240, 206, 84]})]
 
 
 def compile_assets(domains: dict, assets_dir: str | Path) -> list[dict]:
@@ -42,41 +23,53 @@ def compile_assets(domains: dict, assets_dir: str | Path) -> list[dict]:
     assets_dir = Path(assets_dir)
     assets_dir.mkdir(parents=True, exist_ok=True)
     written: list[dict] = []
-    for spec, backend in plan_assets(domains, contract):
-        gen = get(backend)
-        if not gen.supports(spec):
-            raise ValueError(f"backend {backend!r} cannot generate {spec.asset_class}:{spec.name}")
-        img = gen.generate(spec, contract)
-        v = validate(img, spec.asset_class, contract)
-        if not v.accepted:
-            raise ValueError(f"generated {spec.name} failed the gate: {v.reasons}")
-        fname = asset_filename(contract, spec.asset_class, spec.name, spec.variant)
+
+    def emit(archetype, config, name_class, ident, variant=None, entity=None):
+        img = build_archetype(contract, archetype, config)
+        res = validate(img, archetype_class(archetype), contract)
+        if not res.accepted:
+            raise ValueError(f"{archetype}:{ident} failed the gate: {res.reasons}")
+        fname = asset_filename(contract, name_class, ident, variant)
         path = assets_dir / fname
         img.save(path)
-        prov = Provenance(
-            backend=backend, contract_name=contract.name, contract_hash=contract.hash(),
-            gate_version="0.1.0", source_sha256=Provenance.sha256_of_file(path),
-        )
-        prov.write_sidecar(path)
-        written.append({"class": spec.asset_class, "name": spec.name, "backend": backend,
-                        "file": fname, "size": list(img.size)})
+        Provenance(backend=archetype, contract_name=contract.name, contract_hash=contract.hash(),
+                   gate_version="0.1.0", source_sha256=Provenance.sha256_of_file(path)).write_sidecar(path)
+        written.append({"archetype": archetype, "entity": entity or ident, "file": fname,
+                        "variant": variant, "class": name_class})
+        return fname
 
-    # animated variants: a walk cycle per character (dec-0011: agent-drawn)
-    for c in (domains.get("entities", {}) or {}).get("characters", []):
-        if not c.get("sprite"):
-            continue
-        spec = AssetSpec("character", c["sprite"], "walk")
-        gen = get(_BACKEND["character"])
-        for i, frame in enumerate(gen.generate_frames(spec, contract)):
-            v = validate(frame, "character", contract)
-            if not v.accepted:
-                raise ValueError(f"walk frame {i} for {c['sprite']} failed the gate: {v.reasons}")
-            fname = f"{contract.class_prefixes.get('character', 'char')}_{c['sprite']}_walk_{i}.png"
-            path = assets_dir / fname
-            frame.save(path)
-            Provenance(backend=_BACKEND["character"], contract_name=contract.name,
+    ents = domains.get("entities", {}) or {}
+    for c in ents.get("characters", []):
+        sp = c.get("sprite") or {"archetype": "humanoid"}
+        cfg = sp.get("config", {})
+        emit(sp["archetype"], cfg, "character", c["id"], "idle", entity=c["id"])
+        frames = archetype_frames(contract, sp["archetype"], cfg)   # animated archetypes
+        for i, fr in enumerate(frames or []):
+            res = validate(fr, archetype_class(sp["archetype"]), contract)
+            if not res.accepted:
+                raise ValueError(f"{sp['archetype']}:{c['id']} walk {i}: {res.reasons}")
+            fn = asset_filename(contract, "character", c["id"], f"walk_{i}")
+            fr.save(assets_dir / fn)
+            Provenance(backend=sp["archetype"], contract_name=contract.name,
                        contract_hash=contract.hash(), gate_version="0.1.0",
-                       source_sha256=Provenance.sha256_of_file(path)).write_sidecar(path)
-            written.append({"class": "character", "name": c["sprite"], "backend": _BACKEND["character"],
-                            "file": fname, "variant": "walk", "frame": i, "size": list(frame.size)})
+                       source_sha256=Provenance.sha256_of_file(assets_dir / fn)).write_sidecar(assets_dir / fn)
+            written.append({"archetype": sp["archetype"], "entity": c["id"], "file": fn,
+                            "variant": "walk", "frame": i, "class": "character"})
+
+    for e in ents.get("enemies", []):
+        sp = e.get("sprite") or {"archetype": "blob"}
+        emit(sp["archetype"], sp.get("config", {}), "enemy", e["id"], "idle", entity=e["id"])
+
+    for it in (domains.get("items", {}) or {}).get("items", []):
+        sp = it.get("sprite")
+        if sp:
+            emit(sp["archetype"], sp.get("config", {}), "item_icon", it["id"], entity=it["id"])
+
+    for name, cfg in _HUD:                                           # fixed HUD pickups
+        emit("pickup", cfg, "ui_element", name, entity=name)
+
+    for a in contract.raw.get("asset_set", []):                     # terrain tiles
+        if a.get("class") == "terrain_tile":
+            emit("tile", {"name": a["name"]}, "terrain_tile", a["name"], entity=a["name"])
+
     return written

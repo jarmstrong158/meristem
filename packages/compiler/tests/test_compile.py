@@ -32,10 +32,11 @@ def test_all_assets_and_sidecars(project):
     assert len(pngs) == 13          # 9 base + 4 walk frames
     for png in pngs:
         assert (a / f"{png}.prov.json").exists()
+    # provenance backend is now the archetype the sprite was built from (dec-0022)
     prov = json.loads((a / "char_player_idle.png.prov.json").read_text())
-    assert prov["backend"] == "agent-drawn"
+    assert prov["backend"] == "humanoid"
     tprov = json.loads((a / "tile_grass.png.prov.json").read_text())
-    assert tprov["backend"] == "procedural"
+    assert tprov["backend"] == "tile"
 
 
 def test_player_is_animated(project):
@@ -67,6 +68,21 @@ def test_scripts_substituted(project):
     main = (project / "scenes" / "main.tscn").read_text(encoding="utf-8")
     for ref in ("player.tscn", "enemy.tscn", "world.gd", "ui_heart.png"):
         assert ref in main
+
+
+def test_archetype_dispatch_from_spec(tmp_path):
+    # change the enemy's sprite archetype in the spec -> the compiler builds that archetype
+    from meristem_spec_store import SpecStore
+    store = SpecStore.load(MANIFEST)
+    ents = store.get("entities")
+    ents["enemies"][0]["sprite"] = {"archetype": "ghost", "config": {"color": [220, 225, 244]}}
+    store.set_domain("entities", ents)
+    p = tmp_path / "ghost.manifest.json"
+    store.save(p)
+    out = tmp_path / "ghost-out"
+    compile_project(p, out)
+    prov = json.loads((out / "assets" / "enemy_slime_idle.png.prov.json").read_text())
+    assert prov["backend"] == "ghost"          # built from the ghost archetype, not blob
 
 
 def test_invalid_manifest_refused(tmp_path):

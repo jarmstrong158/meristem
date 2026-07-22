@@ -30,7 +30,7 @@
           "slot": { "enum": ["weapon", "armor", "accessory", "consumable", "key_item"] },
           "rarity": { "type": "string", "description": "references a rarity_tiers id" },
           "stats": { "type": "object", "additionalProperties": { "type": "number" } },
-          "icon": { "type": "string" }
+          "sprite": { "$ref": "#/$defs/sprite" }
         }
       }
     },
@@ -55,6 +55,18 @@
             }
           }
         }
+      }
+    }
+  },
+  "$defs": {
+    "sprite": {
+      "description": "A spec-addressable sprite: a generator archetype + its config (dec-0022).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["archetype"],
+      "properties": {
+        "archetype": { "enum": ["humanoid", "blob", "ghost", "weapon", "consumable", "pickup", "tile"] },
+        "config": { "type": "object" }
       }
     }
   }

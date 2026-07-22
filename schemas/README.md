@@ -8,8 +8,8 @@ spec-store boundary — the compiler and generators trust that anything in the s
 | `project.schema.json` | project | title, genre, camera (enum), control_scheme (→ mechanics), core_loop, target_resolution |
 | `style-contract.schema.json` | style_contract | locked palette + canvas/outline/shading/anchor rules (Phase 0 shape) |
 | `narrative.schema.json` | narrative | premise, beats, factions, characters (→ factions) |
-| `entities.schema.json` | entities | characters/enemies/npcs with stats + behavior_archetype (→ mechanics) |
-| `items.schema.json` | items | items, rarity_tiers, drop_tables (→ entities.enemies, items) |
+| `entities.schema.json` | entities | characters/enemies/npcs with stats, behavior_archetype (→ mechanics), and a `sprite: {archetype, config}` descriptor (dec-0023) |
+| `items.schema.json` | items | items (with a `sprite` descriptor), rarity_tiers, drop_tables (→ entities.enemies, items) |
 | `mechanics.schema.json` | mechanics | **parameters over a fixed archetype library**; per-kind typed params via if/then |
 | `economy.schema.json` | economy | currency, price_curves, progression_pacing |
 | `world.schema.json` | world | regions (biome, tileset_ref, levels) + connections (→ regions) |

@@ -1,0 +1,68 @@
+"""The archetype registry — the spec-addressable sprite vocabulary (dec-0022).
+
+A manifest entity/item declares a sprite as `{archetype, config}`; this maps the
+archetype name to its builder + canvas class + optional animation frames. New
+creatures and items are config over this fixed library, not new dispatch code —
+the same principle as the mechanics archetypes (dec-0001).
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Callable, Optional
+
+import numpy as np
+from PIL import Image
+
+from .creatures import build_blob, build_ghost
+from .humanoid import build_humanoid, humanoid_walk
+from .items import consumable, pickup, weapon
+from .procedural import ProceduralGenerator, build_tile
+
+
+def _tile_build(contract, config) -> np.ndarray:
+    name = (config or {}).get("name", "grass")
+    opts = ProceduralGenerator._TILES.get(name, {})
+    return build_tile(contract, name, **opts)
+
+
+@dataclass(frozen=True)
+class Archetype:
+    asset_class: str                                   # the gate / canvas class
+    build: Callable                                    # (contract, config) -> RGBA ndarray
+    frames: Optional[Callable] = None                  # (contract, config) -> list[ndarray]
+
+
+ARCHETYPES: dict[str, Archetype] = {
+    "humanoid":   Archetype("character", build_humanoid, humanoid_walk),
+    "blob":       Archetype("enemy", build_blob),
+    "ghost":      Archetype("enemy", build_ghost),
+    "weapon":     Archetype("item_icon", weapon),
+    "consumable": Archetype("item_icon", consumable),
+    "pickup":     Archetype("item_icon", pickup),
+    "tile":       Archetype("terrain_tile", _tile_build),
+}
+
+
+def known_archetypes() -> list[str]:
+    return sorted(ARCHETYPES)
+
+
+def archetype_class(name: str) -> str:
+    return _get(name).asset_class
+
+
+def build_archetype(contract, name: str, config: dict | None = None) -> Image.Image:
+    return Image.fromarray(_get(name).build(contract, config or {}), "RGBA")
+
+
+def archetype_frames(contract, name: str, config: dict | None = None) -> Optional[list[Image.Image]]:
+    a = _get(name)
+    if a.frames is None:
+        return None
+    return [Image.fromarray(f, "RGBA") for f in a.frames(contract, config or {})]
+
+
+def _get(name: str) -> Archetype:
+    if name not in ARCHETYPES:
+        raise KeyError(f"unknown archetype {name!r}; known: {known_archetypes()}")
+    return ARCHETYPES[name]

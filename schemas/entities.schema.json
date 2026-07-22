@@ -25,7 +25,17 @@
           "description": "References a mechanics archetype id (cross-ref enforced at validate_all).",
           "type": "string"
         },
-        "sprite": { "type": "string", "description": "asset name for the generator/gate" }
+        "sprite": { "$ref": "#/$defs/sprite" }
+      }
+    },
+    "sprite": {
+      "description": "A spec-addressable sprite: a generator archetype + its config (dec-0022).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["archetype"],
+      "properties": {
+        "archetype": { "enum": ["humanoid", "blob", "ghost", "weapon", "consumable", "pickup", "tile"] },
+        "config": { "type": "object" }
       }
     }
   }
