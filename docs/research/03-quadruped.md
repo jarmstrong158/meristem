@@ -12,7 +12,11 @@ as furniture, not an animal.
 
 A quadruped is legible from its outline alone. Three things must read at 32px:
 
-1. **A horizontal body loaf** — clearly wider than tall, not a square.
+1. **A thick horizontal body loaf** — wider than tall, but still a chunky mass
+   (~8–9px tall at 32px), not a thin rail. Crucially, **legs start *below* the
+   body** (they hang from the belly), never overlapping up into it — if the legs
+   paint over the lower body the mass reads as ~6px and looks starved. Keep a
+   **wide belly** at the bottom so all four legs still attach to it.
 2. **Four legs that separate** — three transparent gaps (outer-left, belly,
    outer-right), never one solid mass with a single hole.
 3. **A head that juts** — off the front of the body on a short neck, with ears

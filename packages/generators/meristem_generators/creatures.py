@@ -91,24 +91,26 @@ def build_quadruped(contract, config=None) -> np.ndarray:
     w, h = contract.canvas_of("enemy")
     cv = Canvas(w, h)
 
-    # --- FAR leg pair (behind): shadow, thin 2px, paws 1px high (row 27). ---
-    # Legs sit at cols 6, 11, 16, 21 -> 3px gaps that survive the outline (a 2px
-    # gap gets closed when both sides are outlined, fusing the paws into a floor).
-    cv.rect(15, 27, 6, 7, body.shadow)               # far-back
-    cv.rect(15, 27, 16, 17, body.shadow)             # far-front
+    # --- FAR leg pair (behind): shadow, thin 2px, tuck under belly (row 17),
+    # paws 1px high (row 27). Legs at cols 6/11/16/21 -> 3px gaps that survive the
+    # outline (a 2px gap gets closed when both sides are outlined, fusing the paws). ---
+    cv.rect(17, 27, 6, 7, body.shadow)               # far-back
+    cv.rect(17, 27, 16, 17, body.shadow)             # far-front
 
-    # --- BODY loaf: curved back (withers high), belly at row 15, tucked toward rear ---
-    body_rows = {10: (19, 23), 11: (9, 25), 12: (7, 27), 13: (7, 28),
-                 14: (8, 27), 15: (10, 24)}
+    # --- BODY loaf: THICK. ~9 rows tall (9-17), wide (cols 6-28) with a WIDE belly
+    # so the legs hang below it and the body reads as a full beast, not a rail. The
+    # legs start at row 18 (below the body) so they never eat into its thickness.
+    body_rows = {9: (19, 24), 10: (11, 26), 11: (8, 27), 12: (6, 28), 13: (6, 28),
+                 14: (6, 28), 15: (6, 28), 16: (6, 27), 17: (6, 25)}
     for r, (c0, c1) in body_rows.items():
         cv.rect(r, r, c0, c1, body.base)
-    cv.rect(11, 12, 10, 23, body.highlight)          # spine highlight (top of back)
-    cv.rect(14, 15, 9, 25, body.shadow)              # belly underside (darkest)
+    cv.rect(11, 13, 10, 22, body.highlight)          # broad spine highlight (top of back)
+    cv.rect(16, 17, 8, 25, body.shadow)              # belly underside (darkest)
 
     # --- NEAR leg pair (front): base, thin 2px, on the ground (row 28) ---
-    cv.rect(15, 28, 11, 12, body.base)               # near-back
-    cv.rect(15, 28, 21, 22, body.base)               # near-front
-    cv.rect(15, 27, 21, 21, body.highlight)          # lit front edge
+    cv.rect(18, 28, 11, 12, body.base)               # near-back
+    cv.rect(18, 28, 21, 22, body.base)               # near-front
+    cv.rect(18, 27, 21, 21, body.highlight)          # lit front edge
 
     # --- HEAD + neck + muzzle (front-right) ---
     cv.rect(11, 15, 20, 24, body.base)               # diagonal neck
