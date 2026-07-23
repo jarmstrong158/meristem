@@ -68,12 +68,12 @@ def _wp_axe(cv, blade, gold, grip, wood, orb):
 
 
 def _wp_spear(cv, blade, gold, grip, wood, orb):
-    cv.rect(4, 15, 7, 8, wood.base); cv.rect(4, 15, 8, 8, wood.shadow)   # shaft
-    head = {1: (7, 7), 2: (6, 8), 3: (6, 8), 4: (6, 8), 5: (7, 7)}       # leaf tip
+    cv.rect(6, 15, 7, 8, wood.base); cv.rect(6, 15, 8, 8, wood.shadow)   # shaft (cols 7-8)
+    head = {1: (7, 8), 2: (6, 9), 3: (6, 9), 4: (6, 9), 5: (7, 8)}       # leaf tip, centred on the shaft
     for r, (c0, c1) in head.items():
         cv.rect(r, r, c0, c1, blade.base)
-    cv.rect(2, 4, 6, 6, blade.highlight); cv.rect(2, 4, 8, 8, blade.shadow)
-    cv.rect(5, 5, 5, 10, gold.base)                          # collar
+    cv.rect(2, 4, 6, 6, blade.highlight); cv.rect(2, 4, 9, 9, blade.shadow)
+    cv.rect(6, 6, 6, 9, gold.base)                          # collar
 
 
 def _wp_staff(cv, blade, gold, grip, wood, orb):
@@ -90,19 +90,24 @@ def _wp_bow(cv, blade, gold, grip, wood, orb):
     for r, c in limb.items():                                # curved wooden limb (bulges left)
         cv.px(r, c, wood.base); cv.px(r, c + 1, wood.shadow)
     cv.rect(3, 12, 8, 8, blade.highlight)                    # taut bowstring
-    cv.rect(7, 8, 5, 11, wood.base); cv.px(8, 5, wood.shadow)   # nocked arrow shaft
-    cv.rect(6, 8, 11, 13, blade.base)                        # arrowhead
-    cv.px(6, 13, blade.highlight); cv.px(8, 13, blade.shadow)
+    # arrow lies across the bow, head LEFT (firing direction), fletching at the nock (right)
+    cv.rect(7, 7, 2, 12, wood.base); cv.px(7, 11, wood.shadow)   # shaft
+    cv.rect(6, 8, 2, 3, blade.base); cv.px(7, 1, blade.highlight)   # arrowhead (points left)
+    cv.px(6, 2, blade.highlight); cv.px(8, 3, blade.shadow)
+    cv.rect(6, 8, 11, 12, gold.base)                         # fletching at the nock
 
 
 def _wp_mace(cv, blade, gold, grip, wood, orb):
     cv.rect(8, 14, 7, 8, grip.base); cv.rect(8, 14, 8, 8, grip.shadow)   # handle
     cv.rect(14, 14, 7, 8, gold.base)                         # pommel
-    cv.disc(5, 8, 3, 3, blade.base)                          # spiked head
+    # spikes drawn from the centre outward, then the ball painted over their roots so
+    # they PROTRUDE from the head (connected) instead of floating.
+    for r, c in [(0, 8), (1, 4), (2, 3), (5, 1), (5, 14), (2, 13), (1, 12)]:
+        cv.line(5, 8, r, c, blade.shadow)
+    cv.disc(5, 8, 3, 3, blade.base)                          # spiked ball
     cv.disc(4, 7, 1.3, 1.3, blade.highlight); cv.disc(6, 9, 1.4, 1.4, blade.shadow)
-    for r, c in [(1, 7), (1, 8), (2, 3), (3, 12), (5, 2), (5, 13), (8, 4), (8, 12)]:
-        cv.px(r, c, blade.base)                              # radiating spikes
-    cv.px(1, 7, blade.highlight)
+    for r, c in [(0, 8), (1, 4), (5, 1), (5, 14), (1, 12)]:
+        cv.px(r, c, blade.base)                              # bright spike tips
 
 
 def _wp_wand(cv, blade, gold, grip, wood, orb):

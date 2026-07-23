@@ -117,7 +117,7 @@ tool and validate a pick with `check_sprite`. Browse everything at a glance:
 
 | archetype | variant axes | colour knobs |
 |---|---|---|
-| `humanoid` | hair_style `short·long·ponytail·spiky·bald` · hat `none·cap·wizard·helmet·crown·hood` · beard `none·short·full` · held `none·staff·rod·flamestaff·shield·daggers` · garment `none·apron·scarf·cloak` · feet `boots·bare` · arms `normal·stone` · hair_accent `none·flora` | skin, hair, shirt, pants, hat_color, held_color, garment_color, arm_color |
+| `humanoid` | hair_style `short·long·ponytail·spiky·bald` · hat `none·cap·wizard·helmet·crown·hood` · beard `none·short·full` · held `none` + **every weapon** `sword·dagger·greatsword·axe·spear·staff·bow·mace·wand` + `rod·flamestaff·shield·daggers` · garment `none·apron·scarf·cloak` · feet `boots·bare` · arms `normal·stone` · hair_accent `none·flora` | skin, hair, shirt, pants, hat_color, held_color, garment_color, arm_color |
 
 The layers are combinatorial, so knight/wizard/king/dwarf/rogue/cleric are all the same base + config.
 

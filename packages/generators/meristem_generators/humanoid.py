@@ -51,7 +51,7 @@ DEFAULT_CONFIG = {
     # Each is a config knob over the shared Pose, so it animates for free and is
     # outlined by the one shared pass. Defaults are inert (none/boots/normal), so
     # every pre-existing character renders identically.
-    "held": "none",              # staff · rod · flamestaff · shield · daggers
+    "held": "none",              # every weapon kind + rod/flamestaff/shield/daggers (see _HELD)
     "held_color": (150, 120, 84),
     "garment": "none",           # apron · scarf · cloak (over the shirt)
     "garment_color": (204, 192, 162),
@@ -260,21 +260,100 @@ def _held_daggers(cv, pose, m):
         _p(cv, 28, c, steel.shadow, u)                                      # point
 
 
+# ---- every weapon kind, held upright in the right hand (col 22). Steel blade +
+#      gold fittings are fixed; `held_color` tints the haft/grip. ----
+_H_STEEL = (178, 186, 200)
+_H_GOLD = (214, 176, 72)
+_H_GEM = (120, 200, 235)
+
+
+def _held_sword(cv, pose, m, *, big=False):
+    dy = pose.body_dy + pose.rarm_dy
+    st, gd = Ramp(_H_STEEL), Ramp(_H_GOLD)
+    if big:                                                  # greatsword: long 2px blade, two-hand grip
+        _r(cv, 4, 16, 21, 22, st.base, dy)
+        _r(cv, 4, 16, 21, 21, st.highlight, dy); _r(cv, 4, 16, 22, 22, st.shadow, dy)
+        _p(cv, 3, 21, st.highlight, dy)
+        _r(cv, 17, 17, 20, 23, gd.base, dy)                 # wide guard
+        _r(cv, 18, 21, 21, 22, m.base, dy)                  # grip
+    else:
+        _r(cv, 9, 17, 22, 22, st.base, dy); _p(cv, 8, 22, st.highlight, dy)   # blade + tip
+        _p(cv, 9, 22, st.highlight, dy)
+        _r(cv, 18, 18, 21, 23, gd.base, dy)                 # crossguard
+        _r(cv, 19, 21, 22, 22, m.base, dy)                  # grip
+
+
+def _held_knife(cv, pose, m):
+    dy = pose.body_dy + pose.rarm_dy
+    st, gd = Ramp(_H_STEEL), Ramp(_H_GOLD)
+    _r(cv, 14, 18, 22, 22, st.base, dy); _p(cv, 13, 22, st.highlight, dy)     # short blade
+    _r(cv, 19, 19, 21, 23, gd.base, dy)                     # guard
+    _r(cv, 20, 21, 22, 22, m.base, dy)                      # grip
+
+
+def _held_axe(cv, pose, m):
+    dy = pose.body_dy + pose.rarm_dy
+    st = Ramp(_H_STEEL)
+    _r(cv, 6, 21, 22, 22, m.base, dy); _p(cv, 7, 22, m.highlight, dy)         # haft
+    for r, (c0, c1) in {6: (19, 21), 7: (19, 22), 8: (19, 22), 9: (20, 21)}.items():
+        _r(cv, r, r, c0, c1, st.base, dy)                   # blade head (upper-left)
+    _p(cv, 6, 19, st.highlight, dy); _p(cv, 8, 19, st.shadow, dy)
+
+
+def _held_spear(cv, pose, m):
+    dy = pose.body_dy + pose.rarm_dy
+    st = Ramp(_H_STEEL)
+    _r(cv, 4, 21, 22, 22, m.base, dy); _p(cv, 5, 22, m.highlight, dy)         # long shaft
+    for r, (c0, c1) in {0: (22, 22), 1: (21, 23), 2: (21, 23), 3: (22, 22)}.items():
+        _r(cv, r, r, c0, c1, st.base, dy)                   # leaf tip (centred on the shaft)
+    _p(cv, 1, 21, st.highlight, dy); _p(cv, 2, 23, st.shadow, dy)
+
+
+def _held_mace(cv, pose, m):
+    dy = pose.body_dy + pose.rarm_dy
+    st = Ramp(_H_STEEL)
+    _r(cv, 11, 21, 23, 23, m.base, dy)                      # handle
+    for r, c in [(3, 23), (4, 20), (5, 26), (9, 21), (9, 25), (4, 26)]:
+        cv.line(7 + dy, 23, r + dy, c, st.shadow)           # spikes from the ball centre
+    cv.disc(7 + dy, 23, 2.6, 2.6, st.base)                  # ball over the spike roots
+    cv.disc(6 + dy, 22, 1.0, 1.0, st.highlight)
+
+
+def _held_bow(cv, pose, m):
+    dy = pose.body_dy + pose.rarm_dy
+    for r, c in {6: 22, 7: 23, 8: 24, 9: 24, 10: 24, 11: 24, 12: 24, 13: 23, 14: 22}.items():
+        _p(cv, r, c, m.base, dy)                            # vertical bow limb (curves right)
+    _r(cv, 7, 13, 22, 22, Ramp(_H_STEEL).highlight, dy)     # string down the near side
+
+
+def _held_wand(cv, pose, m):
+    dy = pose.body_dy + pose.rarm_dy
+    o = Ramp(_H_GEM)
+    _r(cv, 14, 21, 22, 22, m.base, dy)                      # short rod
+    cv.disc(12 + dy, 22, 1.8, 1.8, o.base); cv.px(11 + dy, 21, (255, 255, 255))   # gem tip
+
+
+_HELD_FNS = {
+    "staff":      lambda cv, p, m: _held_shaft(cv, p, m, side="left"),
+    "rod":        lambda cv, p, m: _held_shaft(cv, p, m, side="right", notched=True),
+    "flamestaff": lambda cv, p, m: _held_shaft(cv, p, m, side="left", ember=Ramp((224, 100, 52))),
+    "shield":     _held_shield,
+    "daggers":    _held_daggers,
+    "sword":      _held_sword,
+    "greatsword": lambda cv, p, m: _held_sword(cv, p, m, big=True),
+    "dagger":     _held_knife,
+    "axe":        _held_axe,
+    "spear":      _held_spear,
+    "mace":       _held_mace,
+    "bow":        _held_bow,
+    "wand":       _held_wand,
+}
+
+
 def _held(cv, pose, mats):
-    kind = mats.get("held", "none")
-    if kind == "none":
-        return
-    m = Ramp(mats["held_color"])
-    if kind == "staff":
-        _held_shaft(cv, pose, m, side="left")
-    elif kind == "rod":
-        _held_shaft(cv, pose, m, side="right", notched=True)
-    elif kind == "flamestaff":
-        _held_shaft(cv, pose, m, side="left", ember=Ramp((224, 100, 52)))
-    elif kind == "shield":
-        _held_shield(cv, pose, m)
-    elif kind == "daggers":
-        _held_daggers(cv, pose, m)
+    fn = _HELD_FNS.get(mats.get("held", "none"))
+    if fn is not None:
+        fn(cv, pose, Ramp(mats["held_color"]))
 
 
 # ---- garment: over-clothing drawn on top of the shirt (before hair) ----
@@ -336,7 +415,8 @@ def _accents(cv, pose, mats):
 
 
 # ---- prop vocabularies (catalog reads these so the MCP surfaces + validates them) ----
-_HELD = ("none", "staff", "rod", "flamestaff", "shield", "daggers")
+_HELD = ("none", "sword", "dagger", "greatsword", "axe", "spear", "staff", "bow",
+         "mace", "wand", "rod", "flamestaff", "shield", "daggers")
 _GARMENTS = ("none", "apron", "scarf", "cloak")
 _FEET = ("boots", "bare")
 _ARMS = ("normal", "stone")
