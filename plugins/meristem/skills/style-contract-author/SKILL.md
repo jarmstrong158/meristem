@@ -14,11 +14,12 @@ these. Only change what they actually care about.
 
 ## Two palette modes (this is the key choice)
 - **Free-palette (default for sprites).** Each asset class in `palette.free_palette_classes` isn't
-  locked to a fixed swatch list — it may use any colours up to `palette.max_colors` (**15**), as long
-  as every material is a 3-shade **hue-shifted ramp** (shadow cool / base warm-less, highlight warm).
-  This is what lets browns, skin, and metals have believable ramps a locked arcade palette can't
-  express — and it's why Meristem's characters read richer than a PICO-8 swatch-lock. The asset gate
-  enforces the *budget* (≤15) and hard alpha, not a swatch list, for these classes.
+  locked to a fixed swatch list, and has **no colour-count limit** — it may use any colours, as long as
+  every material is a 3-shade **hue-shifted ramp** (shadow cool / base / highlight warm). This is what
+  lets browns, skin, and metals have believable ramps a locked arcade palette can't express — and it's
+  why Meristem's characters read richer than a PICO-8 swatch-lock. The asset gate enforces hard alpha
+  and canvas for these classes, **not** a colour count. (A tight ≤15 look is a style choice — encourage
+  it for cohesion, but nothing rejects a richer sprite.)
 - **Locked-palette.** A class not in `free_palette_classes` must draw only from the contract's fixed
   colour list (e.g. a strict PICO-8 look). The gate enforces subset-of-palette here.
 Pick per class: free-palette for characters/creatures/items (where ramps matter), locked only if the

@@ -103,7 +103,7 @@ as a normal Godot project. Breadth comes *after* the loop closes end to end.
 ## Sprite library (pre-made assets)
 
 Every sprite is **config over a fixed archetype** (dec-0022) — 13 archetypes, each built to one
-hue-shifted standard (3-shade ramps, top-left light, selective outline, ≤15 colours) and
+hue-shifted standard (3-shade ramps, top-left light, selective outline; no colour-count limit) and
 gate-validated. Pick an archetype + a `build`/`kind`/`shape` + colours; a manifest entity/item just
 declares `sprite: {archetype, config}`. Discover the live menu with the `list_sprite_archetypes` MCP
 tool and validate a pick with `check_sprite`. Browse everything at a glance:

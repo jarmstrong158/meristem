@@ -44,10 +44,8 @@ def test_generated_asset_passes_gate(backend, spec, contract):
     res = validate(img, spec.asset_class, contract)
     assert res.accepted, f"{backend}/{spec.name}: {res.reasons}"
     assert res.report["semi_transparent_px"] == 0
-    if contract.is_free_palette(spec.asset_class):
-        assert res.report["unique_colors"] <= contract.max_colors   # within the colour budget
-    else:
-        assert res.report["subset_of_palette"]                      # locked-palette assets
+    if not contract.is_free_palette(spec.asset_class):
+        assert res.report["subset_of_palette"]                      # locked-palette assets only
 
 
 @pytest.mark.parametrize("spec", SPECS, ids=lambda s: f"{s.asset_class}:{s.name}")
@@ -100,7 +98,6 @@ def test_blob_archetype_is_parametric(contract):
     for arr in (green, king):
         res = validate(Image.fromarray(arr, "RGBA"), "enemy", contract)
         assert res.accepted, res.reasons
-        assert res.report["unique_colors"] <= contract.max_colors
 
 
 def test_item_archetypes_are_parametric(contract):
@@ -152,7 +149,6 @@ def test_quadruped_builds_vary(contract):
     for b, arr in builds.items():                          # and each still gates
         res = validate(Image.fromarray(arr, "RGBA"), "enemy", contract)
         assert res.accepted, f"{b}: {res.reasons}"
-        assert res.report["unique_colors"] <= contract.max_colors
     # an unknown build falls back to the dog skeleton rather than crashing
     assert np.array_equal(build_quadruped(contract, {"build": "griffon"}), builds["dog"])
 
@@ -264,7 +260,7 @@ def test_humanoid_hat_beard_layers(contract):
     import numpy as np
     from PIL import Image
     from meristem_generators.humanoid import build_humanoid
-    # classic archetypes from the one layered base; each must stay within budget
+    # classic archetypes from the one layered base; each must build + gate
     combos = [
         {},
         {"hat": "helmet", "hat_color": (176, 182, 194)},
@@ -279,7 +275,6 @@ def test_humanoid_hat_beard_layers(contract):
         a = build_humanoid(contract, cfg)
         r = validate(Image.fromarray(a, "RGBA"), "character", contract)
         assert r.accepted, (cfg, r.reasons)
-        assert r.report["unique_colors"] <= contract.max_colors, (cfg, r.report["unique_colors"])
         seen.add(a.tobytes())
     assert len(seen) == len(combos)                     # each archetype distinct
 

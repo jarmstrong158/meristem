@@ -37,6 +37,6 @@ knob + colours select a sprite. Adding a *variant* is a generator edit; the vali
 | `tile` | terrain_tile | grass · dirt · water · stone · sand · snow · lava · brick | — |
 
 Every sprite is built to the one construction standard (dec-0021): named materials →
-3-shade hue-shifted ramps, top-left light, selective outline, ≤15 colours. That shared
+3-shade hue-shifted ramps, top-left light, selective outline (no colour-count limit). That shared
 standard — not a single locked palette — is what makes independently-built assets read
 as one game.

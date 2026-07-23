@@ -124,11 +124,10 @@ def normalize(
     # hard invariants that must always hold post-normalization
     if report["semi_transparent_px"] != 0:
         reasons.append(f"{report['semi_transparent_px']} semi-transparent px remain")
-    if free:
-        budget = contract.budget_for(asset_class)
-        if report["unique_colors"] > budget:
-            reasons.append(f"{report['unique_colors']} colors exceeds the {budget}-color budget")
-    elif not report["subset_of_palette"]:
+    # No colour-count limit: free-palette assets may use any number of colours
+    # (unique_colors is still reported, informationally). Locked-palette classes
+    # must still draw only from their swatch list (a style mode, not a count cap).
+    if not free and not report["subset_of_palette"]:
         reasons.append(f"{report['unique_colors']} colors, not all in the locked palette")
 
     accepted = not reasons
@@ -165,11 +164,9 @@ def validate(image: Image.Image, asset_class: str, contract: StyleContract) -> G
         reasons.append(f"size {report['size']} != canvas [{cw}, {ch}]")
     if report["semi_transparent_px"]:
         reasons.append(f"{report['semi_transparent_px']} semi-transparent px")
-    if contract.is_free_palette(asset_class):
-        budget = contract.budget_for(asset_class)
-        if report["unique_colors"] > budget:
-            reasons.append(f"{report['unique_colors']} colors exceeds the {budget}-color budget")
-    elif not report["subset_of_palette"]:
+    # No colour-count limit (see normalize): only locked-palette classes are
+    # restricted, and only to their swatch list — never by a maximum count.
+    if not contract.is_free_palette(asset_class) and not report["subset_of_palette"]:
         reasons.append("colors outside the locked palette")
     if contract.anchor_of(asset_class) == "top_left" and report["transparent_px"]:
         reasons.append(f"tile has {report['transparent_px']} transparent px (must be full-bleed)")

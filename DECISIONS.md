@@ -8,6 +8,13 @@ These are the expensive ones to relitigate — Phase 0 especially.
 
 ## Phase 0 — Viability, environment, licensing
 
+### dec-0033 — Colour-count limits removed from the asset gate entirely
+**Problem:** the 15-colour budget (raised to `character: 24` to fit prop layers) had become friction rather than discipline — every new humanoid layer (held staff/shield, garment, stone arms) risked overflow, and an audit found `held: flamestaff` at 18 colours passing only because of the raised cap. The budget was fighting the library's growth.
+**Decision (user directive "remove any color limits"):** the gate no longer enforces a colour count. Free-palette classes accept **any** number of colours; the gate checks only hard alpha, canvas size, and — for *locked*-palette classes only — swatch-subset (a style mode, not a count cap). `unique_colors` is still measured and reported, informationally. `max_colors` / `max_colors_by_class` are gone from the contract's enforced path. A tight ≤15 SNES/GBA palette is now a **style choice** the pixel-art skill *encourages* (ramp discipline, shade-reuse for cohesion), not a rule the gate imposes.
+**Evidence:** gate budget branch removed from `validate` + `normalize`; the over-budget-rejection test inverted to assert acceptance; the `unique_colors <= max_colors` assertions dropped from the generator tests; 126 tests green. Docs/skills updated; `con-001` (the ~5-material cap) deprecated.
+**Rejected:** keeping a higher cap (still friction as layers grow); a warning-only budget (the user wanted it gone, not softened).
+**Supersedes:** the budget half of dec-0020/dec-0030. **Tradeoff:** loses the automatic guardrail against palette sprawl — cohesion now rests on taste + skill guidance, not enforcement.
+
 ### dec-0001 — Spec-driven pipeline: one manifest is the single source of truth
 **Problem:** "AI writes game files and hopes" produces drift — assets, levels, and data that don't agree with each other or with intent.
 **Decision:** a single schema-validated project manifest is canonical. Every downstream artifact (sprites, tilesets, levels, gear tables, Godot scenes) is a *deterministic projection* of it. Output is a real Godot 4 project on the user's disk that they own and can hand-edit.

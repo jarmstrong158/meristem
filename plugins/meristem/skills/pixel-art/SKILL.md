@@ -20,14 +20,11 @@ actually looks good, not just one that passes the gate.
   (speckle/ripple), never a directional bevel, so they stay seamlessly tileable.
 - **Selective outline:** a material's darkest shade, not pure black; pure black only on the outer
   silhouette against transparency.
-- **Color budget: ≤15 for tiles/items; characters get 24** (SNES/GBA discipline, but distinctness of
-  silhouette earns extra ramps). One material = 3 shades, so a bare character is ~5 materials
-  (skin/hair/shirt/pants/hat) + the shared outline = 15. **Prop layers push past 15 on purpose** — a
-  held staff, a garment, or stone arms each adds a real 3-shade ramp, which is why the `character` class
-  carries a raised budget (`palette.max_colors_by_class.character = 24` in the style contract). Still
-  prefer discipline: ornament small details with an *existing* ramp shade (`hat.highlight`) rather than
-  a new literal colour, and share shades where natural (outline = a material's dark; boot = pants
-  shadow). The budget is headroom for meaningful props, not licence for palette sprawl.
+- **No colour-count limit.** The gate does not cap colours — a tight ≤15 SNES/GBA palette is a *style
+  choice*, not a rule. Still prefer discipline for cohesion: one material = a 3-shade hue-shifted ramp,
+  reuse an existing ramp shade for small ornament (`hat.highlight`) rather than a scattered new literal,
+  and share shades where natural (outline = a material's dark; boot = pants shadow). Restraint reads as
+  "one artist"; sprawl reads as noise. Discipline by taste, not by a hard budget.
 - **Silhouette first:** the solid-black shape must read as the thing before any interior detail.
 
 ## Archetypes, not one-offs (parameters over a fixed library)
