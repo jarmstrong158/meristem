@@ -77,6 +77,16 @@ class SpecService:
             return {"available": False, "reason": str(e), "archetypes": []}
         return {"available": True, "archetypes": sprite_catalog()}
 
+    def check_sprite(self, archetype: str, config: dict | None = None) -> dict:
+        """Validate a single sprite descriptor before writing it — same check the
+        cross-ref runs, but for one pick, so the author gets immediate feedback."""
+        try:
+            from meristem_generators import validate_sprite
+        except Exception as e:
+            return {"available": False, "reason": str(e), "ok": True, "problems": []}
+        problems = validate_sprite(archetype, config or {})
+        return {"available": True, "ok": not problems, "problems": problems}
+
     # ---- diff + whole-manifest validation ----
     def diff_domain(self, domain: str, candidate: dict) -> dict:
         return self.store.diff_domain(domain, candidate)
@@ -171,6 +181,12 @@ def build_server(service: Optional[SpecService] = None):
                           "Call this before setting an entity/item sprite so you choose a real build.")
     def list_sprite_archetypes() -> dict:
         return svc.list_sprite_archetypes()
+
+    @mcp.tool(description="Validate one sprite descriptor {archetype, config} before writing it: checks "
+                          "the archetype exists and each build/kind/shape is a known option. Returns "
+                          "{ok, problems}. Use after list_sprite_archetypes to confirm a pick.")
+    def check_sprite(archetype: str, config: dict = None) -> dict:
+        return svc.check_sprite(archetype, config)
 
     @mcp.tool(description="Diff a candidate value for a domain against the stored value.")
     def diff_domain(domain: str, candidate: dict) -> dict:

@@ -9,8 +9,20 @@ The style contract is what makes independently-generated assets read as **one ar
 in the Phase 0 bake-off). Your job is to help the user pin it down without turning it into a chore.
 
 ## Defaults first
-Every scaffolded project starts with the **PICO-8 (CC0)** 16-color palette and sane canvas/outline/
-shading/anchor rules. Most users should keep these. Only change what they actually care about.
+Every scaffolded project starts with sane canvas/outline/shading/anchor rules. Most users should keep
+these. Only change what they actually care about.
+
+## Two palette modes (this is the key choice)
+- **Free-palette (default for sprites).** Each asset class in `palette.free_palette_classes` isn't
+  locked to a fixed swatch list — it may use any colours up to `palette.max_colors` (**15**), as long
+  as every material is a 3-shade **hue-shifted ramp** (shadow cool / base warm-less, highlight warm).
+  This is what lets browns, skin, and metals have believable ramps a locked arcade palette can't
+  express — and it's why Meristem's characters read richer than a PICO-8 swatch-lock. The asset gate
+  enforces the *budget* (≤15) and hard alpha, not a swatch list, for these classes.
+- **Locked-palette.** A class not in `free_palette_classes` must draw only from the contract's fixed
+  colour list (e.g. a strict PICO-8 look). The gate enforces subset-of-palette here.
+Pick per class: free-palette for characters/creatures/items (where ramps matter), locked only if the
+user specifically wants a rigid retro swatch look.
 
 ## When the user wants a different look
 - **Palette.** If they want a different palette, keep it to **16 CC0 / clearly-licensed colors** and

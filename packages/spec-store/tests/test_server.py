@@ -46,7 +46,7 @@ def test_build_server_registers_tools(tmp_path):
     names = {t.name for t in tools}
     assert {"list_domains", "get_domain", "get_manifest", "set_domain",
             "diff_domain", "validate_all", "scaffold_project", "inspect_manifest",
-            "list_sprite_archetypes"} <= names
+            "list_sprite_archetypes", "check_sprite"} <= names
 
 
 def test_mcp_apps_ui_resource_registered(tmp_path):
@@ -68,6 +68,13 @@ def test_list_sprite_archetypes(svc):
     assert {"flyer", "spider", "weapon", "humanoid", "tile"} <= set(by)
     assert "bat" in by["flyer"]["variants"]["build"] and by["flyer"]["animated"]
     assert by["flyer"]["class"] == "enemy"
+
+
+def test_check_sprite(svc):
+    assert svc.check_sprite("flyer", {"build": "bat"}) == {"available": True, "ok": True, "problems": []}
+    bad = svc.check_sprite("flyer", {"build": "dragon"})
+    assert bad["available"] and not bad["ok"] and bad["problems"]
+    assert not svc.check_sprite("nonexistent", {})["ok"]
 
 
 def test_validate_all_rejects_bogus_sprite_build(svc):

@@ -47,6 +47,14 @@ show the user the reason and fix it; never force an invalid state.
 Good mutations to offer: rename things, tweak stats, add an item or enemy, change the biome, adjust
 move speed / jump height. Enrich the narrative (premise, beats) with the user's ideas.
 
+**Giving something a look.** When you add or reskin an entity/item, set its `sprite: {archetype,
+config}` — but **discover the vocabulary first**, don't guess a build. Call `list_sprite_archetypes`
+for the live menu (every archetype + its build/kind/shape options + colours), pick one that fits the
+fiction (a bat enemy → `{archetype: "flyer", config: {build: "bat"}}`; a boss slime →
+`{archetype: "blob", config: {build: "king"}}`), and confirm it with `check_sprite` before the write.
+A bogus build (`{build: "dragon"}`) is schema-valid but a `validate_all` cross-ref error — so verify,
+don't ship it. No sprite field → the archetype's default build.
+
 ## Step 4 — Hand off
 
 When the user is happy, `validate_all` (must be ok), save the manifest, and tell them to compile:
