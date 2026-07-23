@@ -28,15 +28,34 @@ meristem-verify build/my-game --manifest examples/slice-01/manifest.json --godot
 # 4. Open build/my-game in Godot 4.6 — it's a normal project you own and can ship.
 ```
 
-Or install into Claude Code as a plugin:
+### Install it in one move — give this to your Claude
 
-```
-/plugin marketplace add jarmstrong158/meristem
-/plugin install meristem@meristem
-```
+Meristem installs itself into **Claude Code**. Paste this to your Claude (or run the three lines):
 
-Skills (in `plugins/meristem/skills/`): **game-interview** (idea → manifest), **style-contract-author**
-(the visual style), **balance-reviewer** (design sanity pass).
+> Install the Meristem plugin from `github.com/jarmstrong158/meristem`, then set up its engine:
+>
+> ```
+> /plugin marketplace add jarmstrong158/meristem
+> /plugin install meristem@meristem
+> /meristem-setup
+> ```
+
+`/plugin install` delivers the skills, commands, and the MCP config. **`/meristem-setup`** then closes
+the gap that a plugin alone can't: it clones the whole suite to `~/.meristem`, builds an isolated
+Python venv, `pip install`s all five packages (so the generators, the asset gate, and the compiler
+work), and repoints the spec-store MCP at that venv so it actually starts. It ends with a health check;
+re-run **`/meristem-doctor`** anytime, and re-run `/meristem-setup` after a plugin update.
+
+After setup, reload MCP servers (restart Claude Code or `/mcp`) so the spec-store server picks up the
+new interpreter. Full details + troubleshooting: [`docs/INSTALL.md`](docs/INSTALL.md).
+
+> **Note:** this is a **Claude Code** experience (desktop or CLI) — it needs local Python, a local MCP,
+> and plugin support. **claude.ai on the web can't run it** (no local execution); a hosted-MCP path
+> would be a separate effort.
+
+Skills (in `plugins/meristem/skills/`): **pixel-art** (build sprites to the studio standard),
+**game-interview** (idea → manifest), **style-contract-author** (the visual style), **balance-reviewer**
+(design sanity pass). Commands: **/meristem-setup**, **/meristem-doctor**.
 
 ## Principles (hard constraints)
 
