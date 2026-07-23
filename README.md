@@ -100,6 +100,54 @@ One biome, one character (idle + walk), one enemy, one item, one room, one contr
 spec → assets → gate → LDtk → Godot → runs → passes both verifier loops. Playable, on your disk
 as a normal Godot project. Breadth comes *after* the loop closes end to end.
 
+## Sprite library (pre-made assets)
+
+Every sprite is **config over a fixed archetype** (dec-0022) — 13 archetypes, each built to one
+hue-shifted standard (3-shade ramps, top-left light, selective outline, ≤15 colours) and
+gate-validated. Pick an archetype + a `build`/`kind`/`shape` + colours; a manifest entity/item just
+declares `sprite: {archetype, config}`. Discover the live menu with the `list_sprite_archetypes` MCP
+tool and validate a pick with `check_sprite`. Browse everything at a glance:
+
+![sprite library](docs/reference/library.png)
+
+*(regenerate: `python tools/contact_sheet.py` → `docs/reference/library.png`; full table in
+[`docs/reference/library.md`](docs/reference/library.md))*
+
+**Characters** — `character`, 32×32, animated (walk)
+
+| archetype | variant axes | colour knobs |
+|---|---|---|
+| `humanoid` | hair_style `short·long·ponytail·spiky·bald` · hat `none·cap·wizard·helmet·crown·hood` · beard `none·short·full` · held `none·staff·rod·flamestaff·shield·daggers` · garment `none·apron·scarf·cloak` · feet `boots·bare` · arms `normal·stone` · hair_accent `none·flora` | skin, hair, shirt, pants, hat_color, held_color, garment_color, arm_color |
+
+The layers are combinatorial, so knight/wizard/king/dwarf/rogue/cleric are all the same base + config.
+
+**Creatures** — `enemy`, 32×32, each animated
+
+| archetype | builds | idle | colour |
+|---|---|---|---|
+| `blob` | slime · king · cube · ooze (× size s/m/l) | squash | color |
+| `ghost` | ghost · wisp · specter | float | color |
+| `quadruped` | dog · wolf · boar · cat | breathe | color |
+| `flyer` | bat · bird · moth | wing-flap | color |
+| `serpent` | cobra · snake · viper | tongue/sway | color |
+| `spider` | spider · tarantula · widow | leg-twitch | color |
+
+**Items** — `item_icon`, 16×16
+
+| archetype | kinds | colour knobs |
+|---|---|---|
+| `weapon` | sword · dagger · greatsword · axe · spear · staff · bow · mace · wand | blade, hilt, grip, wood, orb |
+| `consumable` | flask · bottle · vial · scroll · pouch | liquid, glass, cork |
+| `pickup` | coin · heart · key · gem · ring · skull · star *(coin spins)* | color |
+| `projectile` | arrow · fireball · bolt · knife · shuriken | color |
+| `chest` | wood · iron · gold · crystal (× open/closed) | wood, metal |
+
+**Terrain** — `tile`, 16×16 tileable
+
+| archetype | tiles |
+|---|---|
+| `tile` | grass · dirt · water · stone · sand · snow · lava · brick |
+
 ## Non-goals for v1
 
 3D · audio generation · multiplayer · freeform mechanic codegen · unattended autonomous runs

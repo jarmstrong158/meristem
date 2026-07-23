@@ -20,7 +20,7 @@ knob + colours select a sprite. Adding a *variant* is a generator edit; the vali
 
 | archetype | class | builds / kinds | animated |
 |-----------|-------|----------------|----------|
-| `humanoid` | character | hair short/long/ponytail/spiky/bald · beard none/short/full · hat none/cap/wizard/helmet/crown | walk |
+| `humanoid` | character | hair short/long/ponytail/spiky/bald · beard none/short/full · hat none/cap/wizard/helmet/crown/hood · held none/staff/rod/flamestaff/shield/daggers · garment none/apron/scarf/cloak · feet boots/bare · arms normal/stone · hair_accent none/flora | walk |
 | `blob` | enemy | slime · king · cube · ooze | squash idle |
 | `ghost` | enemy | ghost · wisp · specter | float idle |
 | `quadruped` | enemy | dog · wolf · boar · cat | breathing idle |
