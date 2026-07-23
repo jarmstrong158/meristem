@@ -7,7 +7,7 @@
     {
       "name": "meristem",
       "source": "./plugins/meristem",
-      "description": "The game-interview, style-contract-author, and balance-reviewer skills plus the spec-store MCP server.",
+      "description": "The pixel-art, game-interview, style-contract-author, and balance-reviewer skills, the spec-store MCP server, and a /meristem-setup command that installs the Python engine.",
       "category": "development",
       "tags": ["gamedev", "godot", "pixel-art", "2d", "mcp"]
     }
