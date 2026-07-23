@@ -1,6 +1,6 @@
 {
   "meristem_manifest_version": 1,
-  "version": 10,
+  "version": 11,
   "domains": {
     "style_contract": {
       "$schema_note": "Hand-authored style contract for the Phase 0c calibration bake-off. Both the generators and the asset gate read this file. It is the 'style contract' the whole project's thesis is built on.",
@@ -324,7 +324,7 @@
       "enemies": [
         {
           "id": "slime",
-          "name": "Grove Slime",
+          "name": "Grove Slime King",
           "stats": {
             "hp": 8,
             "atk": 2,
@@ -333,7 +333,15 @@
           },
           "behavior_archetype": "hero",
           "sprite": {
-            "archetype": "blob"
+            "archetype": "blob",
+            "config": {
+              "build": "king",
+              "color": [
+                96,
+                200,
+                96
+              ]
+            }
           }
         }
       ]
@@ -1011,6 +1019,62 @@
                   "archetype": "weapon",
                   "config": {
                     "kind": "sword"
+                  }
+                }
+              }
+            ]
+          ]
+        },
+        "has_changes": true
+      }
+    },
+    {
+      "version": 11,
+      "domain": "entities",
+      "op": "set",
+      "at": "2026-07-23T00:55:00+00:00",
+      "provenance": {},
+      "diff": {
+        "added": {},
+        "removed": {},
+        "changed": {
+          "enemies": [
+            [
+              {
+                "id": "slime",
+                "name": "Grove Slime",
+                "stats": {
+                  "hp": 8,
+                  "atk": 2,
+                  "def": 1,
+                  "spd": 3
+                },
+                "behavior_archetype": "hero",
+                "sprite": {
+                  "archetype": "blob"
+                }
+              }
+            ],
+            [
+              {
+                "id": "slime",
+                "name": "Grove Slime King",
+                "stats": {
+                  "hp": 8,
+                  "atk": 2,
+                  "def": 1,
+                  "spd": 3
+                },
+                "behavior_archetype": "hero",
+                "sprite": {
+                  "archetype": "blob",
+                  "config": {
+                    "build": "king",
+                    "color": [
+                      96,
+                      200,
+                      96
+                    ]
                   }
                 }
               }

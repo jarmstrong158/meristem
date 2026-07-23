@@ -309,6 +309,20 @@ def test_blob_and_ghost_builds_vary(contract):
             assert res.accepted, f"{fn.__name__} {b}: {res.reasons}"
 
 
+def test_contact_sheet_covers_the_library():
+    # the library reference tool must keep building every archetype/build it lists
+    import sys
+    root = Path(__file__).resolve().parents[3]
+    sys.path.insert(0, str(root / "tools"))
+    import contact_sheet
+    sections = contact_sheet.build_sections()
+    total = sum(len(e) for _, e in sections)
+    assert total >= 60, total
+    for _, entries in sections:
+        for label, sprite in entries:
+            assert sprite.mode == "RGBA" and sprite.width in (16, 32), label
+
+
 def test_default_generate_frames_is_single(contract):
     # a tile has no animation; generate_frames returns one frame
     frames = get("procedural").generate_frames(AssetSpec("terrain_tile", "grass"), contract)
