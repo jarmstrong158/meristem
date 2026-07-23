@@ -85,6 +85,35 @@ def _wp_staff(cv, blade, gold, grip, wood, orb):
     cv.px(2, 6, (255, 255, 255))                             # glint
 
 
+def _wp_bow(cv, blade, gold, grip, wood, orb):
+    limb = {2: 8, 3: 6, 4: 5, 5: 4, 6: 4, 7: 4, 8: 4, 9: 4, 10: 5, 11: 6, 12: 7, 13: 9}
+    for r, c in limb.items():                                # curved wooden limb (bulges left)
+        cv.px(r, c, wood.base); cv.px(r, c + 1, wood.shadow)
+    cv.rect(3, 12, 8, 8, blade.highlight)                    # taut bowstring
+    cv.rect(7, 8, 5, 11, wood.base); cv.px(8, 5, wood.shadow)   # nocked arrow shaft
+    cv.rect(6, 8, 11, 13, blade.base)                        # arrowhead
+    cv.px(6, 13, blade.highlight); cv.px(8, 13, blade.shadow)
+
+
+def _wp_mace(cv, blade, gold, grip, wood, orb):
+    cv.rect(8, 14, 7, 8, grip.base); cv.rect(8, 14, 8, 8, grip.shadow)   # handle
+    cv.rect(14, 14, 7, 8, gold.base)                         # pommel
+    cv.disc(5, 8, 3, 3, blade.base)                          # spiked head
+    cv.disc(4, 7, 1.3, 1.3, blade.highlight); cv.disc(6, 9, 1.4, 1.4, blade.shadow)
+    for r, c in [(1, 7), (1, 8), (2, 3), (3, 12), (5, 2), (5, 13), (8, 4), (8, 12)]:
+        cv.px(r, c, blade.base)                              # radiating spikes
+    cv.px(1, 7, blade.highlight)
+
+
+def _wp_wand(cv, blade, gold, grip, wood, orb):
+    cv.rect(6, 14, 7, 8, wood.base); cv.rect(6, 14, 8, 8, wood.shadow)   # short rod
+    o = Ramp(orb)
+    cv.disc(4, 8, 2.4, 2.4, o.base)                          # gem tip
+    cv.disc(3, 7, 1.1, 1.1, o.highlight); cv.disc(5, 9, 1.1, 1.1, o.shadow)
+    cv.px(2, 8, (255, 255, 255))                             # core glint
+    cv.px(3, 11, (255, 255, 210)); cv.px(7, 11, (255, 255, 210))   # magic sparkles
+
+
 _WEAPONS = {
     "sword": lambda cv, b, g, gr, w, o: _wp_sword(cv, b, g, gr, w, o),
     "dagger": _wp_dagger,
@@ -92,6 +121,9 @@ _WEAPONS = {
     "axe": _wp_axe,
     "spear": _wp_spear,
     "staff": _wp_staff,
+    "bow": _wp_bow,
+    "mace": _wp_mace,
+    "wand": _wp_wand,
 }
 
 
@@ -135,7 +167,28 @@ def _cons_vial(cv, liquid, glass, cork):
     cv.px(8, 7, glass.highlight)
 
 
-_CONS = {"flask": _cons_flask, "bottle": _cons_bottle, "vial": _cons_vial}
+def _cons_scroll(cv, liquid, glass, cork):
+    cv.rect(6, 10, 4, 11, glass.base)                        # parchment sheet
+    cv.rect(6, 6, 4, 11, glass.highlight)                    # lit top edge
+    cv.rect(10, 10, 4, 11, glass.shadow)                     # shaded bottom edge
+    cv.rect(8, 8, 5, 7, glass.shadow); cv.rect(8, 8, 9, 10, glass.shadow)   # lines of writing
+    cv.rect(4, 12, 3, 4, cork.base); cv.rect(4, 12, 11, 12, cork.base)      # rolled rods (l/r)
+    cv.rect(4, 12, 4, 4, cork.shadow); cv.rect(4, 12, 11, 11, cork.highlight)
+    cv.rect(7, 9, 7, 8, liquid.base)                         # wax seal / ribbon
+
+
+def _cons_pouch(cv, liquid, glass, cork):
+    cv.disc(10, 8, 4, 4.5, cork.base)                        # leather sack
+    cv.disc(12, 9, 2.4, 3, cork.shadow)                      # lower-right shade
+    cv.disc(8, 6, 1.6, 1.8, cork.highlight)                  # top-left sheen
+    cv.rect(5, 6, 6, 10, cork.base)                          # gathered neck
+    cv.rect(5, 5, 6, 10, cork.shadow)                        # drawstring tie
+    cv.px(4, 6, cork.base); cv.px(4, 10, cork.base)          # string ends
+    cv.px(9, 8, (240, 214, 120)); cv.px(10, 7, (240, 214, 120))   # coin glint inside
+
+
+_CONS = {"flask": _cons_flask, "bottle": _cons_bottle, "vial": _cons_vial,
+         "scroll": _cons_scroll, "pouch": _cons_pouch}
 
 
 def consumable(contract, config=None) -> np.ndarray:
@@ -290,7 +343,28 @@ def _pj_bolt(cv, color):
     cv.px(4, 7, (255, 255, 255))
 
 
-_PROJECTILES = {"arrow": _pj_arrow, "fireball": _pj_fireball, "bolt": _pj_bolt}
+def _pj_knife(cv, color):
+    blade, grip = Ramp(_STEEL), Ramp((110, 74, 48))
+    for i in range(7):                                       # blade: low-left -> high-right
+        r, c = 11 - i, 4 + i
+        cv.px(r, c, blade.base); cv.px(r + 1, c, blade.shadow); cv.px(r, c + 1, blade.highlight)
+    cv.px(4, 11, blade.highlight)                            # tip
+    cv.rect(11, 13, 2, 4, grip.base); cv.px(13, 2, grip.shadow)   # handle (low-left)
+    cv.px(10, 4, Ramp(color).base)                           # guard fleck
+
+
+def _pj_shuriken(cv, color):
+    st = Ramp(_STEEL)
+    cv.rect(3, 13, 8, 8, st.base)                            # vertical blade
+    cv.rect(8, 8, 3, 13, st.base)                            # horizontal blade
+    cv.disc(8, 8, 2, 2, st.base)                             # hub
+    cv.px(6, 6, st.highlight); cv.px(10, 10, st.shadow)      # form light/shade
+    cv.px(3, 8, st.highlight); cv.px(8, 13, st.shadow)       # sharpened tips
+    cv.px(8, 8, outline_dark(_STEEL))                        # centre hole
+
+
+_PROJECTILES = {"arrow": _pj_arrow, "fireball": _pj_fireball, "bolt": _pj_bolt,
+                "knife": _pj_knife, "shuriken": _pj_shuriken}
 
 
 def projectile(contract, config=None) -> np.ndarray:

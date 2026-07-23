@@ -243,6 +243,23 @@ def test_new_tiles_build_and_gate(contract):
         assert res.accepted, f"{name}: {res.reasons}"
 
 
+def test_item_kind_variety_builds_and_gates(contract):
+    from PIL import Image
+    from meristem_generators.items import weapon, consumable, projectile
+    groups = [
+        (weapon, "kind", ["sword", "dagger", "greatsword", "axe", "spear", "staff", "bow", "mace", "wand"]),
+        (consumable, "shape", ["flask", "bottle", "vial", "scroll", "pouch"]),
+        (projectile, "kind", ["arrow", "fireball", "bolt", "knife", "shuriken"]),
+    ]
+    for fn, key, kinds in groups:
+        seen = set()
+        for k in kinds:
+            arr = fn(contract, {key: k})
+            assert validate(Image.fromarray(arr, "RGBA"), "item_icon", contract).accepted, k
+            seen.add(arr.tobytes())
+        assert len(seen) == len(kinds), f"{fn.__name__}: some kinds render identically"
+
+
 def test_default_generate_frames_is_single(contract):
     # a tile has no animation; generate_frames returns one frame
     frames = get("procedural").generate_frames(AssetSpec("terrain_tile", "grass"), contract)
