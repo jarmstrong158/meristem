@@ -293,6 +293,22 @@ def test_pickup_variety(contract):
         assert validate(Image.fromarray(a, "RGBA"), cls, contract).accepted, shape
 
 
+def test_blob_and_ghost_builds_vary(contract):
+    import numpy as np
+    from PIL import Image
+    from meristem_generators.creatures import build_blob, build_ghost
+    for fn, builds in ((build_blob, ("slime", "king", "cube", "ooze")),
+                       (build_ghost, ("ghost", "wisp", "specter"))):
+        arrs = {b: fn(contract, {"build": b}) for b in builds}
+        vals = list(arrs.values())
+        for i in range(len(vals)):
+            for j in range(i + 1, len(vals)):
+                assert not np.array_equal(vals[i], vals[j])     # each build distinct
+        for b, arr in arrs.items():
+            res = validate(Image.fromarray(arr, "RGBA"), "enemy", contract)
+            assert res.accepted, f"{fn.__name__} {b}: {res.reasons}"
+
+
 def test_default_generate_frames_is_single(contract):
     # a tile has no animation; generate_frames returns one frame
     frames = get("procedural").generate_frames(AssetSpec("terrain_tile", "grass"), contract)

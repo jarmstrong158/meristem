@@ -12,8 +12,19 @@ import numpy as np
 from .shading import Ramp
 from .sprite import Canvas, outline_dark, translate
 
-BLOB_DEFAULT = {"color": (96, 200, 96), "size": "m", "eyes": 2}
+BLOB_DEFAULT = {"color": (96, 200, 96), "size": "m", "eyes": 2, "build": "slime"}
 _SIZE = {"s": (6, 9), "m": (8, 11), "l": (10, 13)}   # (ry, rx)
+
+
+def _blob_cube(cv, body, cx, cy, ry, rx, h):
+    """A gelatinous cube: a rounded translucent block instead of a dome."""
+    x0, x1, y0, y1 = cx - rx, cx + rx, cy - ry, cy + ry - 1
+    cv.rect(y0, y1, x0, x1, body.base)
+    cv.rect(y0, y0 + 2, x0, x0 + 3, body.highlight)  # top-left lit face
+    cv.rect(y1 - 2, y1, x1 - 3, x1, body.shadow); cv.rect(y0, y1, x1, x1, body.shadow)   # right/low shade
+    for yy, xx in ((y0, x0), (y0, x1), (y1, x0), (y1, x1)):
+        cv.clear_disc(yy, xx, 1.3, 1.3)              # round the corners
+    cv.px(cy, cx + 1, body.shadow); cv.px(cy + 1, cx + 1, body.shadow)   # a swallowed speck
 
 
 def build_blob(contract, config=None) -> np.ndarray:
@@ -27,14 +38,28 @@ def build_blob(contract, config=None) -> np.ndarray:
     sq = int(cfg.get("squash", 0))                    # squash-and-stretch (idle anim)
     ry = max(3, ry - sq); rx = rx + sq                # squash: shorter + wider
     cy = h - ry - 2                                   # sit near the ground
+    build = cfg.get("build", "slime")
 
-    # --- silhouette + directional form shadow (light top-left) ---
-    # shadow dome underneath; base dome shifted 1px up-left leaves a thin shadow
-    # rim on the bottom-right — clean form shading, not a pillow blob.
-    cv.disc(cy, cx, ry, rx, body.shadow)
-    cv.disc(cy - 1, cx - 1, ry, rx, body.base)
-    cv.disc(cy - ry // 2, cx - rx // 2, ry * 0.4, rx * 0.42, body.highlight)   # top-left sheen
-    cv.rect(h - 2, h - 2, cx - rx + 2, cx + rx - 3, body.shadow)                # ground contact
+    if build == "cube":
+        _blob_cube(cv, body, cx, cy, ry, rx, h)
+    else:
+        # --- dome silhouette + directional form shadow (light top-left) ---
+        # shadow dome underneath; base dome shifted 1px up-left leaves a thin shadow
+        # rim on the bottom-right — clean form shading, not a pillow blob.
+        cv.disc(cy, cx, ry, rx, body.shadow)
+        cv.disc(cy - 1, cx - 1, ry, rx, body.base)
+        cv.disc(cy - ry // 2, cx - rx // 2, ry * 0.4, rx * 0.42, body.highlight)   # top-left sheen
+        cv.rect(h - 2, h - 2, cx - rx + 2, cx + rx - 3, body.shadow)                # ground contact
+        if build == "ooze":                          # lopsided, dripping
+            cv.rect(cy, h - 2, cx - rx, cx - rx + 1, body.shadow)   # left drip down
+            cv.disc(h - 3, cx + rx - 2, 2, 1.6, body.base)          # right bulge drip
+        if build == "king":                          # crowned slime
+            crown = Ramp((240, 210, 90))
+            ct = cy - ry - 1
+            cv.rect(ct, ct + 1, cx - 3, cx + 2, crown.base)         # band
+            for c in (cx - 3, cx - 1, cx + 1, cx + 3):
+                cv.px(ct - 1, c, crown.base)                        # points
+            cv.px(ct, cx, crown.highlight)
 
     # --- face ---
     ey = cy - ry // 3
@@ -58,19 +83,10 @@ def blob_idle(contract, config=None) -> list[np.ndarray]:
     return [build_blob(contract, {**cfg, "squash": s}) for s in (0, 1, 0, -1)]
 
 
-GHOST_DEFAULT = {"color": (224, 228, 244), "eyes": 2}
+GHOST_DEFAULT = {"color": (224, 228, 244), "eyes": 2, "build": "ghost"}
 
 
-def build_ghost(contract, config=None) -> np.ndarray:
-    """A floating ghost/wisp — domed top, wavy tail, hollow face. Distinct silhouette
-    from the blob; parametric by colour."""
-    cfg = {**GHOST_DEFAULT, **(config or {})}
-    body = Ramp(cfg["color"])
-    dark = outline_dark(cfg["color"])
-    w, h = contract.canvas_of("enemy")
-    cv = Canvas(w, h)
-    cx = w // 2
-
+def _ghost_classic(cv, body, dark, cx):
     cv.disc(13, cx, 7, 8, body.base)                 # domed head
     cv.rect(13, 25, cx - 8, cx + 7, body.base)       # body
     for nx in (cx - 5, cx, cx + 5):                  # wavy tail (scallop notches)
@@ -78,10 +94,48 @@ def build_ghost(contract, config=None) -> np.ndarray:
     cv.disc(10, cx - 3, 3, 3.2, body.highlight)      # top-left sheen
     cv.rect(13, 24, cx + 6, cx + 7, body.shadow)     # shade side
     cv.rect(24, 25, cx - 3, cx + 2, body.shadow)     # under-shadow
-
     for ex in (cx - 4, cx + 2):                      # hollow eyes
         cv.rect(13, 15, ex, ex + 1, dark)
     cv.rect(18, 19, cx - 1, cx, dark)                # small mouth
+
+
+def _ghost_wisp(cv, body, dark, cx):
+    """A small will-o'-wisp: a glowing orb with a rising flame-tail."""
+    cv.disc(20, cx, 5, 5, body.base)                 # round base
+    flame = {9: (cx, cx), 10: (cx - 1, cx), 11: (cx - 1, cx + 1),
+             12: (cx - 2, cx + 1), 13: (cx - 2, cx + 2), 14: (cx - 3, cx + 2)}
+    for r, (c0, c1) in flame.items():
+        cv.rect(r, r, c0, c1, body.base)             # tapering flame tongue
+    cv.disc(19, cx - 1, 2.2, 2.2, body.highlight)    # bright core
+    cv.disc(22, cx + 1, 2, 2.6, body.shadow)
+    cv.px(10, cx, (255, 255, 255))                   # tip glint
+    cv.px(19, cx - 2, dark); cv.px(19, cx + 2, dark) # tiny eyes
+
+
+def _ghost_specter(cv, body, dark, cx):
+    """A tall hooded phantom with glowing eyes — more menacing than the sheet ghost."""
+    cv.disc(9, cx, 5, 6, body.base)                  # hood dome
+    cv.rect(9, 27, cx - 6, cx + 5, body.base)        # long robe
+    for nx in (cx - 4, cx, cx + 4):                  # ragged hem
+        cv.clear_disc(28, nx, 3, 2.2)
+    cv.rect(6, 8, cx - 4, cx + 3, body.highlight)    # lit hood crown
+    cv.rect(9, 22, cx + 4, cx + 5, body.shadow)      # shade side
+    cv.rect(11, 16, cx - 3, cx + 2, body.shadow)     # recessed face (cowl)
+    cv.px(12, cx - 2, (240, 96, 96)); cv.px(12, cx + 1, (240, 96, 96))   # glowing eyes
+
+
+_GHOSTS = {"ghost": _ghost_classic, "wisp": _ghost_wisp, "specter": _ghost_specter}
+
+
+def build_ghost(contract, config=None) -> np.ndarray:
+    """A floating spirit, parametric by colour + `build`: ghost (sheet), wisp
+    (will-o'-wisp orb), specter (hooded phantom)."""
+    cfg = {**GHOST_DEFAULT, **(config or {})}
+    body = Ramp(cfg["color"])
+    dark = outline_dark(cfg["color"])
+    w, h = contract.canvas_of("enemy")
+    cv = Canvas(w, h)
+    _GHOSTS.get(cfg.get("build", "ghost"), _ghost_classic)(cv, body, dark, w // 2)
     cv.outline(dark)
     return cv.array()
 
