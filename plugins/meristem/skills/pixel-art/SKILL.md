@@ -20,11 +20,14 @@ actually looks good, not just one that passes the gate.
   (speckle/ripple), never a directional bevel, so they stay seamlessly tileable.
 - **Selective outline:** a material's darkest shade, not pure black; pure black only on the outer
   silhouette against transparency.
-- **Color budget: ≤15 per sprite** (SNES/GBA). One material = 3 shades, so a character tops out at ~5
-  materials (skin/hair/shirt/pants/hat) + the shared outline. When a hat leaves hair showing, all five
-  ramps are live at exactly 15 — **ornament with an existing ramp shade (`hat.highlight`), never a new
-  literal colour**, or it overflows to 16 and fails the gate. Share shades to fit more (outline = a
-  material's dark; boot = pants shadow).
+- **Color budget: ≤15 for tiles/items; characters get 24** (SNES/GBA discipline, but distinctness of
+  silhouette earns extra ramps). One material = 3 shades, so a bare character is ~5 materials
+  (skin/hair/shirt/pants/hat) + the shared outline = 15. **Prop layers push past 15 on purpose** — a
+  held staff, a garment, or stone arms each adds a real 3-shade ramp, which is why the `character` class
+  carries a raised budget (`palette.max_colors_by_class.character = 24` in the style contract). Still
+  prefer discipline: ornament small details with an *existing* ramp shade (`hat.highlight`) rather than
+  a new literal colour, and share shades where natural (outline = a material's dark; boot = pants
+  shadow). The budget is headroom for meaningful props, not licence for palette sprawl.
 - **Silhouette first:** the solid-black shape must read as the thing before any interior detail.
 
 ## Archetypes, not one-offs (parameters over a fixed library)
@@ -34,7 +37,7 @@ A new creature/item is **config on an archetype**, never new hand-drawing. The l
 
 | archetype | class | build/kind/shape options | animated |
 |-----------|-------|--------------------------|----------|
-| `humanoid` | character | hair short/long/ponytail/spiky/bald · beard none/short/full · hat none/cap/wizard/helmet/crown | walk |
+| `humanoid` | character | hair short/long/ponytail/spiky/bald · beard none/short/full · hat none/cap/wizard/helmet/**hood**/crown · **held** none/staff/rod/flamestaff/shield/daggers · **garment** none/apron/scarf/cloak · **feet** boots/bare · **arms** normal/stone · **hair_accent** none/flora | walk |
 | `blob` | enemy | slime · king · cube · ooze | squash |
 | `ghost` | enemy | ghost · wisp · specter | float |
 | `quadruped` | enemy | dog · wolf · boar · cat | breathe |
@@ -48,9 +51,22 @@ A new creature/item is **config on an archetype**, never new hand-drawing. The l
 | `chest` | item_icon | wood·iron·gold·crystal (×open) | — |
 | `tile` | terrain_tile | grass·dirt·water·stone·sand·snow·lava·brick | — |
 
-- **humanoid** is LPC-layered: one shared `Pose` per frame + z-ordered layers (body→pants→shirt→
-  hair→face→beard→hat); a per-character palette is just `config`; new gear/hats = new layers that
-  **animate for free**. → `humanoid.py`
+- **humanoid** is LPC-layered: one shared `Pose` per frame + z-ordered layers (body→pants→feet→shirt→
+  arms→garment→hair→accent→face→beard→hat→held); a per-character palette is just `config`; new
+  gear/hats = new layers that **animate for free**. → `humanoid.py`
+- **Distinctness is SILHOUETTE, not palette.** Two characters who differ only in `skin`/`hair`/`shirt`
+  colour read as recolours of one body — the fix is a **prop/accessory layer**, not another hue. The
+  humanoid archetype carries these as config knobs, each grounded in what the character actually
+  carries or wears:
+  - `held`: **staff · rod · flamestaff · shield · daggers** — a held item, coloured by `held_color`.
+    Rides the hand/leg offset so it swings with the walk; drawn front-most and caught by the one shared
+    outline pass (never self-outline a prop — draw it *before* `cv.outline`).
+  - `garment`: **apron · scarf · cloak** (`garment_color`) — over-clothing on top of the shirt.
+  - `feet`: **bare** overrides the baked boots with skin (barefoot monks, etc).
+  - `arms`: **stone** overlays the exposed forearms with a `arm_color` ramp (reinforced/stone skin).
+  - `hair_accent`: **flora** tucks sprigs into the hair; `hat: hood` frames the face for a rogue.
+  Adding the *next* prop (a quiver, a book, pauldrons) is one builder function + one dispatch-table
+  entry + one `catalog.py` line — the same variant recipe as a new sword, and it animates for free.
 - **Discover before you draw.** Never guess a build name — call the MCP tool
   `list_sprite_archetypes` (or `sprite_catalog()` in `catalog.py`) for the live menu, and
   `check_sprite(archetype, config)` to confirm a pick. A typo'd build is a `validate_all` error, not

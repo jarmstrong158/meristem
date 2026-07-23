@@ -47,6 +47,18 @@ DEFAULT_CONFIG = {
     "beard": "none",
     "hat": "none",
     "hat_color": (150, 62, 68),
+    # ---- prop / accessory layers (dec: distinctness is silhouette, not palette) ----
+    # Each is a config knob over the shared Pose, so it animates for free and is
+    # outlined by the one shared pass. Defaults are inert (none/boots/normal), so
+    # every pre-existing character renders identically.
+    "held": "none",              # staff · rod · flamestaff · shield · daggers
+    "held_color": (150, 120, 84),
+    "garment": "none",           # apron · scarf · cloak (over the shirt)
+    "garment_color": (204, 192, 162),
+    "feet": "boots",             # boots · bare
+    "arms": "normal",            # normal · stone (reinforced forearms)
+    "arm_color": (132, 136, 142),
+    "hair_accent": "none",       # flora (sprigs tucked in the hair)
 }
 
 
@@ -188,8 +200,16 @@ def _hat_crown(cv, u, hat):
     _p(cv, 3, 15, hat.highlight, u)                                           # centre jewel-glint (reuse ramp)
 
 
+def _hat_hood(cv, u, hat):
+    _r(cv, 2, 6, 10, 21, hat.base, u)                                        # crown mass
+    _r(cv, 6, 13, 10, 11, hat.base, u); _r(cv, 6, 13, 20, 21, hat.base, u)   # side falls framing face
+    _r(cv, 6, 13, 10, 10, hat.shadow, u); _r(cv, 6, 13, 21, 21, hat.shadow, u)
+    _r(cv, 2, 3, 11, 14, hat.highlight, u)                                   # lit crown (top-left)
+    _r(cv, 6, 6, 12, 19, hat.shadow, u)                                      # inner brim cast over brow
+
+
 _HATS = {"none": lambda cv, u, hat: None, "cap": _hat_cap, "wizard": _hat_wizard,
-         "helmet": _hat_helmet, "crown": _hat_crown}
+         "helmet": _hat_helmet, "crown": _hat_crown, "hood": _hat_hood}
 
 
 def _hat(cv, pose, hat, style):
@@ -202,6 +222,117 @@ def _face(cv, pose, eye, skin):
     _p(cv, 12, 15, skin.shadow, u); _p(cv, 12, 16, skin.shadow, u)            # mouth
 
 
+# ---- held items: ride a hand/leg offset so they swing with the walk; drawn
+#      front-most, then caught by the one shared outline pass (no self-outline). ----
+def _held_shaft(cv, pose, m, *, side, ember=None, notched=False):
+    c = 8 if side == "left" else 22
+    dy = pose.larm_dy if side == "left" else pose.rarm_dy
+    _r(cv, 2, 30, c, c, m.base, dy)                                          # shaft
+    _p(cv, 3, c, m.highlight, dy); _p(cv, 4, c, m.highlight, dy)             # lit upper
+    _r(cv, 27, 30, c, c, m.shadow, dy)                                       # shaded foot
+    if notched:                                                             # Lida's tally rod
+        for nr in (12, 16, 20, 24):
+            _p(cv, nr, c, m.shadow, dy)
+    if ember is not None:                                                    # Senna's smoldering tip
+        _p(cv, 2, c, ember.base, dy); _p(cv, 1, c, ember.highlight, dy)
+        _p(cv, 1, c - 1, ember.base, dy); _p(cv, 0, c, ember.shadow, dy)
+
+
+def _held_shield(cv, pose, m):
+    dy = pose.body_dy + pose.larm_dy
+    cy, cx = 18.0 + dy, 8.5
+    cv.disc(cy, cx, 5.0, 4.2, m.base)                                        # face
+    cv.disc(cy - 1.4, cx - 1.4, 2.0, 1.7, m.highlight)                       # top-left sheen
+    cv.px(int(cy), 8, m.shadow); cv.px(int(cy) + 1, 9, m.shadow)             # boss
+    cv.disc(cy, cx, 1.3, 1.1, m.base)
+
+
+def _held_daggers(cv, pose, m):
+    for c, dy in ((9, pose.lleg_dy), (22, pose.rleg_dy)):                    # strapped to the thighs
+        _r(cv, 24, 27, c, c, m.base, dy)                                    # blade
+        _p(cv, 23, c, m.highlight, dy)                                      # point glint
+        _r(cv, 28, 29, c, c, m.shadow, dy)                                  # hilt
+
+
+def _held(cv, pose, mats):
+    kind = mats.get("held", "none")
+    if kind == "none":
+        return
+    m = Ramp(mats["held_color"])
+    if kind == "staff":
+        _held_shaft(cv, pose, m, side="left")
+    elif kind == "rod":
+        _held_shaft(cv, pose, m, side="right", notched=True)
+    elif kind == "flamestaff":
+        _held_shaft(cv, pose, m, side="left", ember=Ramp((224, 100, 52)))
+    elif kind == "shield":
+        _held_shield(cv, pose, m)
+    elif kind == "daggers":
+        _held_daggers(cv, pose, m)
+
+
+# ---- garment: over-clothing drawn on top of the shirt (before hair) ----
+def _garment_apron(cv, pose, m):
+    u = pose.body_dy
+    _r(cv, 17, 22, 13, 18, m.base, u)                                        # bib over torso
+    _r(cv, 17, 17, 13, 14, m.highlight, u); _r(cv, 17, 22, 18, 18, m.shadow, u)
+    _r(cv, 20, 20, 14, 17, m.shadow, u)                                      # bib pocket seam
+    _r(cv, 23, 27, 13, 18, m.base); _r(cv, 23, 27, 18, 18, m.shadow)         # skirt over the lap
+    _r(cv, 25, 25, 14, 17, m.shadow)                                         # skirt pocket seam
+
+
+def _garment_scarf(cv, pose, m):
+    u = pose.body_dy
+    _r(cv, 14, 14, 12, 19, m.base, u); _r(cv, 14, 14, 12, 13, m.highlight, u)   # around the neck
+    _r(cv, 15, 20, 12, 12, m.base, u); _r(cv, 15, 20, 13, 13, m.shadow, u)      # tail down the front
+    _p(cv, 21, 12, m.shadow, u)
+
+
+def _garment_cloak(cv, pose, m):
+    u = pose.body_dy
+    _r(cv, 15, 16, 11, 20, m.base, u); _r(cv, 15, 15, 11, 14, m.highlight, u)   # collar across shoulders
+    _r(cv, 15, 25, 11, 11, m.base, u); _r(cv, 15, 25, 20, 20, m.shadow, u)      # drape down both sides
+
+
+def _garment(cv, pose, mats):
+    kind = mats.get("garment", "none")
+    fn = {"apron": _garment_apron, "scarf": _garment_scarf, "cloak": _garment_cloak}.get(kind)
+    if fn is not None:
+        fn(cv, pose, Ramp(mats["garment_color"]))
+
+
+# ---- feet: bare overrides the baked boots with skin (rides the legs) ----
+def _feet_bare(cv, pose, skin):
+    _r(cv, 28, 29, 12, 14, skin.base, pose.lleg_dy)
+    _r(cv, 28, 29, 17, 19, skin.base, pose.rleg_dy)
+    _p(cv, 29, 14, skin.shadow, pose.lleg_dy); _p(cv, 29, 17, skin.shadow, pose.rleg_dy)
+    _p(cv, 29, 11, skin.base, pose.lleg_dy); _p(cv, 29, 20, skin.base, pose.rleg_dy)  # toes splay out
+
+
+# ---- arms: stone reinforcement over the exposed forearms/knuckles ----
+def _arms_stone(cv, pose, m):
+    _r(cv, 18, 21, 10, 10, m.base, pose.larm_dy); _p(cv, 18, 10, m.highlight, pose.larm_dy)
+    _r(cv, 18, 21, 21, 21, m.base, pose.rarm_dy); _p(cv, 21, 21, m.shadow, pose.rarm_dy)
+
+
+# ---- hair accent: sprigs/flowers tucked into the hair (over the hair layer) ----
+def _accents(cv, pose, mats):
+    if mats.get("hair_accent", "none") != "flora":
+        return
+    u = pose.body_dy
+    herb = Ramp((112, 154, 72))
+    _p(cv, 2, 12, herb.base, u); _p(cv, 1, 12, herb.highlight, u)
+    _p(cv, 2, 19, herb.base, u); _p(cv, 3, 20, herb.highlight, u)
+
+
+# ---- prop vocabularies (catalog reads these so the MCP surfaces + validates them) ----
+_HELD = ("none", "staff", "rod", "flamestaff", "shield", "daggers")
+_GARMENTS = ("none", "apron", "scarf", "cloak")
+_FEET = ("boots", "bare")
+_ARMS = ("normal", "stone")
+_ACCENTS = ("none", "flora")
+
+
 def build_frame(contract, config, pose) -> np.ndarray:
     w, h = contract.canvas_of("character")
     mats = {**DEFAULT_CONFIG, **(config or {})}
@@ -211,12 +342,19 @@ def build_frame(contract, config, pose) -> np.ndarray:
     cv = Canvas(w, h)
     _base_body(cv, pose, skin)
     _pants(cv, pose, pants, dark)
+    if mats.get("feet", "boots") == "bare":
+        _feet_bare(cv, pose, skin)                           # over the boots
     _shirt(cv, pose, shirt)
+    if mats.get("arms", "normal") == "stone":
+        _arms_stone(cv, pose, Ramp(mats["arm_color"]))       # over the forearms
+    _garment(cv, pose, mats)                                 # apron/scarf/cloak over the shirt
     _hair(cv, pose, hair, mats.get("hair_style", "short"))
+    _accents(cv, pose, mats)                                 # flora over the hair
     _face(cv, pose, dark, skin)
     _beard(cv, pose, hair, mats.get("beard", "none"))        # over the face
     _hat(cv, pose, Ramp(mats["hat_color"]), mats.get("hat", "none"))   # over the crown
-    cv.outline(dark)
+    _held(cv, pose, mats)                                    # front-most: staff/shield/etc
+    cv.outline(dark)                                         # one shared pass outlines props too
     return cv.array()
 
 
