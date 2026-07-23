@@ -24,7 +24,12 @@
       { "i": 13, "hex": "#83769C", "name": "lavender" },
       { "i": 14, "hex": "#FF77A8", "name": "pink" },
       { "i": 15, "hex": "#FFCCAA", "name": "peach" }
-    ]
+    ],
+    "max_colors": 15,
+    "max_colors_by_class": {
+      "character": 24
+    },
+    "budget_note": "Base budget is 15 (SNES/GBA discipline). Characters may reach 24 because prop/accessory layers (held staff/shield, garment, stone arms, hair flora) each add a real 3-shade ramp on top of skin/hair/shirt/pants/hat. Distinctness of silhouette is worth the extra ramps; tiles/items stay at 15."
   },
   "canvas": {
     "terrain_tile": { "w": 16, "h": 16 },

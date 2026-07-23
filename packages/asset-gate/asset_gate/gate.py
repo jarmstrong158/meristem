@@ -125,8 +125,9 @@ def normalize(
     if report["semi_transparent_px"] != 0:
         reasons.append(f"{report['semi_transparent_px']} semi-transparent px remain")
     if free:
-        if report["unique_colors"] > contract.max_colors:
-            reasons.append(f"{report['unique_colors']} colors exceeds the {contract.max_colors}-color budget")
+        budget = contract.budget_for(asset_class)
+        if report["unique_colors"] > budget:
+            reasons.append(f"{report['unique_colors']} colors exceeds the {budget}-color budget")
     elif not report["subset_of_palette"]:
         reasons.append(f"{report['unique_colors']} colors, not all in the locked palette")
 
@@ -165,8 +166,9 @@ def validate(image: Image.Image, asset_class: str, contract: StyleContract) -> G
     if report["semi_transparent_px"]:
         reasons.append(f"{report['semi_transparent_px']} semi-transparent px")
     if contract.is_free_palette(asset_class):
-        if report["unique_colors"] > contract.max_colors:
-            reasons.append(f"{report['unique_colors']} colors exceeds the {contract.max_colors}-color budget")
+        budget = contract.budget_for(asset_class)
+        if report["unique_colors"] > budget:
+            reasons.append(f"{report['unique_colors']} colors exceeds the {budget}-color budget")
     elif not report["subset_of_palette"]:
         reasons.append("colors outside the locked palette")
     if contract.anchor_of(asset_class) == "top_left" and report["transparent_px"]:

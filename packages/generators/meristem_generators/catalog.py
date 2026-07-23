@@ -15,13 +15,16 @@ from __future__ import annotations
 from .archetypes import ARCHETYPES, archetype_class, known_archetypes
 from .creatures import (BLOB_BUILDS, _FLYER_BUILDS, _GHOSTS, _QUAD_BUILDS,
                         _SERPENT_BUILDS, _SPIDER_BUILDS)
-from .humanoid import _BEARDS, _HAIR, _HATS
+from .humanoid import (_ACCENTS, _ARMS, _BEARDS, _FEET, _GARMENTS, _HAIR,
+                       _HATS, _HELD)
 from .items import _CHEST_BUILDS, _CONS, _PICKUPS, _PROJECTILES, _WEAPONS
 from .procedural import ProceduralGenerator
 
 # variant axes per archetype: {archetype: {config_key: [allowed options]}}
 _VARIANTS: dict[str, dict[str, list[str]]] = {
-    "humanoid":   {"hair_style": sorted(_HAIR), "hat": sorted(_HATS), "beard": sorted(_BEARDS)},
+    "humanoid":   {"hair_style": sorted(_HAIR), "hat": sorted(_HATS), "beard": sorted(_BEARDS),
+                   "held": sorted(_HELD), "garment": sorted(_GARMENTS), "feet": sorted(_FEET),
+                   "arms": sorted(_ARMS), "hair_accent": sorted(_ACCENTS)},
     "blob":       {"build": list(BLOB_BUILDS), "size": ["s", "m", "l"]},
     "ghost":      {"build": sorted(_GHOSTS)},
     "quadruped":  {"build": sorted(_QUAD_BUILDS)},
@@ -38,7 +41,8 @@ _VARIANTS: dict[str, dict[str, list[str]]] = {
 
 # freeform RGB/material knobs per archetype (for discoverability; not enumerable)
 _COLOR_KEYS: dict[str, list[str]] = {
-    "humanoid":   ["skin", "hair", "shirt", "pants", "hat_color"],
+    "humanoid":   ["skin", "hair", "shirt", "pants", "hat_color",
+                   "held_color", "garment_color", "arm_color"],
     "blob":       ["color"], "ghost": ["color"], "quadruped": ["color"],
     "flyer":      ["color"], "serpent": ["color"], "spider": ["color"],
     "weapon":     ["blade", "hilt", "grip", "wood", "orb"],

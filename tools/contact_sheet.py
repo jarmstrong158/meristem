@@ -62,6 +62,18 @@ def _characters():
         ("dwarf", {"beard": "full", "hair": (170, 90, 50), "shirt": (120, 80, 50)}),
         ("rogue", {"hat": "cap", "hat_color": (90, 70, 60), "hair_style": "ponytail", "shirt": (70, 90, 70)}),
         ("cleric", {"beard": "short", "hair_style": "bald", "shirt": (210, 200, 180)}),
+        # prop/accessory layers — distinctness by silhouette, not palette
+        ("staff", {"held": "staff", "held_color": (150, 120, 84), "shirt": (86, 108, 70)}),
+        ("shield", {"hat": "helmet", "hat_color": (176, 182, 194), "shirt": (120, 126, 140),
+                    "held": "shield", "held_color": (150, 156, 168)}),
+        ("apron+rod", {"garment": "apron", "garment_color": (214, 202, 172), "hair_accent": "flora",
+                       "hair_style": "ponytail", "held": "rod", "held_color": (156, 122, 82)}),
+        ("scarf+flame", {"garment": "scarf", "garment_color": (176, 52, 52),
+                         "held": "flamestaff", "held_color": (60, 50, 48), "shirt": (66, 52, 46)}),
+        ("hood+daggers", {"hat": "hood", "hat_color": (52, 50, 58), "shirt": (56, 54, 62),
+                          "held": "daggers", "held_color": (150, 156, 168)}),
+        ("barefoot+stone", {"feet": "bare", "arms": "stone", "hair_style": "long",
+                            "shirt": (86, 90, 98), "skin": (150, 112, 84)}),
     ]
     return [(nm, im(build_humanoid(C, cfg))) for nm, cfg in combos]
 

@@ -178,7 +178,9 @@ def build_server(service: Optional[SpecService] = None):
 
     @mcp.tool(description="List the sprite vocabulary an entity/item can pick: every archetype with "
                           "its class, whether it animates, its build/kind/shape options, and colour knobs. "
-                          "Call this before setting an entity/item sprite so you choose a real build.")
+                          "For humanoids this includes prop/accessory layers (held item, garment, feet, "
+                          "arms, hair_accent) — the way to make characters distinct by SILHOUETTE, not "
+                          "just palette. Call this before setting an entity/item sprite so you choose real options.")
     def list_sprite_archetypes() -> dict:
         return svc.list_sprite_archetypes()
 

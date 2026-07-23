@@ -51,12 +51,20 @@ class StyleContract:
     class_prefixes: dict[str, str]
     free_palette_classes: list[str] = field(default_factory=list)
     max_colors: int = 15
+    max_colors_by_class: dict[str, int] = field(default_factory=dict)
     raw: dict = field(repr=False, default_factory=dict)
 
     def is_free_palette(self, asset_class: str) -> bool:
         """Free-palette classes (e.g. characters) use per-material hue-shifted ramps
         (dec-0020) and are checked against a color budget, not the locked palette."""
         return asset_class in self.free_palette_classes
+
+    def budget_for(self, asset_class: str) -> int:
+        """Colour budget for a class. Characters carrying prop/accessory layers
+        (held items, garments, stone arms) legitimately need more ramps than the
+        base 15, so a class may raise its budget via palette.max_colors_by_class;
+        tiles/items stay tight at the default max_colors."""
+        return self.max_colors_by_class.get(asset_class, self.max_colors)
 
     # ---- derived ----
     @property
@@ -116,6 +124,8 @@ class StyleContract:
                 free_palette_classes=d.get("palette", {}).get(
                     "free_classes", ["character", "enemy", "item_icon", "ui_element", "terrain_tile"]),
                 max_colors=int(d.get("palette", {}).get("max_colors", 15)),
+                max_colors_by_class={k: int(v) for k, v in
+                                     d.get("palette", {}).get("max_colors_by_class", {}).items()},
                 raw=d,
             )
         except KeyError as e:
