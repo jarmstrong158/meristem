@@ -56,6 +56,10 @@ config/name="{name}"
 run/main_scene="{main_scene}"
 config/features=PackedStringArray("4.6", "GL Compatibility")
 
+[autoload]
+
+Game="*res://scripts/game_state.gd"
+
 [display]
 
 window/size/viewport_width={width}

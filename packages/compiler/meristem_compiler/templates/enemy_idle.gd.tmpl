@@ -9,6 +9,7 @@ var _t: float = 0.0
 var _home_y: float = 0.0
 
 func _ready() -> void:
+	add_to_group("enemies")
 	_home_y = position.y
 
 func _physics_process(delta: float) -> void:

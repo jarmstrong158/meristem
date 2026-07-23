@@ -84,9 +84,27 @@ def test_spawns_placed_in_main_scene(project):
     assert 'name="Enemy0"' in main and 'name="Enemy1"' in main
     assert "Vector2(216, 144)" in main          # slime at cell (13,8) -> feet px
     assert "Vector2(280, 48)" in main           # slime at cell (17,2)
-    assert 'name="Item0"' in main               # the sword pickup
-    assert "icon_sword.png" in main
+    assert 'name="Item0"' in main and "pickup_sword.tscn" in main   # the sword pickup
     assert 'name="Player"' in main and "Vector2(72, 96)" in main   # player_spawn (4,5)
+
+
+def test_playable_loop_wiring(project):
+    # the compiled game is a loop, not a diorama: collectable items, contact
+    # damage, hp/collect HUD, death -> reload — all deterministic template code.
+    pick = (project / "scenes" / "pickup_sword.tscn").read_text(encoding="utf-8")
+    assert 'type="Area2D"' in pick and 'item_id = "sword"' in pick
+    assert "icon_sword.png" in pick and "pickup.gd" in pick
+    gs = (project / "scripts" / "game_state.gd").read_text(encoding="utf-8")
+    assert "max_hp: int = 20" in gs                 # player hp from the manifest
+    assert "reload_current_scene" in gs             # death restarts the run
+    player = (project / "scripts" / "player.gd").read_text(encoding="utf-8")
+    assert 'is_in_group("enemies")' in player and "Game.take_damage" in player
+    enemy = (project / "scripts" / "enemy_slime.gd").read_text(encoding="utf-8")
+    assert 'add_to_group("enemies")' in enemy
+    proj = (project / "project.godot").read_text(encoding="utf-8")
+    assert 'Game="*res://scripts/game_state.gd"' in proj    # autoload registered
+    main = (project / "scenes" / "main.tscn").read_text(encoding="utf-8")
+    assert "hud.gd" in main and 'name="HpLabel"' in main and 'name="ItemLabel"' in main
 
 
 def test_ldtk_valid(project):

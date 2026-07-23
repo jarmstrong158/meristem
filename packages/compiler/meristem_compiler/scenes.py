@@ -38,6 +38,73 @@ func _ready() -> void:
 '''
 
 
+GAME_STATE_GD = '''extends Node
+## Global run state (autoloaded as "Game"): player hp + collected items.
+## Death resets the run and reloads the level.
+
+signal hp_changed(hp: int, max_hp: int)
+signal collected(item_id: String, total: int)
+
+var max_hp: int = {{max_hp}}
+var hp: int = {{max_hp}}
+var items: Dictionary = {}
+
+func take_damage(amount: int) -> void:
+	hp = clampi(hp - amount, 0, max_hp)
+	hp_changed.emit(hp, max_hp)
+	if hp <= 0:
+		_restart()
+
+func collect(item_id: String) -> void:
+	items[item_id] = int(items.get(item_id, 0)) + 1
+	var total: int = 0
+	for k in items:
+		total += int(items[k])
+	collected.emit(item_id, total)
+
+func _restart() -> void:
+	hp = max_hp
+	items = {}
+	get_tree().call_deferred("reload_current_scene")
+'''
+
+PICKUP_GD = '''extends Area2D
+## A collectable item. `item_id` is baked per item type by the compiler.
+
+@export var item_id: String = ""
+
+func _ready() -> void:
+	body_entered.connect(_on_body_entered)
+
+func _on_body_entered(body: Node2D) -> void:
+	if body.is_in_group("player"):
+		Game.collect(item_id)
+		queue_free()
+'''
+
+HUD_GD = '''extends CanvasLayer
+## HUD: hp readout next to the heart, collected count next to the coin.
+
+@onready var _hp_label: Label = $HpLabel
+@onready var _item_label: Label = $ItemLabel
+
+func _ready() -> void:
+	Game.hp_changed.connect(_on_hp_changed)
+	Game.collected.connect(_on_collected)
+	_on_hp_changed(Game.hp, Game.max_hp)
+	var total: int = 0
+	for k in Game.items:
+		total += int(Game.items[k])
+	_item_label.text = "x %d" % total
+
+func _on_hp_changed(hp: int, max_hp: int) -> void:
+	_hp_label.text = "%d/%d" % [hp, max_hp]
+
+func _on_collected(_item_id: String, total: int) -> void:
+	_item_label.text = "x %d" % total
+'''
+
+
 def render_template(template: str, **params) -> str:
     text = (TEMPLATES / template).read_text(encoding="utf-8")
     for k, v in params.items():
@@ -46,8 +113,10 @@ def render_template(template: str, **params) -> str:
 
 
 def write_scripts(project_dir: Path, *, move_speed, accel, friction,
-                  enemies: list[dict], level_name: str = "grove_01") -> None:
-    """player.gd + world.gd + one enemy_<id>.gd per enemy type (stats baked in)."""
+                  enemies: list[dict], level_name: str = "grove_01",
+                  player_hp: int = 20) -> None:
+    """player.gd + world.gd + game_state.gd/pickup.gd/hud.gd + one enemy_<id>.gd
+    per enemy type (stats baked in)."""
     sd = project_dir / "scripts"
     sd.mkdir(parents=True, exist_ok=True)
     (sd / "player.gd").write_text(
@@ -59,6 +128,10 @@ def write_scripts(project_dir: Path, *, move_speed, accel, friction,
             render_template("enemy_idle.gd.tmpl", name=e["name"], hp=int(e["hp"]), atk=int(e["atk"])),
             encoding="utf-8")
     (sd / "world.gd").write_text(WORLD_GD.replace("{{level}}", level_name), encoding="utf-8")
+    (sd / "game_state.gd").write_text(
+        GAME_STATE_GD.replace("{{max_hp}}", str(int(player_hp))), encoding="utf-8")
+    (sd / "pickup.gd").write_text(PICKUP_GD, encoding="utf-8")
+    (sd / "hud.gd").write_text(HUD_GD, encoding="utf-8")
 
 
 def _actor_tscn(node_name: str, sprite_path: str, script_path: str,
@@ -130,6 +203,27 @@ autoplay = "{anim}"
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(0, -8)
 shape = SubResource("{shape_id}")
+'''
+
+
+def _pickup_tscn(item_id: str, texture_file: str) -> str:
+    return f'''[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Texture2D" path="res://assets/{texture_file}" id="1_tex"]
+[ext_resource type="Script" path="res://scripts/pickup.gd" id="2_scr"]
+
+[sub_resource type="RectangleShape2D" id="shape_{item_id}"]
+size = Vector2(12, 12)
+
+[node name="Pickup" type="Area2D"]
+script = ExtResource("2_scr")
+item_id = "{item_id}"
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = ExtResource("1_tex")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("shape_{item_id}")
 '''
 
 
@@ -207,12 +301,14 @@ def write_scenes(project_dir: Path, *, player_idle: str, player_walk: list[str],
         rid = f"e{i}_enemy"
         enemy_scene_id[e["id"]] = rid
         enemy_ext.append(f'[ext_resource type="PackedScene" path="res://scenes/enemy_{e["id"]}.tscn" id="{rid}"]')
-    item_tex_id = {}
+    item_scene_id = {}
     for i, it in enumerate(placements.get("items", [])):
-        if it["file"] not in item_tex_id:
+        if it["id"] not in item_scene_id:
+            (sc / f"pickup_{it['id']}.tscn").write_text(
+                _pickup_tscn(it["id"], it["file"]), encoding="utf-8")
             rid = f"i{i}_item"
-            item_tex_id[it["file"]] = rid
-            item_ext.append(f'[ext_resource type="Texture2D" path="res://assets/{it["file"]}" id="{rid}"]')
+            item_scene_id[it["id"]] = rid
+            item_ext.append(f'[ext_resource type="PackedScene" path="res://scenes/pickup_{it["id"]}.tscn" id="{rid}"]')
 
     px, py = placements["player"]
     cx, cy = placements["camera"]
@@ -222,17 +318,17 @@ def write_scenes(project_dir: Path, *, player_idle: str, player_walk: list[str],
                            f'position = Vector2({sp["px"]}, {sp["py"]})\n')
     item_nodes = []
     for i, it in enumerate(placements.get("items", [])):
-        item_nodes.append(f'[node name="Item{i}" type="Sprite2D" parent="."]\n'
-                          f'position = Vector2({it["px"]}, {it["py"]})\n'
-                          f'texture = ExtResource("{item_tex_id[it["file"]]}")\n')
+        item_nodes.append(f'[node name="Item{i}" parent="." instance=ExtResource("{item_scene_id[it["id"]]}")]\n'
+                          f'position = Vector2({it["px"]}, {it["py"]})\n')
 
-    load_steps = 4 + len(enemy_ext) + len(item_ext)
+    load_steps = 5 + len(enemy_ext) + len(item_ext)
     (sc / "main.tscn").write_text(f'''[gd_scene load_steps={load_steps} format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="1_player"]
 {chr(10).join(enemy_ext)}
 [ext_resource type="Script" path="res://scripts/world.gd" id="3_world"]
 [ext_resource type="Texture2D" path="res://assets/{heart_sprite}" id="4_heart"]
+[ext_resource type="Script" path="res://scripts/hud.gd" id="6_hud"]
 {coin_ext}
 {chr(10).join(item_ext)}
 
@@ -250,10 +346,25 @@ position = Vector2({px}, {py})
 position = Vector2({cx}, {cy})
 
 [node name="HUD" type="CanvasLayer" parent="."]
+script = ExtResource("6_hud")
 
 [node name="Heart" type="Sprite2D" parent="HUD"]
 position = Vector2(12, 12)
 texture = ExtResource("4_heart")
 
+[node name="HpLabel" type="Label" parent="HUD"]
+offset_left = 22.0
+offset_top = 4.0
+offset_right = 80.0
+offset_bottom = 20.0
+theme_override_font_sizes/font_size = 8
+
 {coin_node}
+
+[node name="ItemLabel" type="Label" parent="HUD"]
+offset_left = 22.0
+offset_top = 22.0
+offset_right = 80.0
+offset_bottom = 38.0
+theme_override_font_sizes/font_size = 8
 ''', encoding="utf-8")

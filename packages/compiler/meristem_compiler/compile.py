@@ -73,7 +73,8 @@ def compile_project(manifest_path: str | Path, out_dir: str | Path) -> dict:
                   move_speed=params.get("move_speed", 80),
                   accel=params.get("accel", 600),
                   friction=params.get("friction", 400),
-                  enemies=enemy_types, level_name=level_name)
+                  enemies=enemy_types, level_name=level_name,
+                  player_hp=int(player["stats"].get("hp", 20)))
 
     def frame_files(entity_id: str, prefix: str) -> list[str]:
         return [w["file"] for w in sorted(written, key=lambda w: w.get("frame", 0))
@@ -101,7 +102,7 @@ def compile_project(manifest_path: str | Path, out_dir: str | Path) -> dict:
         if s["id"] not in item_files:
             raise CompileError(f"level {level_name!r} places item {s['id']!r}, "
                                f"but it has no sprite (give it a sprite descriptor)")
-        placements["items"].append({"file": item_files[s["id"]],
+        placements["items"].append({"id": s["id"], "file": item_files[s["id"]],
                                     "px": s["x"] * T + 8, "py": s["y"] * T + 8})
 
     write_scenes(out,
