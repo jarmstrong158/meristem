@@ -1,18 +1,39 @@
-"""Synthesize a level grid for the vertical slice.
+"""Level grids: authored in the manifest's `levels` domain (legend + rows), with a
+synthesized fallback for manifests that predate the domain.
 
-A real pipeline carries level layouts in the manifest; the slice's world domain only
-names regions/levels, so the compiler synthesizes a small deterministic grove layout
-(grass base + dirt path + water pond + stone cluster). One grid, projected into both
-the .ldtk file (canonical, editable) and the runtime ground builder."""
+One grid, projected into the .ldtk file (canonical, editable), the runtime ground
+builder, and scene spawn placements."""
 from __future__ import annotations
 
-# semantic IntGrid values (0 = empty is reserved)
-SEMANTIC = {"grass": 1, "dirt": 2, "water": 3, "stone": 4}
-# tileset column order -> tile index
-TILE_ORDER = ["grass", "dirt", "water", "stone"]
+# semantic IntGrid values (0 = empty is reserved); stable across all known tiles
+SEMANTIC = {"grass": 1, "dirt": 2, "water": 3, "stone": 4,
+            "sand": 5, "snow": 6, "lava": 7, "brick": 8}
+TILE_ORDER = ["grass", "dirt", "water", "stone", "sand", "snow", "lava", "brick"]
+
+
+def grid_from_level(level: dict) -> list[list[str]]:
+    """Expand an authored level (legend + rows) into a tile-name grid. The spec store's
+    cross-ref validation guarantees rectangularity and legend coverage before compile."""
+    legend = level["legend"]
+    return [[legend[ch] for ch in row] for row in level["rows"]]
+
+
+def pick_level(domains: dict) -> dict | None:
+    """The level to compile: the first level of the first world region that defines
+    one, else the first authored level, else None (fallback to the synthesized grove)."""
+    levels = (domains.get("levels", {}) or {}).get("levels", [])
+    if not levels:
+        return None
+    by_id = {lv["id"]: lv for lv in levels}
+    for region in (domains.get("world", {}) or {}).get("regions", []):
+        for lid in region.get("levels", []):
+            if lid in by_id:
+                return by_id[lid]
+    return levels[0]
 
 
 def synthesize_grove(w: int = 20, h: int = 12) -> list[list[str]]:
+    """Fallback layout for manifests without a `levels` domain."""
     grid = [["grass" for _ in range(w)] for _ in range(h)]
     for x in range(w):                       # dirt path across the middle
         grid[6][x] = "dirt"

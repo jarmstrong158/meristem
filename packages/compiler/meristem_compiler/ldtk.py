@@ -20,11 +20,13 @@ SEMANTIC_LAYER_UID = 3
 LEVEL_UID = 10
 
 
-def build_tileset_png(assets_dir: str | Path) -> tuple[Image.Image, dict[str, int]]:
-    """Compose the terrain tile PNGs into a single-row tileset. Returns (image, name->col)."""
+def build_tileset_png(assets_dir: str | Path, tiles: list[str] | None = None) -> tuple[Image.Image, dict[str, int]]:
+    """Compose the terrain tile PNGs into a single-row tileset (only the tiles this
+    level actually uses, in stable TILE_ORDER). Returns (image, name->col)."""
     assets_dir = Path(assets_dir)
-    index = {name: i for i, name in enumerate(TILE_ORDER)}
-    sheet = Image.new("RGBA", (GRID * len(TILE_ORDER), GRID), (0, 0, 0, 0))
+    names = [t for t in TILE_ORDER if tiles is None or t in tiles]
+    index = {name: i for i, name in enumerate(names)}
+    sheet = Image.new("RGBA", (GRID * len(names), GRID), (0, 0, 0, 0))
     for name, col in index.items():
         tile = Image.open(assets_dir / f"tile_{name}.png").convert("RGBA")
         sheet.alpha_composite(tile, (col * GRID, 0))
@@ -39,7 +41,7 @@ def build_ldtk(grid: list[list[str]], tile_index: dict[str, int], *,
                tileset_rel: str = "tileset.png", tileset_cols: int | None = None) -> dict:
     h = len(grid)
     w = len(grid[0]) if h else 0
-    cols = tileset_cols or len(TILE_ORDER)
+    cols = tileset_cols or len(tile_index)
 
     grid_tiles = []
     intgrid_csv = []
@@ -88,7 +90,7 @@ def build_ldtk(grid: list[list[str]], tile_index: dict[str, int], *,
                  "uid": SEMANTIC_LAYER_UID, "gridSize": GRID, "displayOpacity": 1,
                  "intGridValues": [
                      {"value": SEMANTIC[n], "identifier": n, "color": "#808080", "groupUid": 0, "tile": None}
-                     for n in TILE_ORDER],
+                     for n in TILE_ORDER if n in tile_index],
                  "intGridValuesGroups": [], "autoRuleGroups": [],
                  "parallaxFactorX": 0, "parallaxFactorY": 0, "parallaxScaling": True,
                  "pxOffsetX": 0, "pxOffsetY": 0},
@@ -122,7 +124,8 @@ def write_ldtk(grid: list[list[str]], assets_dir: str | Path, levels_dir: str | 
                name: str = "grove_01") -> dict:
     levels_dir = Path(levels_dir)
     levels_dir.mkdir(parents=True, exist_ok=True)
-    sheet, tile_index = build_tileset_png(assets_dir)
+    used = sorted({c for row in grid for c in row})
+    sheet, tile_index = build_tileset_png(assets_dir, used)
     sheet.save(levels_dir / "tileset.png")
     doc = build_ldtk(grid, tile_index)
     (levels_dir / f"{name}.ldtk").write_text(json.dumps(doc, indent=1), encoding="utf-8")

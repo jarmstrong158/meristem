@@ -1,6 +1,6 @@
 {
   "meristem_manifest_version": 1,
-  "version": 11,
+  "version": 12,
   "domains": {
     "style_contract": {
       "$schema_note": "Hand-authored style contract for the Phase 0c calibration bake-off. Both the generators and the asset gate read this file. It is the 'style contract' the whole project's thesis is built on.",
@@ -401,6 +401,59 @@
           "tileset_ref": "grove_tiles",
           "levels": [
             "grove_01"
+          ]
+        }
+      ]
+    },
+    "levels": {
+      "levels": [
+        {
+          "id": "grove_01",
+          "region": "grove",
+          "legend": {
+            ".": "grass",
+            "=": "dirt",
+            "~": "water",
+            "#": "stone",
+            "s": "sand"
+          },
+          "rows": [
+            "....................",
+            "....................",
+            ".............~~~~...",
+            ".............~~~~...",
+            "....................",
+            "....................",
+            "====================",
+            "====================",
+            "....................",
+            "..##............ss..",
+            "..##............ss..",
+            "...................."
+          ],
+          "player_spawn": {
+            "x": 4,
+            "y": 5
+          },
+          "spawns": [
+            {
+              "id": "slime",
+              "kind": "enemy",
+              "x": 13,
+              "y": 8
+            },
+            {
+              "id": "slime",
+              "kind": "enemy",
+              "x": 17,
+              "y": 2
+            },
+            {
+              "id": "sword",
+              "kind": "item",
+              "x": 7,
+              "y": 10
+            }
           ]
         }
       ]
@@ -1081,6 +1134,74 @@
             ]
           ]
         },
+        "has_changes": true
+      }
+    },
+    {
+      "version": 12,
+      "domain": "levels",
+      "op": "set",
+      "at": "2026-07-23T17:01:19+00:00",
+      "provenance": {
+        "actor": "agent",
+        "reason": "author the grove as a real level"
+      },
+      "diff": {
+        "added": {
+          "levels": [
+            {
+              "id": "grove_01",
+              "region": "grove",
+              "legend": {
+                ".": "grass",
+                "=": "dirt",
+                "~": "water",
+                "#": "stone",
+                "s": "sand"
+              },
+              "rows": [
+                "....................",
+                "....................",
+                ".............~~~~...",
+                ".............~~~~...",
+                "....................",
+                "....................",
+                "====================",
+                "====================",
+                "....................",
+                "..##............ss..",
+                "..##............ss..",
+                "...................."
+              ],
+              "player_spawn": {
+                "x": 4,
+                "y": 5
+              },
+              "spawns": [
+                {
+                  "id": "slime",
+                  "kind": "enemy",
+                  "x": 13,
+                  "y": 8
+                },
+                {
+                  "id": "slime",
+                  "kind": "enemy",
+                  "x": 17,
+                  "y": 2
+                },
+                {
+                  "id": "sword",
+                  "kind": "item",
+                  "x": 7,
+                  "y": 10
+                }
+              ]
+            }
+          ]
+        },
+        "removed": {},
+        "changed": {},
         "has_changes": true
       }
     }

@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "meristem:levels",
+  "title": "Level layouts",
+  "description": "Authorable maps: each level is a character-grid (legend maps one char to a tile name) plus spawn markers. The compiler projects a level into the .ldtk file, the runtime grid, and scene placements.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["levels"],
+  "properties": {
+    "levels": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "region", "legend", "rows", "player_spawn"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+          "region": { "type": "string", "description": "references a world region id" },
+          "legend": {
+            "type": "object",
+            "description": "single character -> tile name (e.g. {\".\": \"grass\", \"~\": \"water\"})",
+            "minProperties": 1,
+            "propertyNames": { "pattern": "^.$" },
+            "additionalProperties": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }
+          },
+          "rows": {
+            "type": "array",
+            "description": "the map, one string per row; every char must be in the legend, all rows equal length",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "player_spawn": { "$ref": "#/$defs/cell" },
+          "spawns": {
+            "type": "array",
+            "description": "entity/item placements on the grid",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "kind", "x", "y"],
+              "properties": {
+                "id": { "type": "string", "description": "references an entities.enemies id (kind=enemy) or items id (kind=item)" },
+                "kind": { "enum": ["enemy", "item"] },
+                "x": { "type": "integer", "minimum": 0 },
+                "y": { "type": "integer", "minimum": 0 }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "cell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": {
+        "x": { "type": "integer", "minimum": 0 },
+        "y": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

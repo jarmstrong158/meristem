@@ -47,6 +47,14 @@ show the user the reason and fix it; never force an invalid state.
 Good mutations to offer: rename things, tweak stats, add an item or enemy, change the biome, adjust
 move speed / jump height. Enrich the narrative (premise, beats) with the user's ideas.
 
+**Editing the map.** The scaffold authors a real starter level in the `levels` domain: a
+character-grid (`legend` maps one char to a tile, `rows` is the map) plus `player_spawn` and
+`spawns` (enemy/item placements at grid cells). To reshape the world, edit those strings —
+add a lake (`~`), wall off a path (`#`), move or add enemy spawns, drop an item pickup —
+then `set_domain("levels", ...)`. Cross-ref validation catches ragged rows, unknown legend
+chars, unknown tiles, out-of-bounds or unresolvable spawns, so mutate freely and re-validate.
+Spawned enemies each get their own scene/stats; a spawned item must have a sprite descriptor.
+
 **Giving something a look.** When you add or reskin an entity/item, set its `sprite: {archetype,
 config}` — but **discover the vocabulary first**, don't guess a build. Call `list_sprite_archetypes`
 for the live menu (every archetype + its build/kind/shape options + colours), pick one that fits the

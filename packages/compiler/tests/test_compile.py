@@ -29,8 +29,8 @@ def test_project_godot_written(project):
 def test_all_assets_and_sidecars(project):
     a = project / "assets"
     pngs = sorted(p.name for p in a.glob("*.png"))
-    # 9 base + 4 player-walk + 3 enemy idle-anim + 3 coin spin frames
-    assert len(pngs) == 19
+    # 9 base + 4 player-walk + 3 enemy idle-anim + 3 coin spin + the level's sand tile
+    assert len(pngs) == 20
     for png in pngs:
         assert (a / f"{png}.prov.json").exists()
     # provenance backend is now the archetype the sprite was built from (dec-0022)
@@ -51,9 +51,9 @@ def test_player_is_animated(project):
 
 def test_enemy_and_coin_animated(project):
     # the blob enemy animates: SpriteFrames + AnimatedSprite2D + idle-anim frames
-    ef = (project / "scenes" / "enemy_frames.tres").read_text(encoding="utf-8")
+    ef = (project / "scenes" / "enemy_slime_frames.tres").read_text(encoding="utf-8")
     assert '&"idle"' in ef and ef.count("enemy_slime_") == 4          # idle + 3 anim frames
-    assert "AnimatedSprite2D" in (project / "scenes" / "enemy.tscn").read_text(encoding="utf-8")
+    assert "AnimatedSprite2D" in (project / "scenes" / "enemy_slime.tscn").read_text(encoding="utf-8")
     for i in (1, 2, 3):
         assert (project / "assets" / f"enemy_slime_anim_{i}.png").exists()
     # the HUD coin spins
@@ -61,6 +61,32 @@ def test_enemy_and_coin_animated(project):
     assert '&"spin"' in cf and cf.count("ui_coin") == 4               # idle + 3 spin frames
     main = (project / "scenes" / "main.tscn").read_text(encoding="utf-8")
     assert 'type="AnimatedSprite2D" parent="HUD"' in main
+
+
+def test_authored_level_projects(project):
+    # the manifest's authored layout — not a synthesized one — is what compiles:
+    # the sand marker patch (rows 9-10, cols 16-17) must appear in the runtime grid
+    # and the .ldtk, and the sand tile asset must have been emitted.
+    grid = json.loads((project / "levels" / "grove_01.grid.json").read_text())["grid"]
+    assert grid[9][16] == "sand" and grid[10][17] == "sand"
+    assert grid[0][0] == "grass" and grid[6][0] == "dirt"
+    assert (project / "assets" / "tile_sand.png").exists()
+    doc = json.loads((project / "levels" / "grove_01.ldtk").read_text(encoding="utf-8"))
+    li = {l["__identifier"]: l for l in doc["levels"][0]["layerInstances"]}
+    from meristem_compiler.level import SEMANTIC
+    csv = li["Semantic"]["intGridCsv"]
+    assert csv[9 * 20 + 16] == SEMANTIC["sand"]
+
+
+def test_spawns_placed_in_main_scene(project):
+    # two slime spawns + the placed sword from the authored level
+    main = (project / "scenes" / "main.tscn").read_text(encoding="utf-8")
+    assert 'name="Enemy0"' in main and 'name="Enemy1"' in main
+    assert "Vector2(216, 144)" in main          # slime at cell (13,8) -> feet px
+    assert "Vector2(280, 48)" in main           # slime at cell (17,2)
+    assert 'name="Item0"' in main               # the sword pickup
+    assert "icon_sword.png" in main
+    assert 'name="Player"' in main and "Vector2(72, 96)" in main   # player_spawn (4,5)
 
 
 def test_ldtk_valid(project):
@@ -81,7 +107,7 @@ def test_scripts_substituted(project):
     assert "{{" not in gd and "}}" not in gd
     assert "MOVE_SPEED: float = 80.0" in gd
     main = (project / "scenes" / "main.tscn").read_text(encoding="utf-8")
-    for ref in ("player.tscn", "enemy.tscn", "world.gd", "ui_heart.png"):
+    for ref in ("player.tscn", "enemy_slime.tscn", "world.gd", "ui_heart.png"):
         assert ref in main
 
 

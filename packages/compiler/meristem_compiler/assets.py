@@ -18,7 +18,8 @@ _HUD = [("heart", {"shape": "heart", "color": [226, 62, 84]}),
         ("coin", {"shape": "coin", "color": [240, 206, 84]})]
 
 
-def compile_assets(domains: dict, assets_dir: str | Path) -> list[dict]:
+def compile_assets(domains: dict, assets_dir: str | Path,
+                   extra_tiles: tuple[str, ...] = ()) -> list[dict]:
     contract = StyleContract.from_dict(domains["style_contract"])
     assets_dir = Path(assets_dir)
     assets_dir.mkdir(parents=True, exist_ok=True)
@@ -74,8 +75,10 @@ def compile_assets(domains: dict, assets_dir: str | Path) -> list[dict]:
         emit("pickup", cfg, "ui_element", name, entity=name)
         emit_frames("pickup", cfg, "ui_element", name, name, "spin", skip0=True)
 
-    for a in contract.raw.get("asset_set", []):                     # terrain tiles
-        if a.get("class") == "terrain_tile":
-            emit("tile", {"name": a["name"]}, "terrain_tile", a["name"], entity=a["name"])
+    # terrain tiles: the contract's base set plus any tiles the compiled level uses
+    tile_names = {a["name"] for a in contract.raw.get("asset_set", [])
+                  if a.get("class") == "terrain_tile"}
+    for name in sorted(tile_names | set(extra_tiles)):
+        emit("tile", {"name": name}, "terrain_tile", name, entity=name)
 
     return written

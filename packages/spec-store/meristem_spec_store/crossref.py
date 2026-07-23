@@ -33,6 +33,67 @@ def _sprite_errors(domains: dict) -> list[str]:
     return errs
 
 
+def _level_errors(domains: dict) -> list[str]:
+    """Levels must be internally coherent (rectangular rows, legend covers every char,
+    spawns in bounds) and resolve their refs (region, enemy/item ids, known tiles)."""
+    errs: list[str] = []
+    levels = (domains.get("levels", {}) or {}).get("levels", [])
+    if not levels:
+        return errs
+    entities = domains.get("entities", {}) or {}
+    enemy_ids = _ids(entities.get("enemies", []))
+    item_ids = _ids((domains.get("items", {}) or {}).get("items", []))
+    region_ids = _ids((domains.get("world", {}) or {}).get("regions", []))
+
+    try:                                             # tile names the generator can build
+        from meristem_generators.procedural import ProceduralGenerator
+        known_tiles = set(ProceduralGenerator._TILES)
+    except Exception:
+        known_tiles = None                           # generators absent -> skip tile check
+
+    seen: set = set()
+    for lv in levels:
+        lid = lv.get("id")
+        if lid in seen:
+            errs.append(f"level id {lid!r} is defined more than once")
+        seen.add(lid)
+        if region_ids and lv.get("region") not in region_ids:
+            errs.append(f"level {lid!r} region {lv.get('region')!r} is not a world region")
+        rows = lv.get("rows", [])
+        legend = lv.get("legend", {})
+        w = len(rows[0]) if rows else 0
+        for i, row in enumerate(rows):
+            if len(row) != w:
+                errs.append(f"level {lid!r} row {i} length {len(row)} != row 0 length {w}")
+            for ch in row:
+                if ch not in legend:
+                    errs.append(f"level {lid!r} row {i} uses {ch!r} which is not in the legend")
+                    break
+        if known_tiles is not None:
+            for ch, tile in legend.items():
+                if tile not in known_tiles:
+                    errs.append(f"level {lid!r} legend {ch!r} -> {tile!r} is not a known tile "
+                                f"({sorted(known_tiles)})")
+        h = len(rows)
+        ps = lv.get("player_spawn", {})
+        if ps and (ps.get("x", 0) >= w or ps.get("y", 0) >= h):
+            errs.append(f"level {lid!r} player_spawn ({ps.get('x')},{ps.get('y')}) is outside the {w}x{h} grid")
+        for sp in lv.get("spawns", []):
+            if sp.get("x", 0) >= w or sp.get("y", 0) >= h:
+                errs.append(f"level {lid!r} spawn {sp.get('id')!r} ({sp.get('x')},{sp.get('y')}) "
+                            f"is outside the {w}x{h} grid")
+            pool = enemy_ids if sp.get("kind") == "enemy" else item_ids
+            if sp.get("id") not in pool:
+                errs.append(f"level {lid!r} {sp.get('kind')} spawn {sp.get('id')!r} does not resolve")
+
+    # world regions listing level ids must have them defined (when levels domain present)
+    for r in (domains.get("world", {}) or {}).get("regions", []):
+        for lid in r.get("levels", []):
+            if lid not in seen:
+                errs.append(f"world region {r.get('id')!r} lists level {lid!r} which is not defined in levels")
+    return errs
+
+
 def cross_reference_errors(domains: dict) -> list[str]:
     errs: list[str] = []
     entities = domains.get("entities", {}) or {}
@@ -97,5 +158,8 @@ def cross_reference_errors(domains: dict) -> list[str]:
 
     # sprites: each entity/item sprite's variant must be a real generator build
     errs.extend(_sprite_errors(domains))
+
+    # levels: rectangular, legend-covered, refs resolve, spawns in bounds
+    errs.extend(_level_errors(domains))
 
     return errs

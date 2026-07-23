@@ -15,7 +15,7 @@ WORLD_GD = '''extends Node2D
 const TILE: int = 16
 
 func _ready() -> void:
-	var f: FileAccess = FileAccess.open("res://levels/grove_01.grid.json", FileAccess.READ)
+	var f: FileAccess = FileAccess.open("res://levels/{{level}}.grid.json", FileAccess.READ)
 	if f == null:
 		push_warning("level grid not found")
 		return
@@ -46,17 +46,19 @@ def render_template(template: str, **params) -> str:
 
 
 def write_scripts(project_dir: Path, *, move_speed, accel, friction,
-                  enemy_name: str, enemy_hp: int, enemy_atk: int) -> None:
+                  enemies: list[dict], level_name: str = "grove_01") -> None:
+    """player.gd + world.gd + one enemy_<id>.gd per enemy type (stats baked in)."""
     sd = project_dir / "scripts"
     sd.mkdir(parents=True, exist_ok=True)
     (sd / "player.gd").write_text(
         render_template("top_down_controller.gd.tmpl",
                         move_speed=float(move_speed), accel=float(accel), friction=float(friction)),
         encoding="utf-8")
-    (sd / "enemy.gd").write_text(
-        render_template("enemy_idle.gd.tmpl", name=enemy_name, hp=enemy_hp, atk=enemy_atk),
-        encoding="utf-8")
-    (sd / "world.gd").write_text(WORLD_GD, encoding="utf-8")
+    for e in enemies:
+        (sd / f"enemy_{e['id']}.gd").write_text(
+            render_template("enemy_idle.gd.tmpl", name=e["name"], hp=int(e["hp"]), atk=int(e["atk"])),
+            encoding="utf-8")
+    (sd / "world.gd").write_text(WORLD_GD.replace("{{level}}", level_name), encoding="utf-8")
 
 
 def _actor_tscn(node_name: str, sprite_path: str, script_path: str,
@@ -156,24 +158,31 @@ shape = SubResource("RectangleShape2D_player")
 
 
 def write_scenes(project_dir: Path, *, player_idle: str, player_walk: list[str],
-                 enemy_frames: list[str], heart_sprite: str, coin_frames: list[str]) -> None:
+                 enemies: list[dict], heart_sprite: str, coin_frames: list[str],
+                 placements: dict) -> None:
+    """`enemies`: [{id, frames: [asset files]}] — one scene per enemy type.
+    `placements`: {player: (px,py), enemies: [{id,px,py}], items: [{file,px,py}],
+                   camera: (px,py)} — all in pixels, from the level's spawn markers."""
     sc = project_dir / "scenes"
     sc.mkdir(parents=True, exist_ok=True)
     (sc / "player_frames.tres").write_text(
         _frames_tres([("idle", [player_idle], 5.0), ("walk", player_walk, 8.0)]), encoding="utf-8")
     (sc / "player.tscn").write_text(_player_tscn(), encoding="utf-8")
 
-    # Enemy: an AnimatedSprite2D idle loop when the archetype animates, else static.
-    if len(enemy_frames) > 1:
-        (sc / "enemy_frames.tres").write_text(
-            _frames_tres([("idle", enemy_frames, 6.0)]), encoding="utf-8")
-        (sc / "enemy.tscn").write_text(
-            _animated_actor_tscn("Enemy", "res://scenes/enemy_frames.tres", "res://scripts/enemy.gd",
-                                 "RectangleShape2D_enemy", (14, 10)), encoding="utf-8")
-    else:
-        (sc / "enemy.tscn").write_text(
-            _actor_tscn("Enemy", f"res://assets/{enemy_frames[0]}", "res://scripts/enemy.gd",
-                        "RectangleShape2D_enemy", (14, 10)), encoding="utf-8")
+    # One scene per enemy TYPE: AnimatedSprite2D when the archetype animates, else static.
+    for e in enemies:
+        eid, frames = e["id"], e["frames"]
+        if len(frames) > 1:
+            (sc / f"enemy_{eid}_frames.tres").write_text(
+                _frames_tres([("idle", frames, 6.0)]), encoding="utf-8")
+            (sc / f"enemy_{eid}.tscn").write_text(
+                _animated_actor_tscn("Enemy", f"res://scenes/enemy_{eid}_frames.tres",
+                                     f"res://scripts/enemy_{eid}.gd",
+                                     f"RectangleShape2D_{eid}", (14, 10)), encoding="utf-8")
+        else:
+            (sc / f"enemy_{eid}.tscn").write_text(
+                _actor_tscn("Enemy", f"res://assets/{frames[0]}", f"res://scripts/enemy_{eid}.gd",
+                            f"RectangleShape2D_{eid}", (14, 10)), encoding="utf-8")
 
     # HUD coin: a spinning AnimatedSprite2D when it has a spin cycle, else static.
     if len(coin_frames) > 1:
@@ -191,13 +200,41 @@ def write_scenes(project_dir: Path, *, player_idle: str, player_walk: list[str],
                      'position = Vector2(12, 30)\n'
                      'texture = ExtResource("5_coin")')
 
-    (sc / "main.tscn").write_text(f'''[gd_scene load_steps=6 format=3]
+    # ext resources: one PackedScene per enemy type, one Texture2D per item file
+    enemy_ext, item_ext = [], []
+    enemy_scene_id = {}
+    for i, e in enumerate(enemies):
+        rid = f"e{i}_enemy"
+        enemy_scene_id[e["id"]] = rid
+        enemy_ext.append(f'[ext_resource type="PackedScene" path="res://scenes/enemy_{e["id"]}.tscn" id="{rid}"]')
+    item_tex_id = {}
+    for i, it in enumerate(placements.get("items", [])):
+        if it["file"] not in item_tex_id:
+            rid = f"i{i}_item"
+            item_tex_id[it["file"]] = rid
+            item_ext.append(f'[ext_resource type="Texture2D" path="res://assets/{it["file"]}" id="{rid}"]')
+
+    px, py = placements["player"]
+    cx, cy = placements["camera"]
+    enemy_nodes = []
+    for i, sp in enumerate(placements.get("enemies", [])):
+        enemy_nodes.append(f'[node name="Enemy{i}" parent="." instance=ExtResource("{enemy_scene_id[sp["id"]]}")]\n'
+                           f'position = Vector2({sp["px"]}, {sp["py"]})\n')
+    item_nodes = []
+    for i, it in enumerate(placements.get("items", [])):
+        item_nodes.append(f'[node name="Item{i}" type="Sprite2D" parent="."]\n'
+                          f'position = Vector2({it["px"]}, {it["py"]})\n'
+                          f'texture = ExtResource("{item_tex_id[it["file"]]}")\n')
+
+    load_steps = 4 + len(enemy_ext) + len(item_ext)
+    (sc / "main.tscn").write_text(f'''[gd_scene load_steps={load_steps} format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="1_player"]
-[ext_resource type="PackedScene" path="res://scenes/enemy.tscn" id="2_enemy"]
+{chr(10).join(enemy_ext)}
 [ext_resource type="Script" path="res://scripts/world.gd" id="3_world"]
 [ext_resource type="Texture2D" path="res://assets/{heart_sprite}" id="4_heart"]
 {coin_ext}
+{chr(10).join(item_ext)}
 
 [node name="Main" type="Node2D"]
 
@@ -205,13 +242,12 @@ def write_scenes(project_dir: Path, *, player_idle: str, player_walk: list[str],
 script = ExtResource("3_world")
 
 [node name="Player" parent="." instance=ExtResource("1_player")]
-position = Vector2(64, 80)
+position = Vector2({px}, {py})
 
-[node name="Enemy" parent="." instance=ExtResource("2_enemy")]
-position = Vector2(216, 128)
-
+{chr(10).join(enemy_nodes)}
+{chr(10).join(item_nodes)}
 [node name="Camera2D" type="Camera2D" parent="."]
-position = Vector2(160, 96)
+position = Vector2({cx}, {cy})
 
 [node name="HUD" type="CanvasLayer" parent="."]
 

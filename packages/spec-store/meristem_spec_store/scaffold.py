@@ -84,6 +84,33 @@ def strawman(*, title: str = "Untitled", genre: str = "adventure",
                     "progression_pacing": {"xp_curve": "linear", "levels": 10}},
         "world": {"regions": [{"id": "start_region", "biome": biome, "tileset_ref": "start_tiles",
                                "levels": ["level_01"]}]},
+        # a real authored starter map (legend + rows), immediately hand-editable:
+        # two slimes to fight and the starter sword placed as a pickup.
+        "levels": {"levels": [{
+            "id": "level_01", "region": "start_region",
+            "legend": {".": biome if biome in ("grass", "dirt", "sand", "snow") else "grass",
+                       "=": "dirt", "~": "water", "#": "stone"},
+            "rows": [
+                "....................",
+                "....................",
+                ".............~~~~...",
+                ".............~~~~...",
+                "....................",
+                "....................",
+                "====================",
+                "====================",
+                "....................",
+                "..##................",
+                "..##................",
+                "....................",
+            ],
+            "player_spawn": {"x": 4, "y": 5},
+            "spawns": [
+                {"id": "slime", "kind": "enemy", "x": 13, "y": 8},
+                {"id": "slime", "kind": "enemy", "x": 16, "y": 4},
+                {"id": "sword", "kind": "item", "x": 7, "y": 10},
+            ],
+        }]},
     }
 
 

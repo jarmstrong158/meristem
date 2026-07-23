@@ -90,6 +90,37 @@ def test_validate_all_rejects_bogus_sprite_build(svc):
     assert any("dragon" in e for e in report["crossref_errors"])
 
 
+def test_scaffold_includes_playable_level(svc):
+    res = svc.scaffold_project(title="Level Test")
+    assert res["accepted"]
+    lv = svc.get_domain("levels")["value"]["levels"][0]
+    assert lv["region"] == "start_region" and len(lv["rows"]) >= 8
+    kinds = {s["kind"] for s in lv["spawns"]}
+    assert kinds == {"enemy", "item"}                    # enemies to fight + a pickup
+
+
+def test_level_crossref_rejects_incoherence(svc):
+    for dom, val in consistent_domains().items():
+        assert svc.set_domain(dom, val)["accepted"]
+    base = {"id": "lv1", "region": "start", "legend": {".": "grass"},
+            "rows": ["....", "...."], "player_spawn": {"x": 0, "y": 0}}
+    region = consistent_domains()["world"]["regions"][0]["id"]
+
+    def check(patch, expect):
+        lv = {**base, **patch, "region": patch.get("region", region)}
+        assert svc.set_domain("levels", {"levels": [lv]})["accepted"]   # schema-valid
+        report = svc.validate_all()
+        assert not report["ok"]
+        assert any(expect in e for e in report["crossref_errors"]), report["crossref_errors"]
+
+    check({"region": "nowhere"}, "not a world region")
+    check({"rows": ["....", "..."]}, "length")                       # ragged rows
+    check({"rows": ["..x.", "...."]}, "not in the legend")           # unknown char
+    check({"legend": {".": "cheese"}}, "not a known tile")           # bogus tile
+    check({"player_spawn": {"x": 9, "y": 0}}, "outside")             # OOB spawn
+    check({"spawns": [{"id": "dragon", "kind": "enemy", "x": 1, "y": 1}]}, "does not resolve")
+
+
 def test_inspector_payload_shape(tmp_path):
     from meristem_spec_store.server import _inspector_payload
     svc = SpecService(tmp_path / "m.json")
