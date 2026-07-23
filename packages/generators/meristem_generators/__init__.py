@@ -9,6 +9,7 @@ from .procedural import ProceduralGenerator
 from .agent_drawn import AgentDrawnGenerator
 from .archetypes import (ARCHETYPES, archetype_class, archetype_frames, build_archetype,
                          known_archetypes)
+from .catalog import sprite_catalog, validate_sprite
 
 register(ProceduralGenerator())
 register(AgentDrawnGenerator())
@@ -16,4 +17,4 @@ register(AgentDrawnGenerator())
 __all__ = ["AssetSpec", "Generator", "ProceduralGenerator", "AgentDrawnGenerator",
            "register", "get", "available",
            "ARCHETYPES", "archetype_class", "archetype_frames", "build_archetype",
-           "known_archetypes"]
+           "known_archetypes", "sprite_catalog", "validate_sprite"]

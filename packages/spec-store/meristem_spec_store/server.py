@@ -69,6 +69,14 @@ class SpecService:
         return {"accepted": report.ok, "version": self.store.version,
                 "domains": sorted(domains), "validation": report.to_dict()}
 
+    # ---- discover the sprite vocabulary (what entities/items can pick) ----
+    def list_sprite_archetypes(self) -> dict:
+        try:
+            from meristem_generators import sprite_catalog
+        except Exception as e:  # generators not installed alongside the spec store
+            return {"available": False, "reason": str(e), "archetypes": []}
+        return {"available": True, "archetypes": sprite_catalog()}
+
     # ---- diff + whole-manifest validation ----
     def diff_domain(self, domain: str, candidate: dict) -> dict:
         return self.store.diff_domain(domain, candidate)
@@ -157,6 +165,12 @@ def build_server(service: Optional[SpecService] = None):
                          premise: str = "A hero sets out on a journey.",
                          protagonist: str = "Hero", enemy: str = "Slime", biome: str = "grass") -> dict:
         return svc.scaffold_project(title, genre, control, premise, protagonist, enemy, biome)
+
+    @mcp.tool(description="List the sprite vocabulary an entity/item can pick: every archetype with "
+                          "its class, whether it animates, its build/kind/shape options, and colour knobs. "
+                          "Call this before setting an entity/item sprite so you choose a real build.")
+    def list_sprite_archetypes() -> dict:
+        return svc.list_sprite_archetypes()
 
     @mcp.tool(description="Diff a candidate value for a domain against the stored value.")
     def diff_domain(domain: str, candidate: dict) -> dict:

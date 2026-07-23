@@ -13,6 +13,7 @@ from .shading import Ramp
 from .sprite import Canvas, outline_dark, translate
 
 BLOB_DEFAULT = {"color": (96, 200, 96), "size": "m", "eyes": 2, "build": "slime"}
+BLOB_BUILDS = ["slime", "king", "cube", "ooze"]
 _SIZE = {"s": (6, 9), "m": (8, 11), "l": (10, 13)}   # (ry, rx)
 
 

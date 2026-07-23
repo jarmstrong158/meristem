@@ -8,6 +8,31 @@ def _ids(seq, key="id"):
     return {e[key] for e in seq if isinstance(e, dict) and key in e}
 
 
+def _sprite_errors(domains: dict) -> list[str]:
+    """Validate each entity/item sprite descriptor against the generator catalog:
+    the archetype's build/kind/shape must be a known option, not just schema-valid.
+    Soft-imports the generators — if they aren't installed the schema enum still
+    guards the archetype name, so this check is simply skipped."""
+    try:
+        from meristem_generators import validate_sprite
+    except Exception:
+        return []
+    errs: list[str] = []
+    entities = domains.get("entities", {}) or {}
+    for group in ("characters", "enemies", "npcs"):
+        for e in entities.get(group, []):
+            sp = e.get("sprite")
+            if isinstance(sp, dict) and sp.get("archetype"):
+                for p in validate_sprite(sp["archetype"], sp.get("config")):
+                    errs.append(f"entity {e.get('id')!r} sprite: {p}")
+    for it in (domains.get("items", {}) or {}).get("items", []):
+        sp = it.get("sprite")
+        if isinstance(sp, dict) and sp.get("archetype"):
+            for p in validate_sprite(sp["archetype"], sp.get("config")):
+                errs.append(f"item {it.get('id')!r} sprite: {p}")
+    return errs
+
+
 def cross_reference_errors(domains: dict) -> list[str]:
     errs: list[str] = []
     entities = domains.get("entities", {}) or {}
@@ -69,5 +94,8 @@ def cross_reference_errors(domains: dict) -> list[str]:
         fac = ch.get("faction")
         if fac is not None and fac not in faction_ids:
             errs.append(f"narrative character {ch.get('id')!r} faction {fac!r} is not a faction id")
+
+    # sprites: each entity/item sprite's variant must be a real generator build
+    errs.extend(_sprite_errors(domains))
 
     return errs

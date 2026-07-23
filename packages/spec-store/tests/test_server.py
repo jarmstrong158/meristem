@@ -45,7 +45,8 @@ def test_build_server_registers_tools(tmp_path):
     tools = asyncio.run(mcp.list_tools())
     names = {t.name for t in tools}
     assert {"list_domains", "get_domain", "get_manifest", "set_domain",
-            "diff_domain", "validate_all", "scaffold_project", "inspect_manifest"} <= names
+            "diff_domain", "validate_all", "scaffold_project", "inspect_manifest",
+            "list_sprite_archetypes"} <= names
 
 
 def test_mcp_apps_ui_resource_registered(tmp_path):
@@ -58,6 +59,28 @@ def test_mcp_apps_ui_resource_registered(tmp_path):
     assert match, [str(r.uri) for r in resources]
     # SEP-1865 Final mimeType (verified)
     assert match[0].mimeType == "text/html;profile=mcp-app"
+
+
+def test_list_sprite_archetypes(svc):
+    res = svc.list_sprite_archetypes()
+    assert res["available"], res
+    by = {a["archetype"]: a for a in res["archetypes"]}
+    assert {"flyer", "spider", "weapon", "humanoid", "tile"} <= set(by)
+    assert "bat" in by["flyer"]["variants"]["build"] and by["flyer"]["animated"]
+    assert by["flyer"]["class"] == "enemy"
+
+
+def test_validate_all_rejects_bogus_sprite_build(svc):
+    for dom, val in consistent_domains().items():
+        assert svc.set_domain(dom, val)["accepted"]
+    assert svc.validate_all()["ok"]                          # baseline is coherent
+    # a typo'd build is schema-valid (config is a free object) but not a real build
+    ents = svc.get_domain("entities")["value"]
+    ents["enemies"][0]["sprite"] = {"archetype": "flyer", "config": {"build": "dragon"}}
+    assert svc.set_domain("entities", ents)["accepted"]      # per-domain schema passes it
+    report = svc.validate_all()
+    assert not report["ok"]                                  # ...but the manifest is now invalid
+    assert any("dragon" in e for e in report["crossref_errors"])
 
 
 def test_inspector_payload_shape(tmp_path):

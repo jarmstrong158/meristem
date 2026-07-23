@@ -323,6 +323,32 @@ def test_contact_sheet_covers_the_library():
             assert sprite.mode == "RGBA" and sprite.width in (16, 32), label
 
 
+def test_sprite_catalog_covers_registry_and_builds_are_real():
+    from meristem_generators import sprite_catalog, known_archetypes, build_archetype
+    cat = {e["archetype"]: e for e in sprite_catalog()}
+    assert set(cat) == set(known_archetypes())          # catalog == registry, no drift
+    contract = load_contract(CONTRACT)
+    for name, entry in cat.items():
+        assert entry["class"] and isinstance(entry["variants"], dict)
+        # every advertised build/kind/shape option must actually build + gate
+        for key, options in entry["variants"].items():
+            for opt in options:
+                cfg = {key: opt}
+                im = build_archetype(contract, name, cfg)
+                from asset_gate import validate
+                assert validate(im, entry["class"], contract).accepted, (name, key, opt)
+
+
+def test_validate_sprite_catches_bogus_variant():
+    from meristem_generators import validate_sprite
+    assert validate_sprite("flyer", {"build": "bat"}) == []          # real build -> ok
+    assert validate_sprite("flyer", {"build": "dragon"})             # typo -> problem
+    assert validate_sprite("weapon", {"kind": "sword"}) == []
+    assert validate_sprite("weapon", {"kind": "railgun"})
+    assert validate_sprite("nonexistent", {})                        # unknown archetype
+    assert validate_sprite("blob", {}) == []                         # no variant given -> ok (defaults)
+
+
 def test_default_generate_frames_is_single(contract):
     # a tile has no animation; generate_frames returns one frame
     frames = get("procedural").generate_frames(AssetSpec("terrain_tile", "grass"), contract)
