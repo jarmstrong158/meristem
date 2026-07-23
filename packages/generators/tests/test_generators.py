@@ -260,6 +260,39 @@ def test_item_kind_variety_builds_and_gates(contract):
         assert len(seen) == len(kinds), f"{fn.__name__}: some kinds render identically"
 
 
+def test_humanoid_hat_beard_layers(contract):
+    import numpy as np
+    from PIL import Image
+    from meristem_generators.humanoid import build_humanoid
+    # classic archetypes from the one layered base; each must stay within budget
+    combos = [
+        {},
+        {"hat": "helmet", "hat_color": (176, 182, 194)},
+        {"hat": "wizard", "hat_color": (70, 60, 140), "beard": "full", "hair": (220, 220, 225)},
+        {"hat": "crown", "hat_color": (242, 214, 120), "beard": "full"},
+        {"beard": "full", "hair": (170, 90, 50)},
+        {"hat": "cap", "hat_color": (90, 70, 60), "hair_style": "ponytail"},
+        {"beard": "short", "hair_style": "bald"},
+    ]
+    seen = set()
+    for cfg in combos:
+        a = build_humanoid(contract, cfg)
+        r = validate(Image.fromarray(a, "RGBA"), "character", contract)
+        assert r.accepted, (cfg, r.reasons)
+        assert r.report["unique_colors"] <= contract.max_colors, (cfg, r.report["unique_colors"])
+        seen.add(a.tobytes())
+    assert len(seen) == len(combos)                     # each archetype distinct
+
+
+def test_pickup_variety(contract):
+    from PIL import Image
+    from meristem_generators.items import pickup
+    for shape in ("coin", "heart", "key", "gem", "ring", "skull", "star"):
+        cls = "ui_element" if shape in ("coin", "heart") else "item_icon"
+        a = pickup(contract, {"shape": shape})
+        assert validate(Image.fromarray(a, "RGBA"), cls, contract).accepted, shape
+
+
 def test_default_generate_frames_is_single(contract):
     # a tile has no animation; generate_frames returns one frame
     frames = get("procedural").generate_frames(AssetSpec("terrain_tile", "grass"), contract)

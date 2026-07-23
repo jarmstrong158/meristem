@@ -44,6 +44,9 @@ DEFAULT_CONFIG = {
     "shirt": (56, 126, 196),
     "pants": (78, 72, 98),
     "hair_style": "short",
+    "beard": "none",
+    "hat": "none",
+    "hat_color": (150, 62, 68),
 }
 
 
@@ -134,6 +137,65 @@ def _hair(cv, pose, hair, style):
     _HAIR.get(style, _hair_short)(cv, pose.body_dy, hair)
 
 
+# ---- beard layer (drawn over the face; `full` covers the mouth) ----
+def _beard_short(cv, u, hair):
+    _r(cv, 12, 13, 12, 19, hair.base, u)                                      # jaw stubble
+    _r(cv, 13, 13, 13, 18, hair.shadow, u)
+
+
+def _beard_full(cv, u, hair):
+    _r(cv, 11, 15, 12, 19, hair.base, u); _r(cv, 16, 16, 13, 18, hair.base, u)   # full beard
+    _r(cv, 11, 12, 12, 14, hair.highlight, u)                                 # lit left
+    _r(cv, 12, 16, 19, 19, hair.shadow, u)                                    # shade right
+    _r(cv, 8, 10, 11, 11, hair.base, u); _r(cv, 8, 10, 20, 20, hair.base, u)  # connects to sideburns
+
+
+_BEARDS = {"none": lambda cv, u, hair: None, "short": _beard_short, "full": _beard_full}
+
+
+def _beard(cv, pose, hair, style):
+    _BEARDS.get(style, _BEARDS["none"])(cv, pose.body_dy, hair)
+
+
+# ---- hat layer (drawn last, over hair; helmet/cap cover the crown) ----
+def _hat_cap(cv, u, hat):
+    _r(cv, 4, 6, 11, 20, hat.base, u); _r(cv, 3, 3, 12, 19, hat.base, u)
+    _r(cv, 6, 6, 10, 21, hat.base, u)                                         # brim
+    _r(cv, 3, 4, 12, 15, hat.highlight, u); _r(cv, 4, 6, 19, 20, hat.shadow, u)
+
+
+def _hat_wizard(cv, u, hat):
+    cone = {0: (15, 16), 1: (15, 16), 2: (14, 17), 3: (14, 17), 4: (13, 18), 5: (13, 18)}
+    for r, (c0, c1) in cone.items():
+        _r(cv, r, r, c0, c1, hat.base, u)
+    _r(cv, 6, 6, 10, 21, hat.base, u); _r(cv, 6, 6, 10, 21, hat.shadow, u)    # wide brim
+    _r(cv, 0, 4, 15, 15, hat.highlight, u); _r(cv, 2, 5, 18, 18, hat.shadow, u)
+    _p(cv, 4, 16, hat.highlight, u)                                           # band glint (reuse ramp)
+
+
+def _hat_helmet(cv, u, hat):
+    _r(cv, 3, 7, 11, 20, hat.base, u); _r(cv, 2, 2, 13, 18, hat.base, u)      # dome
+    _r(cv, 3, 4, 12, 14, hat.highlight, u); _r(cv, 3, 7, 19, 20, hat.shadow, u)
+    _r(cv, 7, 9, 11, 11, hat.base, u); _r(cv, 7, 9, 20, 20, hat.base, u)      # cheek guards
+    _r(cv, 7, 11, 15, 16, hat.base, u); _r(cv, 7, 11, 16, 16, hat.shadow, u)  # nasal guard
+
+
+def _hat_crown(cv, u, hat):
+    _r(cv, 4, 6, 11, 20, hat.base, u)                                         # band
+    for c in (11, 13, 15, 17, 19):
+        _r(cv, 2, 3, c, c, hat.base, u)                                       # points
+    _r(cv, 4, 4, 12, 15, hat.highlight, u); _r(cv, 6, 6, 11, 20, hat.shadow, u)
+    _p(cv, 3, 15, hat.highlight, u)                                           # centre jewel-glint (reuse ramp)
+
+
+_HATS = {"none": lambda cv, u, hat: None, "cap": _hat_cap, "wizard": _hat_wizard,
+         "helmet": _hat_helmet, "crown": _hat_crown}
+
+
+def _hat(cv, pose, hat, style):
+    _HATS.get(style, _HATS["none"])(cv, pose.body_dy, hat)
+
+
 def _face(cv, pose, eye, skin):
     u = pose.body_dy
     _r(cv, 9, 10, 13, 13, eye, u); _r(cv, 9, 10, 18, 18, eye, u)              # eyes
@@ -152,6 +214,8 @@ def build_frame(contract, config, pose) -> np.ndarray:
     _shirt(cv, pose, shirt)
     _hair(cv, pose, hair, mats.get("hair_style", "short"))
     _face(cv, pose, dark, skin)
+    _beard(cv, pose, hair, mats.get("beard", "none"))        # over the face
+    _hat(cv, pose, Ramp(mats["hat_color"]), mats.get("hat", "none"))   # over the crown
     cv.outline(dark)
     return cv.array()
 

@@ -252,7 +252,41 @@ def _pickup_gem(cv, color):
     cv.outline(outline_dark(color))
 
 
-_PICKUPS = {"coin": _pickup_coin, "heart": _pickup_heart, "key": _pickup_key, "gem": _pickup_gem}
+def _pickup_ring(cv, color):
+    gold = Ramp(color)
+    cv.disc(10, 8, 3.6, 3.6, gold.base); cv.clear_disc(10, 8, 1.8, 1.8)   # band
+    cv.disc(9, 6, 1.3, 1.3, gold.highlight)
+    cv.rect(11, 13, 6, 10, gold.shadow)                                   # lower-front shade
+    g = Ramp((90, 200, 230))                                             # set gemstone
+    cv.disc(4, 8, 2, 2, g.base); cv.px(3, 7, (255, 255, 255)); cv.px(5, 9, g.shadow)
+    cv.outline(outline_dark(color))
+
+
+def _pickup_skull(cv, color):
+    bone = Ramp((222, 220, 202))
+    dk = (46, 44, 52)
+    cv.disc(7, 8, 4, 4, bone.base)                                        # cranium
+    cv.rect(11, 13, 5, 11, bone.base); cv.rect(13, 13, 6, 10, bone.base)  # jaw
+    cv.rect(5, 6, 5, 7, bone.highlight)                                   # lit brow
+    cv.rect(6, 8, 5, 6, dk); cv.rect(6, 8, 10, 11, dk)                    # eye sockets
+    cv.px(10, 8, dk); cv.px(10, 9, dk)                                    # nasal cavity
+    for c in (7, 9, 11):
+        cv.px(13, c, dk)                                                  # teeth gaps
+    cv.outline(outline_dark((222, 220, 202)))
+
+
+def _pickup_star(cv, color):
+    st = Ramp(color)
+    cv.rect(2, 13, 7, 8, st.base)                                         # vertical spoke
+    cv.rect(7, 8, 3, 12, st.base)                                         # horizontal spoke
+    cv.disc(7, 8, 2.6, 2.6, st.base)                                      # hub
+    cv.rect(4, 6, 6, 7, st.highlight); cv.px(3, 7, (255, 255, 255))       # sheen + glint
+    cv.rect(9, 11, 8, 9, st.shadow)                                       # lower-right shade
+    cv.outline(outline_dark(color))
+
+
+_PICKUPS = {"coin": _pickup_coin, "heart": _pickup_heart, "key": _pickup_key,
+            "gem": _pickup_gem, "ring": _pickup_ring, "skull": _pickup_skull, "star": _pickup_star}
 
 
 def pickup(contract, config=None) -> np.ndarray:
