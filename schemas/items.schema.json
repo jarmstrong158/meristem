@@ -65,7 +65,7 @@
       "additionalProperties": false,
       "required": ["archetype"],
       "properties": {
-        "archetype": { "enum": ["humanoid", "blob", "ghost", "quadruped", "flyer", "serpent", "spider", "weapon", "consumable", "pickup", "chest", "projectile", "tile"] },
+        "archetype": { "enum": ["humanoid", "blob", "ghost", "quadruped", "flyer", "serpent", "spider", "raptor", "beetle", "weapon", "consumable", "pickup", "chest", "projectile", "tile"] },
         "config": { "type": "object" }
       }
     }

@@ -439,3 +439,150 @@ def spider_idle(contract, config=None) -> list[np.ndarray]:
     """Skitter: legs twitch, alternating sides. Frame 0 (leg_dy 0) is static."""
     cfg = dict(config or {})
     return [build_spider(contract, {**cfg, "leg_dy": d}) for d in (0, 1, 0, 1)]
+
+
+RAPTOR_DEFAULT = {"color": (112, 150, 94), "build": "raptor"}
+
+# A side-view BIPED beast (facing right) — the family Vanguard has that Meristem
+# lacked. `build` swaps head + back: raptor (toothy dino), drake (crested/horned),
+# roc (feathered, beaked). Digitigrade legs, long counterbalancing tail, S-neck.
+_RAPTOR_BUILDS = {
+    "raptor": {"beak": False, "crest": False, "ridge": True},
+    "drake":  {"beak": False, "crest": True,  "ridge": True},
+    "roc":    {"beak": True,  "crest": True,  "ridge": False},
+}
+
+
+def _raptor_leg(cv, shade, col, foot_r):
+    """Digitigrade leg: thigh down, shin kicks forward, clawed toes."""
+    cv.rect(18, 22, col, col + 1, shade)             # thigh
+    cv.rect(22, foot_r - 1, col + 1, col + 2, shade)  # shin (forward)
+    cv.rect(foot_r, foot_r, col + 1, col + 4, shade)  # foot + toes
+
+
+def build_raptor(contract, config=None) -> np.ndarray:
+    cfg = {**RAPTOR_DEFAULT, **(config or {})}
+    b = _RAPTOR_BUILDS.get(cfg["build"], _RAPTOR_BUILDS["raptor"])
+    body = Ramp(cfg["color"])
+    dark = outline_dark(cfg["color"])
+    w, h = contract.canvas_of("enemy")
+    cv = Canvas(w, h)
+    hd = int(cfg.get("head_dy", 0))
+
+    # FAR leg (behind, shadow, offset, foot 1px higher)
+    _raptor_leg(cv, body.shadow, 12, 27)
+    # TAIL: thick base off the rump, sweeps down-left to a point (counterbalance)
+    tail = {15: (10, 15), 16: (7, 14), 17: (5, 12), 18: (3, 9), 19: (2, 6)}
+    for r, (c0, c1) in tail.items():
+        cv.rect(r, r, c0, c1, body.base)
+    cv.rect(15, 15, 11, 15, body.highlight); cv.rect(18, 19, 2, 6, body.shadow)
+    # BODY: egg torso, tilted forward (back high at the shoulders)
+    body_rows = {10: (18, 22), 11: (16, 23), 12: (14, 24), 13: (13, 24),
+                 14: (13, 24), 15: (13, 23), 16: (14, 22), 17: (15, 21)}
+    for r, (c0, c1) in body_rows.items():
+        cv.rect(r, r, c0, c1, body.base)
+    cv.rect(10, 12, 15, 20, body.highlight)          # lit back
+    cv.rect(15, 17, 14, 22, body.shadow)             # belly shade
+    if b["ridge"]:
+        for c in (13, 15, 17, 19):
+            cv.px(9, c, body.shadow)                 # dorsal ridge spikes
+    # NEAR leg (front, base) + lit edge
+    _raptor_leg(cv, body.base, 16, 28)
+    cv.rect(18, 22, 16, 16, body.highlight)
+    # tiny forelimb claw at the chest
+    cv.rect(15, 17, 21, 22, body.base); cv.px(17, 22, dark)
+    # NECK + HEAD (upper right), bobs with head_dy
+    cv.rect(8 + hd, 12, 21, 23, body.base)           # neck
+    cv.rect(5 + hd, 10 + hd, 22, 27, body.base)      # skull
+    cv.rect(8 + hd, 10 + hd, 26, 31, body.base)      # snout / beak
+    cv.rect(5 + hd, 6 + hd, 22, 25, body.highlight)  # skull top lit
+    cv.rect(10 + hd, 10 + hd, 26, 30, body.shadow)   # jaw underside
+    if b["crest"]:
+        cv.rect(3 + hd, 4 + hd, 22, 25, body.base)   # crest / horns
+        cv.px(3 + hd, 25, body.highlight)
+    if b["beak"]:
+        cv.px(8 + hd, 31, (240, 202, 96)); cv.px(9 + hd, 30, (198, 150, 62))
+    else:
+        cv.px(10 + hd, 31, dark)                     # mouthline
+        cv.px(9 + hd, 29, dark)                      # nostril
+    cv.px(7 + hd, 25, (244, 248, 244)); cv.px(7 + hd, 26, dark)   # eye
+    cv.outline(dark)
+    return cv.array()
+
+
+def raptor_idle(contract, config=None) -> list[np.ndarray]:
+    """Idle: the head bobs (breathing/alert). Frame 0 (head_dy 0) is the static build."""
+    cfg = dict(config or {})
+    return [build_raptor(contract, {**cfg, "head_dy": d}) for d in (0, 0, 1, 0)]
+
+
+BEETLE_DEFAULT = {"color": (98, 86, 74), "build": "beetle"}
+
+# A top-down armored bug — the other family Vanguard has that Meristem lacked
+# (its _draw_beetle is a scorpion). `build`: beetle (domed carapace), scorpion
+# (front pincers + curling tail), mite (small). Six angular legs; hard shell.
+_BEETLE_BUILDS = {
+    "beetle":   {"pincers": False, "tail": False, "size": 0},
+    "scorpion": {"pincers": True,  "tail": True,  "size": 0},
+    "mite":     {"pincers": False, "tail": False, "size": -2},
+}
+
+
+def _bug_leg(cv, shade, r, side, jig):
+    """A bent armored leg from the carapace side: out then a knee-down to a foot."""
+    cx = 16
+    ax, ay = cx + side * 5, r
+    kx, ky = cx + side * 9, r - 1 + jig
+    fx, fy = cx + side * 10, r + 3 + jig
+    cv.line(ay, ax, ky, kx, shade)
+    cv.line(ky, kx, fy, fx, shade)
+
+
+def build_beetle(contract, config=None) -> np.ndarray:
+    cfg = {**BEETLE_DEFAULT, **(config or {})}
+    b = _BEETLE_BUILDS.get(cfg["build"], _BEETLE_BUILDS["beetle"])
+    body = Ramp(cfg["color"])
+    dark = outline_dark(cfg["color"])
+    w, h = contract.canvas_of("enemy")
+    cv = Canvas(w, h)
+    cx = 16
+    sz = b["size"]
+    jig = int(cfg.get("leg_dy", 0))
+
+    # six legs (behind the shell), three per side, alternating twitch
+    for i, r in enumerate((11, 15, 19)):
+        for side in (-1, 1):
+            dy = jig if (i % 2 == 0) == (side < 0) else -jig
+            _bug_leg(cv, body.shadow, r, side, dy)
+
+    # carapace: a domed vertical oval (top-down back)
+    cv.disc(15, cx, 8 + sz, 6 + sz, body.base)
+    cv.disc(12, cx - 2, 3, 3, body.highlight)        # top-left shell sheen
+    cv.disc(18, cx + 2, 3.5, 3.5, body.shadow)       # lower-right shade
+    cv.rect(9, 22, cx, cx, dark)                      # elytra seam (centre)
+    cv.rect(10, 21, cx - 4, cx - 4, body.shadow); cv.rect(10, 21, cx + 4, cx + 4, body.shadow)
+
+    # head + eyes + mandibles (top)
+    cv.disc(6, cx, 2.5, 3, body.base); cv.disc(5, cx - 1, 1, 1.4, body.highlight)
+    cv.px(4, cx - 2, dark); cv.px(4, cx + 2, dark)   # mandibles
+    cv.px(5, cx - 1, dark); cv.px(5, cx + 1, dark)   # eyes
+
+    if b["pincers"]:                                 # scorpion front claws
+        for side in (-1, 1):
+            px = cx + side * 4
+            cv.rect(2, 5, px, px + side, body.base)          # arm
+            cv.rect(1, 3, px + side * 2, px + side * 3, body.base)   # claw
+            cv.px(2, px + side * 2, dark)                    # claw gap
+    if b["tail"]:                                    # scorpion tail curling over the back
+        for r, c in [(23, 16), (25, 16), (26, 17), (26, 19), (25, 21), (23, 22), (21, 23)]:
+            cv.rect(r, r, c, c + 1, body.base)
+        cv.px(20, 23, (240, 220, 120)); cv.px(21, 24, dark)  # venom glint + stinger
+
+    cv.outline(dark)
+    return cv.array()
+
+
+def beetle_idle(contract, config=None) -> list[np.ndarray]:
+    """Skitter: legs twitch, alternating sides. Frame 0 (leg_dy 0) is static."""
+    cfg = dict(config or {})
+    return [build_beetle(contract, {**cfg, "leg_dy": d}) for d in (0, 1, 0, 1)]

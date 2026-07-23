@@ -27,6 +27,8 @@ knob + colours select a sprite. Adding a *variant* is a generator edit; the vali
 | `flyer` | enemy | bat · bird · moth | wing-flap |
 | `serpent` | enemy | cobra · snake · viper | tongue/sway idle |
 | `spider` | enemy | spider · tarantula · widow | leg-twitch idle |
+| `raptor` | enemy | raptor · drake · roc | head-bob idle |
+| `beetle` | enemy | beetle · scorpion · mite | skitter idle |
 | `weapon` | item_icon | sword · dagger · greatsword · axe · spear · staff · bow · mace · wand | — |
 | `consumable` | item_icon | flask · bottle · vial · scroll · pouch | — |
 | `pickup` | item_icon / ui | coin · heart · key · gem · ring · skull · star | coin spin |

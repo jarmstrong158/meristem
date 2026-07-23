@@ -131,6 +131,8 @@ The layers are combinatorial, so knight/wizard/king/dwarf/rogue/cleric are all t
 | `flyer` | bat · bird · moth | wing-flap | color |
 | `serpent` | cobra · snake · viper | tongue/sway | color |
 | `spider` | spider · tarantula · widow | leg-twitch | color |
+| `raptor` | raptor · drake · roc | head-bob | color |
+| `beetle` | beetle · scorpion · mite | skitter | color |
 
 **Items** — `item_icon`, 16×16
 

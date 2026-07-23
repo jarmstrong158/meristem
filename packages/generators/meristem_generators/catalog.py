@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from .archetypes import ARCHETYPES, archetype_class, known_archetypes
 from .creatures import (BLOB_BUILDS, _FLYER_BUILDS, _GHOSTS, _QUAD_BUILDS,
-                        _SERPENT_BUILDS, _SPIDER_BUILDS)
+                        _SERPENT_BUILDS, _SPIDER_BUILDS, _RAPTOR_BUILDS, _BEETLE_BUILDS)
 from .humanoid import (_ACCENTS, _ARMS, _BEARDS, _FEET, _GARMENTS, _HAIR,
                        _HATS, _HELD)
 from .items import _CHEST_BUILDS, _CONS, _PICKUPS, _PROJECTILES, _WEAPONS
@@ -31,6 +31,8 @@ _VARIANTS: dict[str, dict[str, list[str]]] = {
     "flyer":      {"build": sorted(_FLYER_BUILDS)},
     "serpent":    {"build": sorted(_SERPENT_BUILDS)},
     "spider":     {"build": sorted(_SPIDER_BUILDS)},
+    "raptor":     {"build": sorted(_RAPTOR_BUILDS)},
+    "beetle":     {"build": sorted(_BEETLE_BUILDS)},
     "weapon":     {"kind": sorted(_WEAPONS)},
     "consumable": {"shape": sorted(_CONS)},
     "pickup":     {"shape": sorted(_PICKUPS)},

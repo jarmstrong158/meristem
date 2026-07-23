@@ -14,8 +14,9 @@ import numpy as np
 from PIL import Image
 
 from .creatures import (build_blob, build_ghost, build_quadruped, build_flyer,
-                        build_serpent, build_spider, blob_idle, ghost_idle,
-                        quadruped_idle, flyer_flap, serpent_idle, spider_idle)
+                        build_serpent, build_spider, build_raptor, build_beetle,
+                        blob_idle, ghost_idle, quadruped_idle, flyer_flap,
+                        serpent_idle, spider_idle, raptor_idle, beetle_idle)
 from .humanoid import build_humanoid, humanoid_walk
 from .items import chest, consumable, pickup, pickup_frames, projectile, weapon
 from .procedural import ProceduralGenerator, build_tile
@@ -42,6 +43,8 @@ ARCHETYPES: dict[str, Archetype] = {
     "flyer":      Archetype("enemy", build_flyer, flyer_flap),
     "serpent":    Archetype("enemy", build_serpent, serpent_idle),
     "spider":     Archetype("enemy", build_spider, spider_idle),
+    "raptor":     Archetype("enemy", build_raptor, raptor_idle),
+    "beetle":     Archetype("enemy", build_beetle, beetle_idle),
     "weapon":     Archetype("item_icon", weapon),
     "consumable": Archetype("item_icon", consumable),
     "pickup":     Archetype("item_icon", pickup, pickup_frames),
