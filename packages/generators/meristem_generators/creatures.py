@@ -348,10 +348,16 @@ def build_serpent(contract, config=None) -> np.ndarray:
     for r, (c0, c1) in neck.items():
         cv.rect(r, r, c0, c1, body.base)
         cv.px(r, c0, body.highlight); cv.px(r, c1, body.shadow)      # light left / shade right
-    if b["hood"]:                                    # cobra flare
-        cv.rect(12, 16, 11, 21, body.base)
-        cv.rect(12, 16, 20, 21, body.shadow); cv.rect(12, 16, 11, 12, body.highlight)
-        cv.px(14, 13, body.shadow); cv.px(14, 19, body.shadow)       # hood eye-spots
+    if b["hood"]:                                    # cobra: flared hood AT HEAD HEIGHT,
+        # a diamond wider than the head that tapers to the neck — drawn before the
+        # head so the head sits on it and the flare reads as a hood, not a fat neck.
+        hood = {6: (13, 19), 7: (12, 20), 8: (11, 21), 9: (11, 21), 10: (11, 21),
+                11: (12, 20), 12: (13, 19), 13: (14, 18), 14: (15, 18)}
+        for r, (c0, c1) in hood.items():
+            cv.rect(r, r, c0, c1, body.base)
+            cv.px(r, c0, body.highlight); cv.px(r, c1, body.shadow)  # lit/shaded rim
+        cv.px(9, 13, body.shadow); cv.px(9, 19, body.shadow)         # hood eye-spots
+        cv.px(10, 13, body.shadow); cv.px(10, 19, body.shadow)
 
     # --- head (top): a wedge narrowing to a snout up-right, swayed by head_dx ---
     hx = 16 + dx
@@ -359,8 +365,10 @@ def build_serpent(contract, config=None) -> np.ndarray:
     cv.rect(6, 8, hx, hx + 4, body.base)             # brow -> snout (up-right)
     cv.rect(8, 9, hx - 2, hx - 1, body.highlight)    # lit cheek (top-left)
     cv.rect(10, 11, hx + 1, hx + 2, body.shadow)     # under-jaw shade
-    if b["horns"]:                                   # viper brow horns
-        cv.px(5, hx + 1, dark); cv.px(5, hx + 3, dark)
+    if b["horns"]:                                   # viper: base-coloured brow horns that
+        cv.rect(4, 5, hx, hx, body.base)             # survive outlining as visible spikes
+        cv.rect(4, 5, hx + 3, hx + 3, body.base)
+        cv.px(4, hx, body.highlight); cv.px(4, hx + 3, body.shadow)
     cv.px(8, hx, (240, 214, 78)); cv.px(8, hx + 1, dark)             # eye (yellow + slit)
     # forked tongue flick (from the snout tip, up-right)
     if int(cfg.get("tongue", 0)):

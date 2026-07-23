@@ -294,10 +294,10 @@ def _held_knife(cv, pose, m):
 def _held_axe(cv, pose, m):
     dy = pose.body_dy + pose.rarm_dy
     st = Ramp(_H_STEEL)
-    _r(cv, 6, 21, 22, 22, m.base, dy); _p(cv, 7, 22, m.highlight, dy)         # haft
-    for r, (c0, c1) in {6: (19, 21), 7: (19, 22), 8: (19, 22), 9: (20, 21)}.items():
-        _r(cv, r, r, c0, c1, st.base, dy)                   # blade head (upper-left)
-    _p(cv, 6, 19, st.highlight, dy); _p(cv, 8, 19, st.shadow, dy)
+    _r(cv, 8, 24, 23, 23, m.base, dy); _p(cv, 9, 23, m.highlight, dy)         # haft (clear of the head)
+    for r, (c0, c1) in {8: (24, 26), 9: (24, 27), 10: (24, 27), 11: (25, 26)}.items():
+        _r(cv, r, r, c0, c1, st.base, dy)                   # blade head, flared RIGHT of the haft
+    _p(cv, 8, 24, st.highlight, dy); _p(cv, 10, 27, st.shadow, dy)
 
 
 def _held_spear(cv, pose, m):
@@ -312,18 +312,22 @@ def _held_spear(cv, pose, m):
 def _held_mace(cv, pose, m):
     dy = pose.body_dy + pose.rarm_dy
     st = Ramp(_H_STEEL)
-    _r(cv, 11, 21, 23, 23, m.base, dy)                      # handle
-    for r, c in [(3, 23), (4, 20), (5, 26), (9, 21), (9, 25), (4, 26)]:
-        cv.line(7 + dy, 23, r + dy, c, st.shadow)           # spikes from the ball centre
-    cv.disc(7 + dy, 23, 2.6, 2.6, st.base)                  # ball over the spike roots
-    cv.disc(6 + dy, 22, 1.0, 1.0, st.highlight)
+    _r(cv, 13, 21, 24, 24, m.base, dy)                      # handle (clear of the head)
+    for r, c in [(6, 24), (8, 21), (8, 27), (12, 22), (12, 26)]:
+        cv.line(10 + dy, 24, r + dy, c, st.shadow)          # spikes from the ball centre
+    cv.disc(10 + dy, 24, 2.4, 2.4, st.base)                 # ball over the spike roots
+    cv.disc(9 + dy, 23, 0.9, 0.9, st.highlight)
 
 
 def _held_bow(cv, pose, m):
     dy = pose.body_dy + pose.rarm_dy
-    for r, c in {6: 22, 7: 23, 8: 24, 9: 24, 10: 24, 11: 24, 12: 24, 13: 23, 14: 22}.items():
-        _p(cv, r, c, m.base, dy)                            # vertical bow limb (curves right)
-    _r(cv, 7, 13, 22, 22, Ramp(_H_STEEL).highlight, dy)     # string down the near side
+    # a tall bow at the hand (rows 12-28), limb bulging right, clear of the head
+    limb = {12: 23, 13: 24, 14: 25, 15: 25, 16: 26, 17: 26, 18: 26, 19: 26,
+            20: 26, 21: 26, 22: 26, 23: 25, 24: 25, 25: 24, 26: 23}
+    for r, c in limb.items():
+        _p(cv, r, c, m.base, dy); _p(cv, r, c + 1, m.shadow, dy)   # 2px limb
+    _r(cv, 13, 25, 23, 23, Ramp(_H_STEEL).highlight, dy)    # taut string (near side)
+    _r(cv, 19, 20, 24, 25, m.highlight, dy)                 # wrapped grip at the hand
 
 
 def _held_wand(cv, pose, m):
