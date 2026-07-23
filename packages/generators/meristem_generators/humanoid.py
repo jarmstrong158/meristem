@@ -233,9 +233,11 @@ def _held_shaft(cv, pose, m, *, side, ember=None, notched=False):
     if notched:                                                             # Lida's tally rod
         for nr in (12, 16, 20, 24):
             _p(cv, nr, c, m.shadow, dy)
-    if ember is not None:                                                    # Senna's smoldering tip
-        _p(cv, 2, c, ember.base, dy); _p(cv, 1, c, ember.highlight, dy)
-        _p(cv, 1, c - 1, ember.base, dy); _p(cv, 0, c, ember.shadow, dy)
+    if ember is not None:                                                    # smoldering flame tip
+        _r(cv, 2, 3, c - 1, c + 1, ember.base, dy)                          # flame body
+        _p(cv, 1, c, ember.base, dy); _p(cv, 1, c - 1, ember.shadow, dy)
+        _p(cv, 0, c, ember.highlight, dy)                                   # licking tip
+        _p(cv, 3, c, (255, 240, 180), dy)                                   # hot core
 
 
 def _held_shield(cv, pose, m):
@@ -248,10 +250,14 @@ def _held_shield(cv, pose, m):
 
 
 def _held_daggers(cv, pose, m):
-    for c, dy in ((9, pose.lleg_dy), (22, pose.rleg_dy)):                    # strapped to the thighs
-        _r(cv, 24, 27, c, c, m.base, dy)                                    # blade
-        _p(cv, 23, c, m.highlight, dy)                                      # point glint
-        _r(cv, 28, 29, c, c, m.shadow, dy)                                  # hilt
+    steel = Ramp((178, 186, 200))                                          # bright blade, reads at 1x
+    for c, dy in ((9, pose.larm_dy), (22, pose.rarm_dy)):                    # held point-down beside each hand
+        u = pose.body_dy + dy
+        _r(cv, 20, 21, c, c, m.base, u)                                     # grip in the fist
+        _r(cv, 22, 22, c - 1, c + 1, m.shadow, u)                           # crossguard
+        _r(cv, 23, 27, c, c, steel.base, u)                                 # blade
+        _p(cv, 23, c, steel.highlight, u)                                   # lit edge
+        _p(cv, 28, c, steel.shadow, u)                                      # point
 
 
 def _held(cv, pose, mats):
@@ -290,8 +296,12 @@ def _garment_scarf(cv, pose, m):
 
 def _garment_cloak(cv, pose, m):
     u = pose.body_dy
-    _r(cv, 15, 16, 11, 20, m.base, u); _r(cv, 15, 15, 11, 14, m.highlight, u)   # collar across shoulders
-    _r(cv, 15, 25, 11, 11, m.base, u); _r(cv, 15, 25, 20, 20, m.shadow, u)      # drape down both sides
+    _r(cv, 15, 17, 11, 20, m.base, u)                                        # mantle over the shoulders
+    _r(cv, 15, 16, 11, 14, m.highlight, u); _r(cv, 15, 17, 19, 20, m.shadow, u)
+    _r(cv, 18, 26, 10, 11, m.base, u); _r(cv, 18, 26, 20, 21, m.base, u)      # cloak hangs down both sides (2px)
+    _r(cv, 18, 26, 10, 10, m.highlight, u); _r(cv, 18, 26, 21, 21, m.shadow, u)
+    _r(cv, 27, 28, 10, 12, m.base); _r(cv, 27, 28, 19, 21, m.base)            # pools at the hem
+    _r(cv, 27, 28, 20, 21, m.shadow)
 
 
 def _garment(cv, pose, mats):

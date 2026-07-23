@@ -481,7 +481,9 @@ def build_raptor(contract, config=None) -> np.ndarray:
                  14: (13, 24), 15: (13, 23), 16: (14, 22), 17: (15, 21)}
     for r, (c0, c1) in body_rows.items():
         cv.rect(r, r, c0, c1, body.base)
-    cv.rect(10, 12, 15, 20, body.highlight)          # lit back
+    cv.rect(10, 10, 18, 21, body.highlight)          # lit top of the back (hugs the spine)
+    cv.rect(11, 11, 16, 19, body.highlight)          # down over the shoulder
+    cv.px(12, 15, body.highlight)
     cv.rect(15, 17, 14, 22, body.shadow)             # belly shade
     if b["ridge"]:
         for c in (13, 15, 17, 19):
