@@ -4,12 +4,55 @@ from pathlib import Path
 import pytest
 
 from meristem_spec_store import DOMAINS, validate_domain
-from meristem_spec_store.schemas import find_schema_dir, load_validators
+from meristem_spec_store.schemas import _schema_filename, find_schema_dir, load_validators
 
 
-def test_all_domain_schemas_load():
-    v = load_validators()
-    assert set(v) == set(DOMAINS)
+def test_every_schema_file_is_a_registered_domain():
+    """This used to assert `set(load_validators()) == set(DOMAINS)` — but
+    `load_validators()` BUILDS its dict by iterating `DOMAINS`, so the assertion was
+    a tautology that could not fail. The real risk is a schema file that exists on
+    disk and is wired to nothing (or a DOMAINS entry with no file), so compare
+    `DOMAINS` against the DIRECTORY."""
+    sdir = find_schema_dir()
+    on_disk = {p.name for p in sdir.glob("*.schema.json")}
+    registered = {_schema_filename(d) for d in DOMAINS}
+    assert on_disk == registered, {
+        "unregistered files": sorted(on_disk - registered),
+        "registered but missing from disk": sorted(registered - on_disk),
+    }
+    # and each one really loads as a Draft 2020-12 validator
+    assert set(load_validators()) == set(DOMAINS)
+
+
+ARCHETYPE_ENUM_SITES = [("entities.schema.json", "sprite"), ("items.schema.json", "sprite")]
+
+
+@pytest.mark.parametrize("filename,defname", ARCHETYPE_ENUM_SITES)
+def test_schema_archetype_enum_matches_the_live_generator_registry(filename, defname):
+    """The sprite `archetype` enum is duplicated in two schema files and hand-written,
+    while the real list lives in the generator registry. Nothing but this test connects
+    them: add an archetype (as `raptor`/`beetle` were added) and the schemas silently
+    keep rejecting it; remove one and the schemas keep advertising a build that no
+    longer exists. Both failures land on a manifest author as a confusing error."""
+    # NOT importorskip: `meristem-generators` is a declared dependency of the spec
+    # store (dec-0036), and skipping the repo's highest-value drift test on an import
+    # failure would be the same mistake the validation report used to make.
+    from meristem_generators import known_archetypes
+    live = set(known_archetypes())
+    schema = json.loads((find_schema_dir() / filename).read_text(encoding="utf-8"))
+    enum = set(schema["$defs"][defname]["properties"]["archetype"]["enum"])
+    assert enum == live, {
+        "in the registry but rejected by the schema": sorted(live - enum),
+        "allowed by the schema but not buildable": sorted(enum - live),
+    }
+
+
+def test_both_schema_archetype_enums_agree_with_each_other():
+    enums = []
+    for filename, defname in ARCHETYPE_ENUM_SITES:
+        schema = json.loads((find_schema_dir() / filename).read_text(encoding="utf-8"))
+        enums.append(set(schema["$defs"][defname]["properties"]["archetype"]["enum"]))
+    assert enums[0] == enums[1], sorted(enums[0] ^ enums[1])
 
 
 def test_real_style_contract_validates():

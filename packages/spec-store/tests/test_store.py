@@ -65,12 +65,9 @@ def test_each_required_domain_is_individually_required():
         assert not report.ok, required
 
 
-def test_compiler_refuses_an_empty_manifest_with_an_actionable_error(tmp_path):
-    from meristem_compiler.compile import CompileError, compile_project
-    p = SpecStore().save(tmp_path / "manifest.json")
-    with pytest.raises(CompileError) as ei:
-        compile_project(p, tmp_path / "out")
-    assert "missing required domain" in str(ei.value)      # not a bare KeyError: 'project'
+# The compiler's half of this — it must raise CompileError naming the missing
+# domains instead of a bare KeyError: 'project' — is asserted in
+# packages/compiler/tests/test_compile.py, which is where the compiler is importable.
 
 
 def test_skipped_check_is_not_reported_as_a_passed_check():

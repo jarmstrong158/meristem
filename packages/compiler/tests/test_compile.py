@@ -144,16 +144,20 @@ def test_archetype_dispatch_from_spec(tmp_path):
     assert prov["backend"] == "ghost"          # built from the ghost archetype, not blob
 
 
-def test_archetype_enum_matches_registry():
-    # the schema's sprite-archetype enum must stay in sync with the generator registry
-    from meristem_generators import known_archetypes
-    from meristem_spec_store.schemas import find_schema_dir
-    sdir = find_schema_dir()
-    reg = set(known_archetypes())
-    for f in ("entities.schema.json", "items.schema.json"):
-        schema = json.loads((sdir / f).read_text(encoding="utf-8"))
-        enum = set(schema["$defs"]["sprite"]["properties"]["archetype"]["enum"])
-        assert enum == reg, f"{f} archetype enum drift: {enum ^ reg}"
+# The schema-enum/registry drift test lives with the schemas it guards, in
+# packages/spec-store/tests/test_schemas.py (per-file, both directions, plus an
+# enum-vs-enum agreement check). It used to be duplicated here.
+
+
+def test_empty_manifest_is_refused_with_an_actionable_error(tmp_path):
+    """`validate_all` only iterated the domains that were PRESENT, so an empty
+    manifest was ok=True and the compiler died on domains["project"] with a bare
+    KeyError. It must now name the domains the author has to supply."""
+    p = SpecStore().save(tmp_path / "empty.manifest.json")
+    with pytest.raises(CompileError) as ei:
+        compile_project(p, tmp_path / "out")
+    assert "missing required domain" in str(ei.value)
+    assert "project" in str(ei.value)
 
 
 def test_invalid_manifest_refused(tmp_path):
