@@ -73,8 +73,10 @@ class SpecService:
     def list_sprite_archetypes(self) -> dict:
         try:
             from meristem_generators import sprite_catalog
-        except Exception as e:  # generators not installed alongside the spec store
-            return {"available": False, "reason": str(e), "archetypes": []}
+        except ImportError as e:  # a declared dependency: this means a broken install
+            return {"available": False, "reason": str(e), "archetypes": [],
+                    "warning": "meristem_generators is not importable, so the sprite "
+                               "vocabulary is UNKNOWN — this is not an empty catalog"}
         return {"available": True, "archetypes": sprite_catalog()}
 
     def check_sprite(self, archetype: str, config: dict | None = None) -> dict:
@@ -82,10 +84,14 @@ class SpecService:
         cross-ref runs, but for one pick, so the author gets immediate feedback."""
         try:
             from meristem_generators import validate_sprite
-        except Exception as e:
-            return {"available": False, "reason": str(e), "ok": True, "problems": []}
+        except ImportError as e:
+            # NOT ok: the check did not run. Reporting ok=True here would be the same
+            # bug as a validation report that greens a check it skipped.
+            return {"available": False, "reason": str(e), "ok": False, "problems": [],
+                    "checks_skipped": [f"sprite_archetypes: {e}"]}
         problems = validate_sprite(archetype, config or {})
-        return {"available": True, "ok": not problems, "problems": problems}
+        return {"available": True, "ok": not problems, "problems": problems,
+                "checks_skipped": []}
 
     # ---- diff + whole-manifest validation ----
     def diff_domain(self, domain: str, candidate: dict) -> dict:
@@ -103,7 +109,7 @@ def default_manifest_path() -> Path:
 SPEC_INSPECTOR_URI = "ui://meristem/spec-inspector.html"
 SPEC_INSPECTOR_HTML = """<!doctype html><html><head><meta charset="utf-8"><style>
 body{font:13px system-ui,sans-serif;margin:0;padding:12px;background:#1a1b26;color:#c0caf5}
-h2{margin:0 0 8px;font-size:15px}.ok{color:#9ece6a}.bad{color:#f7768e}
+h2{margin:0 0 8px;font-size:15px}.ok{color:#9ece6a}.bad{color:#f7768e}.warn{color:#e0af68}
 .dom{display:flex;justify-content:space-between;padding:4px 8px;border-radius:6px;background:#24283b;margin:3px 0}
 .miss{opacity:.4}.err{color:#f7768e;font-size:12px;margin:2px 0 2px 8px}
 button{background:#7aa2f7;border:0;color:#1a1b26;padding:6px 10px;border-radius:6px;cursor:pointer;font-weight:600}
@@ -118,13 +124,19 @@ function render(sc){
   if(!sc)return;
   document.getElementById("ver").textContent=sc.version!=null?("v"+sc.version):"";
   var v=sc.validation||{};
-  document.getElementById("status").innerHTML=v.ok
+  var sk=v.checks_skipped||[];
+  var head=v.ok
     ?'<div class="ok">&#10003; valid &mdash; schemas + cross-references</div>'
     :'<div class="bad">&#10007; invalid</div>';
+  // a skipped check must never read as a passed check
+  if(sk.length){head+='<div class="warn">&#9888; '+sk.length+' check(s) SKIPPED &mdash; not verified:</div>'
+    +sk.map(function(s){return '<div class="warn err">&bull; '+s+'</div>';}).join("");}
+  document.getElementById("status").innerHTML=head;
   var doms=sc.domains||{};
   document.getElementById("domains").innerHTML=Object.keys(doms).map(function(d){
     return '<div class="dom '+(doms[d]?'':'miss')+'"><span>'+d+'</span><span>'+(doms[d]?'\\u25CF':'\\u2014')+'</span></div>';}).join("");
   var errs=[];var se=v.schema_errors||{};
+  (v.missing_domains||[]).forEach(function(d){errs.push("missing required domain: "+d);});
   for(var k in se){(se[k]||[]).forEach(function(e){errs.push(k+": "+e);});}
   (v.crossref_errors||[]).forEach(function(e){errs.push("cross-ref: "+e);});
   document.getElementById("errors").innerHTML=errs.map(function(e){return '<div class="err">&bull; '+e+'</div>';}).join("");
@@ -194,7 +206,11 @@ def build_server(service: Optional[SpecService] = None):
     def diff_domain(domain: str, candidate: dict) -> dict:
         return svc.diff_domain(domain, candidate)
 
-    @mcp.tool(description="Validate the whole manifest: per-domain schemas + cross-references.")
+    @mcp.tool(description="Validate the whole manifest: per-domain schemas + cross-references + "
+                          "required-domain completeness. Returns {ok, complete, schema_errors, "
+                          "crossref_errors, missing_domains, checks_skipped, summary}. `ok` means "
+                          "no errors were FOUND; `complete` also means every check actually RAN — "
+                          "always read checks_skipped before treating a report as green.")
     def validate_all() -> dict:
         return svc.validate_all()
 

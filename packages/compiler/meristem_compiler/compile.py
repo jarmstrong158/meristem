@@ -30,6 +30,11 @@ def _archetype_for(domains: dict, control_scheme: str) -> dict:
 def compile_project(manifest_path: str | Path, out_dir: str | Path) -> dict:
     store = SpecStore.load(manifest_path)
     report = store.validate_all()
+    if report.missing_domains:
+        # Previously validate_all only checked the domains that were PRESENT, so an
+        # empty/partial manifest passed here and died below on domains["project"]
+        # with a bare KeyError. Now it fails with something an author can act on.
+        raise CompileError(report.summary())
     if not report.ok:
         raise CompileError(f"manifest is invalid, refusing to compile: {report.to_dict()}")
     domains = store.get_all()
@@ -119,4 +124,7 @@ def compile_project(manifest_path: str | Path, out_dir: str | Path) -> dict:
                         archetype_kind=archetype["kind"])
 
     return {"project_dir": str(out), "assets": len(written), "level": ldtk_info,
-            "title": project["title"]}
+            "title": project["title"],
+            # carried up so the CLI can warn: this manifest compiled, but N validation
+            # checks never ran, so "it compiled" is weaker than it looks
+            "checks_skipped": report.checks_skipped}

@@ -1,8 +1,15 @@
-"""Shared test data: a small, internally-consistent manifest."""
+"""Shared test data: a small, internally-consistent manifest.
+
+It carries every domain in `REQUIRED_DOMAINS` — a manifest missing one of those is
+now a validation failure (an absent domain used to pass by simply not being iterated,
+then exploded downstream in the compiler with a bare KeyError)."""
+
+from meristem_spec_store.scaffold import DEFAULT_STYLE_CONTRACT
 
 
 def consistent_domains():
     return {
+        "style_contract": DEFAULT_STYLE_CONTRACT,
         "mechanics": {"archetypes": [
             {"id": "topdown", "kind": "top_down_controller", "params": {"move_speed": 120, "accel": 800}}
         ]},

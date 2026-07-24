@@ -8,15 +8,22 @@ def _ids(seq, key="id"):
     return {e[key] for e in seq if isinstance(e, dict) and key in e}
 
 
-def _sprite_errors(domains: dict) -> list[str]:
+def _sprite_errors(domains: dict, skipped: list[str]) -> list[str]:
     """Validate each entity/item sprite descriptor against the generator catalog:
     the archetype's build/kind/shape must be a known option, not just schema-valid.
-    Soft-imports the generators — if they aren't installed the schema enum still
-    guards the archetype name, so this check is simply skipped."""
+
+    `meristem_generators` is a declared dependency, so it should always be importable.
+    If it genuinely isn't (a broken/partial install), the check cannot run — and that
+    is RECORDED in `skipped` rather than silently returning "no errors". A skipped
+    check must never be reported as a passed check."""
     try:
-        from meristem_generators import validate_sprite
-    except Exception:
+        import meristem_generators as _gen
+    except ImportError as e:
+        skipped.append(
+            f"sprite_archetypes: meristem_generators is not importable ({e}); "
+            "entity/item sprite configs were NOT cross-checked against the generator catalog")
         return []
+    validate_sprite = _gen.validate_sprite   # renamed away -> AttributeError, loudly
     errs: list[str] = []
     entities = domains.get("entities", {}) or {}
     for group in ("characters", "enemies", "npcs"):
@@ -33,7 +40,7 @@ def _sprite_errors(domains: dict) -> list[str]:
     return errs
 
 
-def _level_errors(domains: dict) -> list[str]:
+def _level_errors(domains: dict, skipped: list[str]) -> list[str]:
     """Levels must be internally coherent (rectangular rows, legend covers every char,
     spawns in bounds) and resolve their refs (region, enemy/item ids, known tiles)."""
     errs: list[str] = []
@@ -46,10 +53,17 @@ def _level_errors(domains: dict) -> list[str]:
     region_ids = _ids((domains.get("world", {}) or {}).get("regions", []))
 
     try:                                             # tile names the generator can build
-        from meristem_generators.procedural import ProceduralGenerator
-        known_tiles = set(ProceduralGenerator._TILES)
-    except Exception:
-        known_tiles = None                           # generators absent -> skip tile check
+        import meristem_generators.procedural as _proc
+    except ImportError as e:                         # generators absent -> record the gap
+        known_tiles = None
+        skipped.append(
+            f"level_tiles: meristem_generators is not importable ({e}); "
+            "level legend tile names were NOT cross-checked against the generator")
+    else:
+        # A PUBLIC accessor on purpose: this used to read the private
+        # ProceduralGenerator._TILES behind a bare `except Exception`, so renaming it
+        # would have quietly turned this check into a no-op. Now a rename raises.
+        known_tiles = set(_proc.known_tiles())
 
     seen: set = set()
     for lv in levels:
@@ -94,7 +108,11 @@ def _level_errors(domains: dict) -> list[str]:
     return errs
 
 
-def cross_reference_errors(domains: dict) -> list[str]:
+def cross_reference(domains: dict) -> tuple[list[str], list[str]]:
+    """Return (errors, checks_skipped). A check lands in `checks_skipped` when it could
+    not run at all — the caller must surface that, because "no errors found" and "the
+    check never ran" are different outcomes and only one of them is a pass."""
+    skipped: list[str] = []
     errs: list[str] = []
     entities = domains.get("entities", {}) or {}
     items = domains.get("items", {}) or {}
@@ -157,9 +175,14 @@ def cross_reference_errors(domains: dict) -> list[str]:
             errs.append(f"narrative character {ch.get('id')!r} faction {fac!r} is not a faction id")
 
     # sprites: each entity/item sprite's variant must be a real generator build
-    errs.extend(_sprite_errors(domains))
+    errs.extend(_sprite_errors(domains, skipped))
 
     # levels: rectangular, legend-covered, refs resolve, spawns in bounds
-    errs.extend(_level_errors(domains))
+    errs.extend(_level_errors(domains, skipped))
 
-    return errs
+    return errs, skipped
+
+
+def cross_reference_errors(domains: dict) -> list[str]:
+    """Errors only. Prefer `cross_reference`, which also reports skipped checks."""
+    return cross_reference(domains)[0]

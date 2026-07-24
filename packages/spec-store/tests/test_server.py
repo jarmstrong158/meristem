@@ -71,7 +71,8 @@ def test_list_sprite_archetypes(svc):
 
 
 def test_check_sprite(svc):
-    assert svc.check_sprite("flyer", {"build": "bat"}) == {"available": True, "ok": True, "problems": []}
+    assert svc.check_sprite("flyer", {"build": "bat"}) == {
+        "available": True, "ok": True, "problems": [], "checks_skipped": []}
     bad = svc.check_sprite("flyer", {"build": "dragon"})
     assert bad["available"] and not bad["ok"] and bad["problems"]
     assert not svc.check_sprite("nonexistent", {})["ok"]
