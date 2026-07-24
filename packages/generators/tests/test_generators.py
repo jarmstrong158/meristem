@@ -232,9 +232,10 @@ def test_chest_builds_vary(contract):
 
 def test_new_tiles_build_and_gate(contract):
     from PIL import Image
-    from meristem_generators.procedural import build_tile, ProceduralGenerator
+    from meristem_generators.procedural import build_tile, known_tiles, tile_options
+    assert {"sand", "snow", "lava", "brick"} <= set(known_tiles())
     for name in ("sand", "snow", "lava", "brick"):
-        arr = build_tile(contract, name, **ProceduralGenerator._TILES[name])
+        arr = build_tile(contract, name, **tile_options(name))
         res = validate(Image.fromarray(arr, "RGBA"), "terrain_tile", contract)
         assert res.accepted, f"{name}: {res.reasons}"
 

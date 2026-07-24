@@ -23,8 +23,8 @@ from meristem_generators.creatures import (build_blob, build_flyer,       # noqa
 from meristem_generators.humanoid import build_humanoid                  # noqa: E402
 from meristem_generators.items import (chest, consumable, pickup,         # noqa: E402
                                        projectile, weapon)
-from meristem_generators.procedural import (ProceduralGenerator,          # noqa: E402
-                                            build_tile)
+from meristem_generators.procedural import (build_tile, known_tiles,      # noqa: E402
+                                            tile_options)
 
 C = load_contract(str(ROOT / "experiments" / "00-bakeoff" / "style-contract.json"))
 
@@ -89,8 +89,8 @@ def _chests():
 
 
 def _tiles():
-    names = ("grass", "dirt", "water", "stone", "sand", "snow", "lava", "brick")
-    return [(n, im(build_tile(C, n, **ProceduralGenerator._TILES[n]))) for n in names]
+    # every tile the generator can build, not a hand-listed subset that can drift
+    return [(n, im(build_tile(C, n, **tile_options(n)))) for n in known_tiles()]
 
 
 def build_sections():
