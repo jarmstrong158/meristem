@@ -232,6 +232,40 @@ def test_player_without_abilities_still_compiles(tmp_path):
     assert not (tmp_path / "scripts" / "projectile.gd").exists()   # nothing fires
 
 
+VANGUARD = Path(__file__).resolve().parents[3] / "examples" / "vanguard-greenweald" / "manifest.json"
+
+
+def test_vanguard_example_compiles(tmp_path):
+    """The second example is built from a real game's design docs rather than invented
+    for the tool, so it exercises the whole feature set at once: six enemy types across
+    five archetypes with three AIs, solid water as geometry, two rooms joined both ways,
+    gear, drop tables with a miss chance, and three abilities with costs. An example
+    that silently stops compiling is worth nothing, so it is a test."""
+    store = SpecStore.load(VANGUARD)
+    report = store.validate_all()
+    assert report.ok and report.complete, report.to_dict()
+    out = tmp_path / "greenweald"
+    compile_project(VANGUARD, out)
+
+    # five distinct sprite archetypes behind six enemies
+    prov = {json.loads(p.read_text())["backend"]
+            for p in (out / "assets").glob("enemy_*.prov.json")}
+    assert prov == {"serpent", "blob", "quadruped", "flyer", "beetle"}, prov
+    # all three enemy AIs are in play
+    scripts = " ".join((out / "scripts" / f).read_text(encoding="utf-8")
+                       for f in ("enemy_marsh_viper.gd", "enemy_bog_toad.gd",
+                                 "enemy_mud_puddle.gd"))
+    assert "ai: chase" in scripts and "ai: patrol" in scripts and "ai: idle" in scripts
+    # both rooms, joined in both directions
+    assert (out / "scenes" / "main.tscn").exists()
+    assert (out / "scenes" / "level_tova_cottage.tscn").exists()
+    marsh = (out / "scenes" / "main.tscn").read_text(encoding="utf-8")
+    cottage = (out / "scenes" / "level_tova_cottage.tscn").read_text(encoding="utf-8")
+    assert "level_tova_cottage.tscn" in marsh and "main.tscn" in cottage
+    # the marsh's water is real geometry, not decoration
+    assert '"water"' in (out / "scripts" / "world.gd").read_text(encoding="utf-8")
+
+
 def test_solid_tiles_get_collision(project):
     """The ground builder made Sprite2D nodes and nothing else, so there was no
     collision anywhere: the player walked over water and stone, and the patrol AI's
