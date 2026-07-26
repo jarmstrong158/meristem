@@ -11,6 +11,20 @@ MANIFEST = Path(__file__).resolve().parents[3] / "examples" / "slice-01" / "mani
 GODOT = os.environ.get("MERISTEM_GODOT")
 
 
+def _can_render() -> bool:
+    """Whether the VISUAL loop can run here, which is a different question from whether
+    a Godot binary exists.
+
+    The assertion loop runs under true `--headless` and needs nothing but the binary.
+    The visual loop runs Godot WINDOWED on purpose, because `--headless` uses dummy
+    drivers that do not render at all (dec-0007) — so it also needs a real display.
+    Gating both on MERISTEM_GODOT alone meant that switching the assertion loop on in
+    CI would switch on a capture that cannot possibly work there."""
+    if not GODOT:
+        return False
+    return os.name == "nt" or bool(os.environ.get("DISPLAY"))
+
+
 def _domains():
     return json.loads(MANIFEST.read_text(encoding="utf-8"))["domains"]
 
@@ -135,7 +149,9 @@ def test_assertion_loop_measures_move_speed(compiled):
     assert abs(r["measured"] - 80.0) <= 6.4
 
 
-@pytest.mark.skipif(not GODOT, reason="set MERISTEM_GODOT to run the visual capture")
+@pytest.mark.skipif(not _can_render(),
+                    reason="the visual capture runs Godot windowed and needs a real "
+                           "display (set MERISTEM_GODOT, and DISPLAY on POSIX)")
 def test_visual_capture_produces_png(compiled):
     cap = capture_frame(compiled, GODOT)
     assert cap is not None and cap.exists()

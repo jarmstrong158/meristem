@@ -15,6 +15,11 @@ concurrency:
   group: tests-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Must match the engine the compiled project targets (project.godot / the templates'
+  # strict-typing assumptions). Bump both together.
+  GODOT_VERSION: "4.6-stable"
+
 jobs:
   pytest:
     name: pytest (${{ matrix.os }}, py${{ matrix.python-version }})
@@ -42,16 +47,57 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install "pytest>=7" "Pillow>=10" "numpy>=1.24" "jsonschema>=4.20" "mcp>=1.0"
 
+      # Godot, on Linux only. The engine assertions are the only checks that prove the
+      # generated game BEHAVES: three real bugs were found by them while every string
+      # assertion was green — a melee reach shorter than the distance two colliding
+      # bodies settle at, an input-timing flake in the harness, and an ability `cost`
+      # that was read by the runner but never baked, so every ability was free. Those
+      # are exactly the failures CI could not see. One OS is enough: the assertions
+      # test game logic, not platform behaviour, and the suite already runs on both.
+      - name: Cache Godot
+        if: runner.os == 'Linux'
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/godot
+          key: godot-${{ env.GODOT_VERSION }}-linux-x86_64
+
+      - name: Install Godot
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          bin="/tmp/godot/Godot_v${GODOT_VERSION}_linux.x86_64"
+          if [ ! -x "$bin" ]; then
+            curl -fsSL -o /tmp/godot.zip \
+              "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux.x86_64.zip"
+            unzip -q /tmp/godot.zip -d /tmp/godot
+            chmod +x "$bin"
+          fi
+          # fail here, with this step's name, rather than as a confusing test error
+          "$bin" --headless --version
+          echo "MERISTEM_GODOT=$bin" >> "$GITHUB_ENV"
+
       - name: Run the suite
         run: python -m pytest -q -rs
 
-      # The Godot engine smoke tests opt in via MERISTEM_GODOT and are not installed
-      # here; make it visible in the log that they did not run, rather than letting a
-      # green check imply the compiled project was launched.
-      - name: Note the checks this job did not run
+      # Say plainly which behavioural checks this job did or did not run, so a green
+      # check is never mistaken for more coverage than it had.
+      - name: Report engine coverage
         if: always()
         shell: bash
         run: |
-          echo "NOT RUN in CI: Godot engine smoke tests (compile -> --import -> run)"
-          echo "and the visual capture loop. They require a Godot 4.x binary via"
-          echo "MERISTEM_GODOT and are reported as skips above."
+          if [ -n "${MERISTEM_GODOT:-}" ]; then
+            echo "RAN: Godot engine assertions (compile -> --import -> run, plus the"
+            echo "assertion loop: move_speed, melee_damage, ability_damage, ability_cost,"
+            echo "gear_bonus, loot_drop, room_transition)."
+            echo
+            echo "STILL NOT RUN: the visual capture loop. It runs Godot WINDOWED on"
+            echo "purpose -- --headless uses dummy drivers that do not render (dec-0007)"
+            echo "-- so it needs a real display, which this runner has none of. It is"
+            echo "reported as a skip above, not silently passed."
+          else
+            echo "NOT RUN on this OS: Godot engine assertions and the visual capture loop."
+            echo "They need a Godot 4.x binary via MERISTEM_GODOT and are reported as"
+            echo "skips above. Linux runs the assertions; this job does not."
+          fi
