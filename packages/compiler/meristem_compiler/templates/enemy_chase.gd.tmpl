@@ -1,0 +1,54 @@
+extends CharacterBody2D
+## Generated enemy '{{name}}' -- ai: chase. Closes on the player inside its aggro
+## radius and coasts to a stop outside it. Tuning comes from this entity's own stats
+## (speed, aggro_radius). Substituted by meristem-compiler from the manifest.
+
+@export var hp: int = {{hp}}
+@export var atk: int = {{atk}}
+
+const SPEED: float = {{speed}}
+const AGGRO_RADIUS: float = {{aggro_radius}}
+
+@onready var _anim: AnimatedSprite2D = $AnimatedSprite2D
+
+var _hurt: float = 0.0
+
+func _ready() -> void:
+	add_to_group("enemies")
+
+func _physics_process(delta: float) -> void:
+	var target: Node2D = _player()
+	var accel: float = SPEED * 4.0
+	if target != null and global_position.distance_to(target.global_position) <= AGGRO_RADIUS:
+		var dir: Vector2 = (target.global_position - global_position).normalized()
+		velocity = velocity.move_toward(dir * SPEED, accel * delta)
+		if _anim != null and absf(dir.x) > 0.05:
+			_anim.flip_h = dir.x < 0.0
+	else:
+		velocity = velocity.move_toward(Vector2.ZERO, accel * delta)
+	move_and_slide()
+	_tick_hurt(delta)
+
+## The player adds itself to the "player" group in _ready, so this needs no baked
+## node path and keeps working wherever the level places either actor.
+func _player() -> Node2D:
+	var found: Array = get_tree().get_nodes_in_group("player")
+	if found.is_empty():
+		return null
+	return found[0] as Node2D
+
+## --- damage + death (identical across every ai archetype) ---
+func take_damage(amount: int) -> void:
+	hp -= amount
+	if hp <= 0:
+		Game.register_kill()
+		queue_free()
+		return
+	_hurt = 0.12
+
+func _tick_hurt(delta: float) -> void:
+	if _hurt <= 0.0:
+		return
+	_hurt -= delta
+	if _anim != null:
+		_anim.modulate = Color(1.0, 0.55, 0.55) if _hurt > 0.0 else Color(1.0, 1.0, 1.0)

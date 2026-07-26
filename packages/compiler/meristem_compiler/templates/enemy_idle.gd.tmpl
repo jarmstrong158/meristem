@@ -1,12 +1,15 @@
 extends CharacterBody2D
-## Generated enemy '{{name}}'. Vertical-slice placeholder behavior: idle bob.
-## Real AI archetypes come later; the manifest already carries its stats.
+## Generated enemy '{{name}}' -- ai: idle. Holds position with a gentle bob.
+## Parameters are substituted by meristem-compiler from the manifest.
 
 @export var hp: int = {{hp}}
 @export var atk: int = {{atk}}
 
+@onready var _anim: AnimatedSprite2D = $AnimatedSprite2D
+
 var _t: float = 0.0
 var _home_y: float = 0.0
+var _hurt: float = 0.0
 
 func _ready() -> void:
 	add_to_group("enemies")
@@ -15,3 +18,20 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	_t += delta
 	position.y = _home_y + sin(_t * 2.0) * 1.0
+	_tick_hurt(delta)
+
+## --- damage + death (identical across every ai archetype) ---
+func take_damage(amount: int) -> void:
+	hp -= amount
+	if hp <= 0:
+		Game.register_kill()
+		queue_free()
+		return
+	_hurt = 0.12
+
+func _tick_hurt(delta: float) -> void:
+	if _hurt <= 0.0:
+		return
+	_hurt -= delta
+	if _anim != null:
+		_anim.modulate = Color(1.0, 0.55, 0.55) if _hurt > 0.0 else Color(1.0, 1.0, 1.0)

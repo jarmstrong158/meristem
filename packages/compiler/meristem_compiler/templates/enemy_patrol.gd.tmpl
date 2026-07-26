@@ -1,0 +1,48 @@
+extends CharacterBody2D
+## Generated enemy '{{name}}' -- ai: patrol. Walks a fixed span and turns around at
+## either end or on hitting a wall. Tuning comes from this entity's own stats
+## (speed, patrol_distance). Substituted by meristem-compiler from the manifest.
+
+@export var hp: int = {{hp}}
+@export var atk: int = {{atk}}
+
+const SPEED: float = {{speed}}
+const PATROL_DISTANCE: float = {{patrol_distance}}
+
+@onready var _anim: AnimatedSprite2D = $AnimatedSprite2D
+
+var _origin_x: float = 0.0
+var _dir: float = 1.0
+var _hurt: float = 0.0
+
+func _ready() -> void:
+	add_to_group("enemies")
+	_origin_x = position.x
+
+func _physics_process(delta: float) -> void:
+	velocity = Vector2(SPEED * _dir, 0.0)
+	move_and_slide()
+	# turn at the end of the leash, or early if something is in the way
+	if is_on_wall() or absf(position.x - _origin_x) >= PATROL_DISTANCE:
+		_dir = -_dir
+		# clamp back inside the span so a fast walker cannot drift off it over time
+		position.x = clampf(position.x, _origin_x - PATROL_DISTANCE, _origin_x + PATROL_DISTANCE)
+	if _anim != null:
+		_anim.flip_h = _dir < 0.0
+	_tick_hurt(delta)
+
+## --- damage + death (identical across every ai archetype) ---
+func take_damage(amount: int) -> void:
+	hp -= amount
+	if hp <= 0:
+		Game.register_kill()
+		queue_free()
+		return
+	_hurt = 0.12
+
+func _tick_hurt(delta: float) -> void:
+	if _hurt <= 0.0:
+		return
+	_hurt -= delta
+	if _anim != null:
+		_anim.modulate = Color(1.0, 0.55, 0.55) if _hurt > 0.0 else Color(1.0, 1.0, 1.0)
