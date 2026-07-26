@@ -520,6 +520,20 @@ def test_chest_lid_reads_as_separate_from_the_body(contract):
     assert int(treasure.sum()) >= 6, "open chest shows no contents"
 
 
+def test_solid_tiles_are_a_subset_of_the_vocabulary():
+    """Passability is a property of the MATERIAL, so it lives with the tile vocabulary.
+    A solid name that is not a real tile would make collision silently never apply."""
+    from meristem_generators import known_tiles, solid_tiles, tile_is_solid
+    solid = set(solid_tiles())
+    assert solid <= set(known_tiles()), solid - set(known_tiles())
+    assert solid, "no tile blocks movement, so level geometry is decoration"
+    # the walkable surfaces must stay walkable, or every level becomes unplayable
+    for name in ("grass", "dirt", "sand", "snow"):
+        assert not tile_is_solid(name), name
+    for name in ("water", "stone", "brick", "lava"):
+        assert tile_is_solid(name), name
+
+
 def test_tile_primitives_wrap_around_the_torus():
     """A tile is a torus. Anything that draws on it must wrap, not clamp."""
     import numpy as np

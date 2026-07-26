@@ -24,6 +24,8 @@ func _ready() -> void:
 			results.append(await _check_gear_bonus(a))
 		elif kind == "loot_drop":
 			results.append(await _check_loot_drop(a))
+		elif kind == "tile_collision":
+			results.append(await _check_tile_collision(a))
 		elif kind == "ability_cost":
 			results.append(await _check_ability_cost(a))
 		elif kind == "room_transition":
@@ -126,6 +128,39 @@ func _check_ability_damage(a: Dictionary) -> Dictionary:
 		"kind": "ability_damage", "ability": a.get("ability", ""), "slot": slot,
 		"expected": expected, "measured": measured, "before": before,
 		"ok": measured == expected,
+	}
+
+## Walk the player into a wall and check it stops. Instantiates the real room scene so
+## the ground builder runs, because the collision only exists if that builder makes it.
+func _check_tile_collision(a: Dictionary) -> Dictionary:
+	var cell: Array = a.get("from", [0, 0])
+	var boundary_x: float = float(a.get("boundary_x", 0))
+	var room: PackedScene = load("res://scenes/main.tscn")
+	if room == null:
+		return {"kind": "tile_collision", "ok": false, "error": "main.tscn did not load"}
+	var scene: Node = room.instantiate()
+	add_child(scene)
+	await get_tree().physics_frame
+	var players: Array = scene.get_tree().get_nodes_in_group("player")
+	if players.is_empty():
+		scene.queue_free()
+		return {"kind": "tile_collision", "ok": false, "error": "no player in the room"}
+	var player: CharacterBody2D = players[0]
+	# stand in the middle of the passable cell, then hold right long enough to have
+	# crossed several tiles if nothing stopped us
+	player.global_position = Vector2(int(cell[0]) * 16 + 8, int(cell[1]) * 16 + 8)
+	var start_x: float = player.global_position.x
+	Input.action_press("move_right")
+	for _i in range(60):
+		await get_tree().physics_frame
+	Input.action_release("move_right")
+	var final_x: float = player.global_position.x
+	scene.queue_free()
+	return {
+		"kind": "tile_collision", "from": cell, "boundary_x": boundary_x,
+		"start_x": start_x, "final_x": final_x,
+		# it must have been stopped by the wall, and must actually have tried to move
+		"ok": final_x < boundary_x and final_x > start_x - 1.0,
 	}
 
 ## Kill an enemy and check its loot actually appears in the scene. Goes through

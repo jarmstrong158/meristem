@@ -16,6 +16,10 @@ WORLD_GD = '''extends Node2D
 ## world.gd serves every room instead of a near-identical copy per level.
 
 const TILE: int = 16
+## Materials that block movement, baked from the generator's tile vocabulary. Solid
+## cells get a collision shape, so level geometry actually stops things -- before this
+## the ground was Sprite2D nodes and nothing else, and the player walked over water.
+const SOLID: Array = {{solid}}
 
 @export var level_name: String = ""
 
@@ -29,6 +33,11 @@ func _ready() -> void:
 		return
 	var data: Dictionary = JSON.parse_string(f.get_as_text())
 	var grid: Array = data.get("grid", [])
+	# ONE static body carrying every wall shape, rather than a body per cell: the
+	# physics server sees one collider instead of a few hundred.
+	var walls: StaticBody2D = StaticBody2D.new()
+	walls.name = "Walls"
+	add_child(walls)
 	for y in range(grid.size()):
 		var row: Array = grid[y]
 		for x in range(row.size()):
@@ -36,13 +45,21 @@ func _ready() -> void:
 			if tname == "":
 				continue
 			var tex: Texture2D = load("res://assets/tile_%s.png" % tname)
-			if tex == null:
-				continue
-			var s: Sprite2D = Sprite2D.new()
-			s.texture = tex
-			s.centered = false
-			s.position = Vector2(x * TILE, y * TILE)
-			add_child(s)
+			if tex != null:
+				var s: Sprite2D = Sprite2D.new()
+				s.texture = tex
+				s.centered = false
+				s.position = Vector2(x * TILE, y * TILE)
+				add_child(s)
+			if SOLID.has(tname):
+				var shape: CollisionShape2D = CollisionShape2D.new()
+				var box: RectangleShape2D = RectangleShape2D.new()
+				box.size = Vector2(TILE, TILE)
+				shape.shape = box
+				# tiles are drawn from their top-left corner, so the shape centre sits
+				# half a tile in on both axes
+				shape.position = Vector2(x * TILE + TILE / 2.0, y * TILE + TILE / 2.0)
+				walls.add_child(shape)
 '''
 
 
@@ -553,7 +570,9 @@ def write_scripts(project_dir: Path, *, kind: str, params: dict,
                             **{key: float(stats.get(key, fallback))
                                for key, fallback in ai_defaults.items()}),
             encoding="utf-8")
-    (sd / "world.gd").write_text(WORLD_GD, encoding="utf-8")
+    from meristem_generators import solid_tiles
+    (sd / "world.gd").write_text(
+        WORLD_GD.replace("{{solid}}", _gd_literal(solid_tiles())), encoding="utf-8")
     (sd / "game_state.gd").write_text(
         GAME_STATE_GD
         .replace("{{max_hp}}", str(int(player_hp)))

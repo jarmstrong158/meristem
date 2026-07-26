@@ -25,11 +25,18 @@ def two_room_manifest(tmp_path: Path) -> Path:
     levels = store.get("levels")
     first = levels["levels"][0]
     w = len(first["rows"][0])
+    # The floor must be PASSABLE. This fixture originally laid the whole cave in
+    # `stone`, which became a room that is entirely wall the moment solid tiles got
+    # collision — the spawn and the door were both inside it, and nothing noticed until
+    # cross-ref started checking. The stone patch is kept, away from both, so the test
+    # still covers a second level pulling an extra tile into the tileset.
+    floor = "." * w
+    wall_row = "." * 8 + "##" + "." * (w - 10)
     cave = {
         "id": "cave_01",
         "region": first["region"],
-        "legend": {".": "stone", "~": "water"},
-        "rows": ["." * w for _ in range(8)],
+        "legend": {".": "dirt", "#": "stone"},
+        "rows": [floor, floor, floor, floor, wall_row, floor, floor, floor],
         "player_spawn": {"x": 2, "y": 2},
         "spawns": [],
         "exits": [{"x": 1, "y": 1, "to": first["id"], "to_spawn": {"x": 3, "y": 3}}],
@@ -223,6 +230,57 @@ def test_player_without_abilities_still_compiles(tmp_path):
     runner = (tmp_path / "scripts" / "ability_runner.gd").read_text(encoding="utf-8")
     assert "const ABILITIES: Array = []" in runner
     assert not (tmp_path / "scripts" / "projectile.gd").exists()   # nothing fires
+
+
+def test_solid_tiles_get_collision(project):
+    """The ground builder made Sprite2D nodes and nothing else, so there was no
+    collision anywhere: the player walked over water and stone, and the patrol AI's
+    is_on_wall() could never be true. Level geometry was decoration."""
+    world = (project / "scripts" / "world.gd").read_text(encoding="utf-8")
+    assert "const SOLID: Array" in world
+    for name in ("water", "stone", "brick", "lava"):
+        assert f'"{name}"' in world, name
+    assert "grass" not in world.split("const SOLID")[1].split("\n")[0]
+    # one body carrying every wall shape, not a body per cell
+    assert "StaticBody2D.new()" in world and 'walls.name = "Walls"' in world
+    assert "RectangleShape2D.new()" in world
+    assert "walls.add_child(shape)" in world
+    # shape centres are offset half a tile, because tiles draw from their top-left
+    assert "TILE / 2.0" in world
+
+
+def test_spawns_on_impassable_terrain_are_refused(tmp_path):
+    """The follow-up the visual loop earned when it caught an enemy standing on the
+    water pond — a placement bug no physics assertion sees. Now that solid tiles carry
+    collision, such a spawn is stuck inside a wall."""
+    store = SpecStore.load(MANIFEST)
+    levels = store.get("levels")
+    lv = levels["levels"][0]
+    # the pond: rows 2-3, x 13-16 in the slice's grove
+    lv["spawns"].append({"id": "slime", "kind": "enemy", "x": 14, "y": 2})
+    store.set_domain("levels", levels, {"actor": "test"})
+    bad = tmp_path / "on_water.manifest.json"
+    store.save(bad)
+    report = SpecStore.load(bad).validate_all()
+    assert not report.ok
+    assert any("blocks movement" in e and "water" in e for e in report.crossref_errors), \
+        report.crossref_errors
+    with pytest.raises(CompileError):
+        compile_project(bad, tmp_path / "out")
+
+
+def test_player_spawn_and_doors_on_impassable_terrain_are_refused(tmp_path):
+    store = SpecStore.load(MANIFEST)
+    levels = store.get("levels")
+    lv = levels["levels"][0]
+    lv["player_spawn"] = {"x": 2, "y": 9}          # the stone block
+    lv["exits"] = [{"x": 3, "y": 9, "to": lv["id"]}]
+    store.set_domain("levels", levels, {"actor": "test"})
+    bad = tmp_path / "stuck.manifest.json"
+    store.save(bad)
+    errs = SpecStore.load(bad).validate_all().crossref_errors
+    assert any("player_spawn" in e and "blocks movement" in e for e in errs), errs
+    assert any("exit" in e and "never be reached" in e for e in errs), errs
 
 
 def test_drop_tables_reach_the_runtime(project):
@@ -590,7 +648,7 @@ def test_gear_and_cost_verified_in_engine(project):
     check is what caught `cost` never being baked into the slot table."""
     from meristem_verifier.assertions import derive_assertions
     from meristem_verifier.runner import run_assertions
-    wanted = {"gear_bonus", "ability_cost", "loot_drop"}
+    wanted = {"gear_bonus", "ability_cost", "loot_drop", "tile_collision"}
     asserts = [a for a in derive_assertions(SpecStore.load(MANIFEST).get_all())
                if a["kind"] in wanted]
     assert {a["kind"] for a in asserts} == wanted, asserts

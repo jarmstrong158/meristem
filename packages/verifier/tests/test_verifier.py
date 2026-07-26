@@ -103,6 +103,27 @@ def test_derive_loot_drop_only_for_a_guaranteed_single_drop():
     assert [x for x in derive_assertions(multi) if x["kind"] == "loot_drop"] == []
 
 
+def test_derive_tile_collision_from_the_first_wall_pair():
+    """Finds a passable cell whose right neighbour is solid — in the slice that is the
+    grass beside the pond."""
+    got = [x for x in derive_assertions(_domains()) if x["kind"] == "tile_collision"]
+    assert len(got) == 1
+    x, y = got[0]["from"]
+    lv = _domains()["levels"]["levels"][0]
+    legend = lv["legend"]
+    assert legend[lv["rows"][y][x]] not in ("water", "stone", "brick", "lava")
+    assert legend[lv["rows"][y][x + 1]] in ("water", "stone", "brick", "lava")
+    assert got[0]["boundary_x"] == (x + 1) * 16
+
+
+def test_no_tile_collision_assertion_without_a_wall():
+    """A map with nothing solid in it has no claim to make."""
+    d = _domains()
+    lv = d["levels"]["levels"][0]
+    lv["legend"] = {ch: "grass" for ch in lv["legend"]}
+    assert [x for x in derive_assertions(d) if x["kind"] == "tile_collision"] == []
+
+
 def test_derive_room_transition_only_when_a_level_has_exits():
     d = _domains()
     assert [x for x in derive_assertions(d) if x["kind"] == "room_transition"] == []

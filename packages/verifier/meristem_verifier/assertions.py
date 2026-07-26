@@ -3,6 +3,32 @@ that is checkable headlessly by driving input and measuring terminal velocity.""
 from __future__ import annotations
 
 
+TILE = 16
+
+
+def _first_wall_pair(domains: dict):
+    """((x, y), boundary_x) for the first passable cell whose right neighbour is solid,
+    in the level the compiler treats as the start. None if the map has no such pair, or
+    if the generators are not importable — in which case there is nothing to assert
+    rather than something to assume."""
+    try:
+        from meristem_generators import solid_tiles
+    except ImportError:
+        return None
+    solid = set(solid_tiles())
+    levels = (domains.get("levels", {}) or {}).get("levels", [])
+    if not levels:
+        return None
+    level = levels[0]
+    legend, rows = level.get("legend", {}), level.get("rows", [])
+    for y, row in enumerate(rows):
+        for x in range(len(row) - 1):
+            here, right = legend.get(row[x]), legend.get(row[x + 1])
+            if here not in solid and right in solid:
+                return (x, y), (x + 1) * TILE
+    return None
+
+
 def derive_assertions(domains: dict) -> list[dict]:
     out: list[dict] = []
     archetypes = {a["id"]: a for a in domains.get("mechanics", {}).get("archetypes", [])}
@@ -95,6 +121,16 @@ def derive_assertions(domains: dict) -> list[dict]:
                 out.append({"kind": "loot_drop", "entity": enemy["id"],
                             "expected": drops[0]["item_id"]})
             break
+
+    # Walls: the compiled ground was Sprite2D nodes and nothing else, so the player
+    # walked over water and stone and the patrol AI's is_on_wall() could never fire.
+    # Find a passable cell whose RIGHT neighbour is solid and prove the player stops.
+    if arch and arch["kind"] == "top_down_controller":
+        wall = _first_wall_pair(domains)
+        if wall is not None:
+            from_cell, boundary_x = wall
+            out.append({"kind": "tile_collision", "from": list(from_cell),
+                        "boundary_x": boundary_x})
 
     # Doors: every exit's baked target scene must load, and its arrival cell must
     # actually move the player. A wrong res:// path is the obvious failure mode and is

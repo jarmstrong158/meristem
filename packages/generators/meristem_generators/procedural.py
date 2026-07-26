@@ -211,10 +211,35 @@ TILES: dict[str, dict] = {
 
 TILE_DEFAULT = {"name": "grass"}
 
+# Which materials BLOCK movement. Passability belongs with the tile vocabulary rather
+# than being re-declared per level, because whether you can walk on water is a fact
+# about water, not about one map.
+#
+# Until this existed the compiled ground was Sprite2D nodes and nothing else: no
+# collision anywhere, so the player strolled across water and stone, and the patrol
+# AI's `is_on_wall()` could never once be true. Level geometry was decoration.
+#
+# `lava` is solid here rather than passable-and-damaging, because there is no terrain
+# damage system to be the other half of that; making it a wall is the honest reading
+# of what the runtime can actually express today.
+SOLID_TILES = frozenset({"water", "stone", "brick", "lava"})
+
 
 def known_tiles() -> list[str]:
     """Every terrain-tile name the generator can build, sorted."""
     return sorted(TILES)
+
+
+def solid_tiles() -> list[str]:
+    """Tile names that block movement, sorted. PUBLIC for the same reason as
+    known_tiles: the compiler bakes this into the ground builder and cross-reference
+    validation resolves spawn cells against it, so a rename must break an import
+    rather than silently turn either into a no-op."""
+    return sorted(SOLID_TILES)
+
+
+def tile_is_solid(name: str) -> bool:
+    return name in SOLID_TILES
 
 
 def tile_options(name: str) -> dict:
