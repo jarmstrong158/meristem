@@ -28,7 +28,7 @@ build/slice-01/
 | `project` | → | `project.godot` (name, resolution, input map) |
 | `mechanics` archetype params | → | `scripts/player.gd` (template with params substituted) |
 | `entities` (sprite refs) | → | generated + gated `assets/*.png`, `scenes/{player,enemy}.tscn` |
-| `levels` (or a synthesized layout) | → | one `levels/<id>.ldtk` + room scene per level; `exits` become doors |
+| `levels` (or a synthesized layout) | → | one `levels/<id>.ldtk` + room scene per level; `exits` become doors; solid tiles (water/stone/brick/lava) get collision on one `Walls` static body |
 | `entities.ai` | → | `scripts/enemy_<id>.gd` from the AI archetype (idle · patrol · chase) |
 | `abilities` + `entities.abilities` | → | `scripts/ability_runner.gd` (baked slot table incl. `cost`) + `scenes/projectile_<id>.tscn` |
 | `items` (`slot`, `stats`) | → | the `ITEMS` table in `game_state.gd`: collecting equips a worn slot and its stats move `Game.atk()` / `Game.defense()` |

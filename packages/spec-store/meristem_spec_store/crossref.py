@@ -98,18 +98,21 @@ def _level_errors(domains: dict, skipped: list[str]) -> list[str]:
     item_ids = _ids((domains.get("items", {}) or {}).get("items", []))
     region_ids = _ids((domains.get("world", {}) or {}).get("regions", []))
 
+    solid_tiles = None
     try:                                             # tile names the generator can build
         import meristem_generators.procedural as _proc
     except ImportError as e:                         # generators absent -> record the gap
         known_tiles = None
         skipped.append(
             f"level_tiles: meristem_generators is not importable ({e}); "
-            "level legend tile names were NOT cross-checked against the generator")
+            "level legend tile names were NOT cross-checked against the generator, and "
+            "spawn cells were NOT checked for being on impassable terrain")
     else:
         # A PUBLIC accessor on purpose: this used to read the private
         # ProceduralGenerator._TILES behind a bare `except Exception`, so renaming it
         # would have quietly turned this check into a no-op. Now a rename raises.
         known_tiles = set(_proc.known_tiles())
+        solid_tiles = set(_proc.solid_tiles())
 
     seen: set = set()
     for lv in levels:
@@ -135,13 +138,37 @@ def _level_errors(domains: dict, skipped: list[str]) -> list[str]:
                     errs.append(f"level {lid!r} legend {ch!r} -> {tile!r} is not a known tile "
                                 f"({sorted(known_tiles)})")
         h = len(rows)
+
+        def tile_at(x: int, y: int):
+            """The tile name at a cell, or None if out of bounds / unmapped."""
+            if not (0 <= y < h and 0 <= x < len(rows[y])):
+                return None
+            return legend.get(rows[y][x])
+
+        def solid_here(x: int, y: int) -> bool:
+            """Whether this cell blocks movement. False when the check cannot run, so a
+            missing generator never invents an error (it is recorded in `skipped`)."""
+            if solid_tiles is None:
+                return False
+            return tile_at(x, y) in solid_tiles
+
         ps = lv.get("player_spawn", {})
         if ps and (ps.get("x", 0) >= w or ps.get("y", 0) >= h):
             errs.append(f"level {lid!r} player_spawn ({ps.get('x')},{ps.get('y')}) is outside the {w}x{h} grid")
+        elif ps and solid_here(ps.get("x", 0), ps.get("y", 0)):
+            errs.append(f"level {lid!r} player_spawn ({ps.get('x')},{ps.get('y')}) is on "
+                        f"{tile_at(ps.get('x', 0), ps.get('y', 0))!r}, which blocks movement")
         for sp in lv.get("spawns", []):
             if sp.get("x", 0) >= w or sp.get("y", 0) >= h:
                 errs.append(f"level {lid!r} spawn {sp.get('id')!r} ({sp.get('x')},{sp.get('y')}) "
                             f"is outside the {w}x{h} grid")
+            # Solid tiles now carry collision, so a spawn on one is stuck inside a wall.
+            # This is the follow-up the visual loop earned when it caught an enemy
+            # standing on the water pond -- a placement bug no physics assertion sees.
+            elif solid_here(sp.get("x", 0), sp.get("y", 0)):
+                errs.append(f"level {lid!r} {sp.get('kind')} spawn {sp.get('id')!r} "
+                            f"({sp.get('x')},{sp.get('y')}) is on "
+                            f"{tile_at(sp.get('x', 0), sp.get('y', 0))!r}, which blocks movement")
             pool = enemy_ids if sp.get("kind") == "enemy" else item_ids
             if sp.get("id") not in pool:
                 errs.append(f"level {lid!r} {sp.get('kind')} spawn {sp.get('id')!r} does not resolve")
@@ -152,6 +179,14 @@ def _level_errors(domains: dict, skipped: list[str]) -> list[str]:
     sizes = {lv.get("id"): (len(lv.get("rows", [{}])[0]) if lv.get("rows") else 0,
                             len(lv.get("rows", [])))
              for lv in levels}
+    by_lid = {lv.get("id"): lv for lv in levels}
+
+    def cell_tile(level: dict, x: int, y: int):
+        rws, lgd = level.get("rows", []), level.get("legend", {})
+        if not (0 <= y < len(rws) and 0 <= x < len(rws[y])):
+            return None
+        return lgd.get(rws[y][x])
+
     for lv in levels:
         lid = lv.get("id")
         w, h = sizes.get(lid, (0, 0))
@@ -159,6 +194,11 @@ def _level_errors(domains: dict, skipped: list[str]) -> list[str]:
             if ex.get("x", 0) >= w or ex.get("y", 0) >= h:
                 errs.append(f"level {lid!r} exit ({ex.get('x')},{ex.get('y')}) is outside "
                             f"the {w}x{h} grid")
+            elif solid_tiles is not None and \
+                    cell_tile(lv, ex.get("x", 0), ex.get("y", 0)) in solid_tiles:
+                errs.append(f"level {lid!r} exit ({ex.get('x')},{ex.get('y')}) is on "
+                            f"{cell_tile(lv, ex.get('x', 0), ex.get('y', 0))!r}, which "
+                            f"blocks movement, so the door could never be reached")
             target = ex.get("to")
             if target not in seen:
                 errs.append(f"level {lid!r} exit leads to {target!r} which is not a defined level")
@@ -171,6 +211,12 @@ def _level_errors(domains: dict, skipped: list[str]) -> list[str]:
                 if ts.get("x", 0) >= tw or ts.get("y", 0) >= th:
                     errs.append(f"level {lid!r} exit to {target!r} arrives at "
                                 f"({ts.get('x')},{ts.get('y')}), outside that level's {tw}x{th} grid")
+                elif solid_tiles is not None and \
+                        cell_tile(by_lid[target], ts.get("x", 0), ts.get("y", 0)) in solid_tiles:
+                    errs.append(f"level {lid!r} exit to {target!r} arrives at "
+                                f"({ts.get('x')},{ts.get('y')}), which is "
+                                f"{cell_tile(by_lid[target], ts.get('x', 0), ts.get('y', 0))!r} "
+                                f"and blocks movement -- the player would land inside a wall")
 
     # world regions listing level ids must have them defined (when levels domain present)
     for r in (domains.get("world", {}) or {}).get("regions", []):

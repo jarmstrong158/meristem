@@ -13,7 +13,7 @@ spec-store boundary — the compiler and generators trust that anything in the s
 | `mechanics.schema.json` | mechanics | **parameters over a fixed archetype library**; per-kind typed params via if/then |
 | `economy.schema.json` | economy | currency, price_curves, progression_pacing |
 | `world.schema.json` | world | regions (biome, tileset_ref, levels) + connections (→ regions) |
-| `levels.schema.json` | levels | character-grid maps: legend (char→tile), rows, player_spawn, spawns (→ entities.enemies, items), exits (→ levels) |
+| `levels.schema.json` | levels | character-grid maps: legend (char→tile), rows, player_spawn, spawns (→ entities.enemies, items), exits (→ levels). Solid tiles block movement, so cross-ref refuses any spawn, door or arrival cell placed on one |
 | `abilities.schema.json` | abilities | activatable actions over a **fixed kind library** (projectile · melee_arc · heal · dash), with an optional `cost` spent from the caster's `mp` stat; entities reference them by id (→ abilities) |
 
 Arrows (→) are **cross-references** validated by the spec store's `validate_all`, not by JSON Schema

@@ -56,6 +56,11 @@ then `set_domain("levels", ...)`. Cross-ref validation catches ragged rows, unkn
 chars, unknown tiles, out-of-bounds or unresolvable spawns, so mutate freely and re-validate.
 Spawned enemies each get their own scene/stats; a spawned item must have a sprite descriptor.
 
+**Terrain is solid or it isn't.** `water`, `stone`, `brick` and `lava` block movement and get real
+collision; `grass`, `dirt`, `sand` and `snow` are walkable. So a `~` pond is a barrier and a `#`
+block is a wall — that is how you shape a room. Cross-ref refuses a `player_spawn`, a spawn, a door
+or a door's arrival cell that sits on impassable terrain, because the actor would be stuck inside it.
+
 **Connecting rooms.** A level's `exits` are doors: `{x, y, to, to_spawn?}` moves the player to
 another level's scene, arriving at `to_spawn` or that level's own `player_spawn`. Every authored
 level compiles to its own room, so adding a level and a door each way is all a second room needs.
