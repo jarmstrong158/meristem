@@ -50,6 +50,35 @@ def derive_assertions(domains: dict) -> list[dict]:
                             "expected": max(hp - power, 0)})
             break                       # one is enough to prove the wiring
 
+    # Gear: equipping a weapon with an atk bonus must make the next hit harder. The
+    # stats have been authorable since the beginning and did nothing, so "the manifest
+    # says +2 atk" is exactly the claim that needs proving in the engine.
+    if arch and arch["kind"] == "top_down_controller" and player and enemy:
+        worn = [it for it in (domains.get("items", {}) or {}).get("items", [])
+                if it.get("slot") in ("weapon", "armor", "accessory")
+                and int((it.get("stats", {}) or {}).get("atk", 0)) > 0]
+        if worn:
+            item = worn[0]
+            bonus = int(item["stats"]["atk"])
+            base = int(player.get("stats", {}).get("atk", 0))
+            if base > 0:
+                out.append({"kind": "gear_bonus", "entity": enemy["id"],
+                            "item": item["id"], "slot": item["slot"],
+                            "base_atk": base, "bonus": bonus,
+                            "expected": base + bonus})
+
+    # Ability cost: spending must reduce the pool, and an ability that cannot be paid
+    # for must not fire AND must not burn its cooldown.
+    if arch and player:
+        pool = int(player.get("stats", {}).get("mp", 0))
+        costed = [(i, ability_defs[r]) for i, r in enumerate(player.get("abilities", []))
+                  if r in ability_defs and int(ability_defs[r].get("cost", 0) or 0) > 0]
+        if pool > 0 and costed:
+            slot, ab = costed[0]
+            out.append({"kind": "ability_cost", "ability": ab["id"], "slot": slot,
+                        "cost": int(ab["cost"]), "pool": pool,
+                        "expected": pool - int(ab["cost"])})
+
     # Doors: every exit's baked target scene must load, and its arrival cell must
     # actually move the player. A wrong res:// path is the obvious failure mode and is
     # invisible until someone walks into the doorway.

@@ -47,17 +47,79 @@ func _ready() -> void:
 
 
 GAME_STATE_GD = '''extends Node
-## Global run state (autoloaded as "Game"): player hp + collected items.
-## Death resets the run and reloads the level.
+## Global run state (autoloaded as "Game"): hp, the ability resource, collected items
+## and what they equip. Death resets the run and reloads the level.
+##
+## Effective stats live HERE rather than baked as constants into the player script,
+## because gear changes them at runtime: the player asks for atk() every swing.
 
 signal hp_changed(hp: int, max_hp: int)
+signal mp_changed(mp: int, max_mp: int)
 signal collected(item_id: String, total: int)
+signal equipped_changed(slot: String, item_id: String)
 signal enemy_killed(total: int)
+
+## id -> {slot, stats}, baked from the manifest's items domain. The runtime needs the
+## stats to apply a bonus and the slot to know where the thing is worn.
+const ITEMS: Dictionary = {{items}}
+## Only these slots are WORN. A consumable or key_item is carried and grants nothing,
+## which is why equipping is slot-driven rather than "anything with stats".
+const EQUIP_SLOTS: Array = ["weapon", "armor", "accessory"]
 
 var max_hp: int = {{max_hp}}
 var hp: int = {{max_hp}}
+var base_atk: int = {{base_atk}}
+var base_def: int = {{base_def}}
+var max_mp: int = {{max_mp}}
+## float so a fractional regen can accumulate across frames; readers see int(mp)
+var mp: float = float({{max_mp}})
+var mp_regen: float = {{mp_regen}}
 var items: Dictionary = {}
+var equipped: Dictionary = {}
 var kills: int = 0
+
+func _process(delta: float) -> void:
+	if mp_regen <= 0.0 or mp >= float(max_mp):
+		return
+	# only signal when the DISPLAYED value changes, not every frame
+	var before: int = int(mp)
+	mp = minf(mp + mp_regen * delta, float(max_mp))
+	if int(mp) != before:
+		mp_changed.emit(int(mp), max_mp)
+
+## Spend the ability resource. Returns false when it cannot be paid, so the caller can
+## decline to fire AND decline to burn a cooldown.
+func spend(cost: int) -> bool:
+	if cost <= 0:
+		return true
+	if int(mp) < cost:
+		return false
+	mp -= float(cost)
+	mp_changed.emit(int(mp), max_mp)
+	return true
+
+## --- gear ---
+func stat_bonus(stat: String) -> int:
+	var total: int = 0
+	for slot in equipped:
+		var entry: Dictionary = ITEMS.get(equipped[slot], {})
+		var stats: Dictionary = entry.get("stats", {})
+		total += int(stats.get(stat, 0))
+	return total
+
+func atk() -> int:
+	return maxi(base_atk + stat_bonus("atk"), 1)
+
+func defense() -> int:
+	return maxi(base_def + stat_bonus("def"), 0)
+
+func _try_equip(item_id: String) -> void:
+	var entry: Dictionary = ITEMS.get(item_id, {})
+	var slot: String = str(entry.get("slot", ""))
+	if not EQUIP_SLOTS.has(slot):
+		return
+	equipped[slot] = item_id
+	equipped_changed.emit(slot, item_id)
 
 ## Where the player should appear in the room it is walking INTO. change_scene_to_file
 ## cannot carry arguments, and this autoload is the only thing that survives the swap,
@@ -84,7 +146,9 @@ func take_pending_spawn() -> Variant:
 	return p
 
 func take_damage(amount: int) -> void:
-	hp = clampi(hp - amount, 0, max_hp)
+	# defence subtracts, but a hit always lands for at least 1: enough armour would
+	# otherwise make the player invulnerable and the game unlosable
+	hp = clampi(hp - maxi(amount - defense(), 1), 0, max_hp)
 	hp_changed.emit(hp, max_hp)
 	if hp <= 0:
 		_restart()
@@ -95,6 +159,8 @@ func heal(amount: int) -> void:
 
 func collect(item_id: String) -> void:
 	items[item_id] = int(items.get(item_id, 0)) + 1
+	# picking something up wears it, if it is the kind of thing you wear
+	_try_equip(item_id)
 	var total: int = 0
 	for k in items:
 		total += int(items[k])
@@ -102,9 +168,13 @@ func collect(item_id: String) -> void:
 
 func _restart() -> void:
 	hp = max_hp
+	mp = float(max_mp)
 	items = {}
+	equipped = {}
 	kills = 0
 	_pending_spawn = null
+	hp_changed.emit(hp, max_hp)
+	mp_changed.emit(int(mp), max_mp)
 	get_tree().call_deferred("reload_current_scene")
 '''
 
@@ -166,12 +236,25 @@ func _process(delta: float) -> void:
 func ready_slot(slot: int) -> bool:
 	return slot >= 0 and slot < ABILITIES.size() and _cooldowns[slot] <= 0.0
 
+## What each slot is doing right now, for the HUD. Public so the readout does not have
+## to reach into the cooldown array.
+func slot_status() -> Array:
+	var out: Array = []
+	for i in range(ABILITIES.size()):
+		out.append({"id": str(ABILITIES[i].get("id", "")), "cooldown": _cooldowns[i],
+					"cost": int(ABILITIES[i].get("cost", 0))})
+	return out
+
 ## Returns true if the ability fired, so the caller can tell "not ready" from "no such
 ## slot" without reaching into the cooldown array.
 func use(slot: int, facing: Vector2) -> bool:
 	if not ready_slot(slot):
 		return false
 	var a: Dictionary = ABILITIES[slot]
+	# Pay FIRST, and if it cannot be paid, do not burn the cooldown either -- a failed
+	# cast that still put the ability on cooldown would read as the game eating inputs.
+	if not Game.spend(int(a.get("cost", 0))):
+		return false
 	_cooldowns[slot] = float(a.get("cooldown", 0.0))
 	match str(a.get("kind", "")):
 		"projectile": _fire(a, facing)
@@ -255,28 +338,75 @@ func _on_body_entered(body: Node2D) -> void:
 '''
 
 HUD_GD = '''extends CanvasLayer
-## HUD: hp readout next to the heart, collected count next to the coin, kill count.
+## HUD: hp next to the heart, the ability resource, collected count next to the coin,
+## kills, equipped gear, and per-slot ability state.
 
 @onready var _hp_label: Label = $HpLabel
+@onready var _mp_label: Label = $MpLabel
 @onready var _item_label: Label = $ItemLabel
 @onready var _kill_label: Label = $KillLabel
+@onready var _gear_label: Label = $GearLabel
+@onready var _ability_label: Label = $AbilityLabel
 
 func _ready() -> void:
 	Game.hp_changed.connect(_on_hp_changed)
+	Game.mp_changed.connect(_on_mp_changed)
 	Game.collected.connect(_on_collected)
+	Game.equipped_changed.connect(_on_equipped_changed)
 	Game.enemy_killed.connect(_on_enemy_killed)
 	_on_hp_changed(Game.hp, Game.max_hp)
+	_on_mp_changed(int(Game.mp), Game.max_mp)
 	var total: int = 0
 	for k in Game.items:
 		total += int(Game.items[k])
 	_item_label.text = "x %d" % total
 	_on_enemy_killed(Game.kills)
+	_refresh_gear()
+
+## Polled rather than signalled: a cooldown is a continuously changing value, and a
+## signal per frame per slot would be noise.
+func _process(_delta: float) -> void:
+	var runner: Node = _ability_runner()
+	if runner == null:
+		_ability_label.text = ""
+		return
+	var parts: Array = []
+	for i in range(runner.slot_status().size()):
+		var s: Dictionary = runner.slot_status()[i]
+		var state: String = "rdy" if s["cooldown"] <= 0.0 else "%.1f" % s["cooldown"]
+		if int(s["cost"]) > int(Game.mp):
+			state = "no mp"
+		parts.append("%d:%s %s" % [i + 1, s["id"], state])
+	_ability_label.text = "  ".join(parts)
+
+func _ability_runner() -> Node:
+	var players: Array = get_tree().get_nodes_in_group("player")
+	if players.is_empty():
+		return null
+	return (players[0] as Node).get_node_or_null("Abilities")
 
 func _on_hp_changed(hp: int, max_hp: int) -> void:
-	_hp_label.text = "%d/%d" % [hp, max_hp]
+	_hp_label.text = "%d/%d  atk %d  def %d" % [hp, max_hp, Game.atk(), Game.defense()]
+
+func _on_mp_changed(mp: int, max_mp: int) -> void:
+	_mp_label.text = "mp %d/%d" % [mp, max_mp]
 
 func _on_collected(_item_id: String, total: int) -> void:
 	_item_label.text = "x %d" % total
+
+func _on_equipped_changed(_slot: String, _item_id: String) -> void:
+	_refresh_gear()
+	# gear moves atk/def, which the hp line shows
+	_on_hp_changed(Game.hp, Game.max_hp)
+
+func _refresh_gear() -> void:
+	if Game.equipped.is_empty():
+		_gear_label.text = ""
+		return
+	var worn: Array = []
+	for slot in Game.equipped:
+		worn.append("%s:%s" % [slot, Game.equipped[slot]])
+	_gear_label.text = "  ".join(worn)
 
 func _on_enemy_killed(total: int) -> void:
 	_kill_label.text = "slain %d" % total
@@ -347,7 +477,10 @@ def _gd_literal(value) -> str:
 
 def write_scripts(project_dir: Path, *, kind: str, params: dict,
                   enemies: list[dict], player_hp: int = 20,
-                  player_atk: int = 1, abilities: list[dict] | None = None) -> None:
+                  player_atk: int = 1, player_def: int = 0,
+                  player_mp: int = 0, player_mp_regen: float = 0.0,
+                  items: dict | None = None,
+                  abilities: list[dict] | None = None) -> None:
     """player.gd + world.gd + game_state.gd/pickup.gd/hud.gd/door.gd + one enemy_<id>.gd
     per enemy type (stats and ai baked in), plus the ability runner and projectile
     script when the player has abilities.
@@ -355,7 +488,7 @@ def write_scripts(project_dir: Path, *, kind: str, params: dict,
     `kind` selects the controller template; only its own declared params are
     substituted, so one controller's defaults can never leak into another's script.
     Each enemy dict is {id, name, hp, atk, ai, stats}. `abilities` is the player's
-    resolved slot list, in order."""
+    resolved slot list, in order. `items` is id -> {slot, stats}, for gear bonuses."""
     template, defaults = CONTROLLERS[kind]
     sd = project_dir / "scripts"
     sd.mkdir(parents=True, exist_ok=True)
@@ -366,7 +499,6 @@ def write_scripts(project_dir: Path, *, kind: str, params: dict,
         (sd / "projectile.gd").write_text(PROJECTILE_GD, encoding="utf-8")
     (sd / "player.gd").write_text(
         render_template(template,
-                        attack_damage=max(1, int(player_atk)),
                         ability_slots=ABILITY_SLOTS,
                         **{key: float(params.get(key, fallback))
                            for key, fallback in defaults.items()}),
@@ -381,7 +513,14 @@ def write_scripts(project_dir: Path, *, kind: str, params: dict,
             encoding="utf-8")
     (sd / "world.gd").write_text(WORLD_GD, encoding="utf-8")
     (sd / "game_state.gd").write_text(
-        GAME_STATE_GD.replace("{{max_hp}}", str(int(player_hp))), encoding="utf-8")
+        GAME_STATE_GD
+        .replace("{{max_hp}}", str(int(player_hp)))
+        .replace("{{base_atk}}", str(max(1, int(player_atk))))
+        .replace("{{base_def}}", str(max(0, int(player_def))))
+        .replace("{{max_mp}}", str(max(0, int(player_mp))))
+        .replace("{{mp_regen}}", f"{float(player_mp_regen):.3f}")
+        .replace("{{items}}", _gd_literal(items or {})),
+        encoding="utf-8")
     (sd / "pickup.gd").write_text(PICKUP_GD, encoding="utf-8")
     (sd / "hud.gd").write_text(HUD_GD, encoding="utf-8")
     (sd / "door.gd").write_text(DOOR_GD, encoding="utf-8")
@@ -632,6 +771,27 @@ theme_override_font_sizes/font_size = 8
 offset_left = 22.0
 offset_top = 40.0
 offset_right = 100.0
+offset_bottom = 56.0
+theme_override_font_sizes/font_size = 8
+
+[node name="MpLabel" type="Label" parent="HUD"]
+offset_left = 120.0
+offset_top = 4.0
+offset_right = 200.0
+offset_bottom = 20.0
+theme_override_font_sizes/font_size = 8
+
+[node name="GearLabel" type="Label" parent="HUD"]
+offset_left = 120.0
+offset_top = 22.0
+offset_right = 300.0
+offset_bottom = 38.0
+theme_override_font_sizes/font_size = 8
+
+[node name="AbilityLabel" type="Label" parent="HUD"]
+offset_left = 120.0
+offset_top = 40.0
+offset_right = 316.0
 offset_bottom = 56.0
 theme_override_font_sizes/font_size = 8
 '''

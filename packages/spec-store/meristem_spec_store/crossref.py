@@ -67,13 +67,22 @@ def _ability_errors(domains: dict, skipped: list[str]) -> list[str]:
         elif ab.get("kind") == "melee_arc" and ab.get("range") is None:
             errs.append(f"ability {aid!r} is a melee_arc but has no range")
 
+    by_id = {ab.get("id"): ab for ab in abilities}
     entities = domains.get("entities", {}) or {}
     for group in ("characters", "enemies", "npcs"):
         for e in entities.get(group, []):
+            pool = int((e.get("stats", {}) or {}).get("mp", 0))
             for ref in e.get("abilities", []):
                 if ref not in seen:
                     errs.append(f"entity {e.get('id')!r} references ability {ref!r} "
                                 f"which is not in the abilities domain")
+                    continue
+                # An ability whose cost exceeds the caster's whole resource pool can
+                # never be used once, which is a spec that does not do what it says.
+                cost = int(by_id[ref].get("cost", 0) or 0)
+                if cost > pool:
+                    errs.append(f"entity {e.get('id')!r} can never cast {ref!r}: it costs "
+                                f"{cost} but the entity's mp stat is {pool}")
     return errs
 
 

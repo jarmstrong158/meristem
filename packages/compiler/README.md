@@ -30,8 +30,9 @@ build/slice-01/
 | `entities` (sprite refs) | → | generated + gated `assets/*.png`, `scenes/{player,enemy}.tscn` |
 | `levels` (or a synthesized layout) | → | one `levels/<id>.ldtk` + room scene per level; `exits` become doors |
 | `entities.ai` | → | `scripts/enemy_<id>.gd` from the AI archetype (idle · patrol · chase) |
-| `abilities` + `entities.abilities` | → | `scripts/ability_runner.gd` (baked slot table) + `scenes/projectile_<id>.tscn` |
-| `items`, `narrative`, `economy` | → | (carried in the manifest; item **sprites and placements** compile, but slot/stats/rarity/drop_tables, story and currency are not yet wired into gameplay) |
+| `abilities` + `entities.abilities` | → | `scripts/ability_runner.gd` (baked slot table incl. `cost`) + `scenes/projectile_<id>.tscn` |
+| `items` (`slot`, `stats`) | → | the `ITEMS` table in `game_state.gd`: collecting equips a worn slot and its stats move `Game.atk()` / `Game.defense()` |
+| `narrative`, `economy`, `items.rarity_tiers`, `items.drop_tables` | → | (carried in the manifest; not yet wired into gameplay) |
 
 A mechanics `kind` or an enemy `ai` or an ability `kind` the compiler has no template for is
 **refused**, never silently substituted — see `CONTROLLERS`, `ENEMY_AI` and `ABILITY_KINDS` in

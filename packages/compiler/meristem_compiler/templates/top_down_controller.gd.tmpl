@@ -6,12 +6,11 @@ extends CharacterBody2D
 const MOVE_SPEED: float = {{move_speed}}
 const ACCEL: float = {{accel}}
 const FRICTION: float = {{friction}}
-## Reach and rate belong to the CONTROLLER archetype (how this control scheme
-## swings), but the damage is the player ENTITY's atk stat -- how hard you hit is a
-## property of the character, not of the control scheme.
+## Reach and rate belong to the CONTROLLER archetype -- how this control scheme swings.
+## The DAMAGE is asked of Game.atk() every swing rather than baked here, because gear
+## changes it at runtime: equipping a sword has to make the next hit harder.
 const ATTACK_RANGE: float = {{attack_range}}
 const ATTACK_COOLDOWN: float = {{attack_cooldown}}
-const ATTACK_DAMAGE: int = {{attack_damage}}
 ## How many ability slots the input map binds (ability_1 .. ability_N).
 const ABILITY_SLOTS: int = {{ability_slots}}
 
@@ -76,7 +75,7 @@ func _physics_process(delta: float) -> void:
 				break
 
 ## A melee swing: everything in the "enemies" group within reach and in front of us
-## takes ATTACK_DAMAGE. Deliberately a range+direction test rather than a physics
+## takes Game.atk(). Deliberately a range+direction test rather than a physics
 ## hitbox -- it needs no extra collision nodes or layers in the generated scene, and
 ## the archetype has no attack ANIMATION yet, so there is nothing to sync frames to.
 func _swing() -> void:
@@ -92,4 +91,4 @@ func _swing() -> void:
 		# hit something behind your back
 		if to_enemy.normalized().dot(_facing) < 0.35:
 			continue
-		enemy.take_damage(ATTACK_DAMAGE)
+		enemy.take_damage(Game.atk())

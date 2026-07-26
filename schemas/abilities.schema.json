@@ -26,6 +26,11 @@
             "exclusiveMinimum": 0
           },
           "cooldown": { "type": "number", "minimum": 0 },
+          "cost": {
+            "description": "Resource spent per use, drawn from the caster's `mp` stat. Omitted or 0 means free (cooldown is the only limit). An ability that cannot be paid for does not fire and does not burn its cooldown.",
+            "type": "number",
+            "minimum": 0
+          },
           "range": {
             "description": "projectile: how far the shot travels before expiring. melee_arc: reach. Ignored by heal and dash.",
             "type": "number",

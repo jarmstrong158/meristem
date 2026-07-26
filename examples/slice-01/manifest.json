@@ -1,6 +1,6 @@
 {
   "meristem_manifest_version": 1,
-  "version": 14,
+  "version": 18,
   "domains": {
     "style_contract": {
       "$schema_note": "Hand-authored style contract for the Phase 0c calibration bake-off. Both the generators and the asset gate read this file. It is the 'style contract' the whole project's thesis is built on.",
@@ -313,7 +313,9 @@
             "hp": 20,
             "atk": 4,
             "def": 2,
-            "spd": 6
+            "spd": 6,
+            "mp": 10,
+            "mp_regen": 1.0
           },
           "behavior_archetype": "hero",
           "sprite": {
@@ -473,6 +475,7 @@
           "kind": "projectile",
           "power": 4,
           "cooldown": 0.6,
+          "cost": 2,
           "speed": 140,
           "range": 120,
           "sprite": {
@@ -487,7 +490,8 @@
           "name": "Mend",
           "kind": "heal",
           "power": 5,
-          "cooldown": 8
+          "cooldown": 8,
+          "cost": 6
         }
       ]
     }
@@ -1318,6 +1322,168 @@
                   "atk": 4,
                   "def": 2,
                   "spd": 6
+                },
+                "behavior_archetype": "hero",
+                "sprite": {
+                  "archetype": "humanoid"
+                },
+                "abilities": [
+                  "firebolt",
+                  "mend"
+                ]
+              }
+            ]
+          ]
+        },
+        "has_changes": true
+      }
+    },
+    {
+      "version": 15,
+      "domain": "abilities",
+      "op": "set",
+      "at": "2026-07-26T18:01:44+00:00",
+      "provenance": {
+        "actor": "author",
+        "reason": "starter abilities for the slice"
+      },
+      "diff": {
+        "added": {},
+        "removed": {},
+        "changed": {},
+        "has_changes": false
+      }
+    },
+    {
+      "version": 16,
+      "domain": "entities",
+      "op": "set",
+      "at": "2026-07-26T18:01:44+00:00",
+      "provenance": {
+        "actor": "author",
+        "reason": "bind starter abilities"
+      },
+      "diff": {
+        "added": {},
+        "removed": {},
+        "changed": {},
+        "has_changes": false
+      }
+    },
+    {
+      "version": 17,
+      "domain": "abilities",
+      "op": "set",
+      "at": "2026-07-26T18:02:07+00:00",
+      "provenance": {
+        "actor": "author",
+        "reason": "starter abilities with resource costs"
+      },
+      "diff": {
+        "added": {},
+        "removed": {},
+        "changed": {
+          "abilities": [
+            [
+              {
+                "id": "firebolt",
+                "name": "Firebolt",
+                "kind": "projectile",
+                "power": 4,
+                "cooldown": 0.6,
+                "speed": 140,
+                "range": 120,
+                "sprite": {
+                  "archetype": "projectile",
+                  "config": {
+                    "kind": "fireball"
+                  }
+                }
+              },
+              {
+                "id": "mend",
+                "name": "Mend",
+                "kind": "heal",
+                "power": 5,
+                "cooldown": 8
+              }
+            ],
+            [
+              {
+                "id": "firebolt",
+                "name": "Firebolt",
+                "kind": "projectile",
+                "power": 4,
+                "cooldown": 0.6,
+                "cost": 2,
+                "speed": 140,
+                "range": 120,
+                "sprite": {
+                  "archetype": "projectile",
+                  "config": {
+                    "kind": "fireball"
+                  }
+                }
+              },
+              {
+                "id": "mend",
+                "name": "Mend",
+                "kind": "heal",
+                "power": 5,
+                "cooldown": 8,
+                "cost": 6
+              }
+            ]
+          ]
+        },
+        "has_changes": true
+      }
+    },
+    {
+      "version": 18,
+      "domain": "entities",
+      "op": "set",
+      "at": "2026-07-26T18:02:07+00:00",
+      "provenance": {
+        "actor": "author",
+        "reason": "ability resource pool + bound abilities"
+      },
+      "diff": {
+        "added": {},
+        "removed": {},
+        "changed": {
+          "characters": [
+            [
+              {
+                "id": "player",
+                "name": "Hero",
+                "stats": {
+                  "hp": 20,
+                  "atk": 4,
+                  "def": 2,
+                  "spd": 6
+                },
+                "behavior_archetype": "hero",
+                "sprite": {
+                  "archetype": "humanoid"
+                },
+                "abilities": [
+                  "firebolt",
+                  "mend"
+                ]
+              }
+            ],
+            [
+              {
+                "id": "player",
+                "name": "Hero",
+                "stats": {
+                  "hp": 20,
+                  "atk": 4,
+                  "def": 2,
+                  "spd": 6,
+                  "mp": 10,
+                  "mp_regen": 1.0
                 },
                 "behavior_archetype": "hero",
                 "sprite": {

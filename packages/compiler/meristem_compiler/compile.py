@@ -73,8 +73,11 @@ def _player_abilities(domains: dict, player: dict, item_files: dict) -> list[dic
                 f"ability {ref!r} has kind {ab['kind']!r}, which this compiler cannot "
                 f"emit yet -- implemented: {sorted(ABILITY_KINDS)}. The manifest is "
                 f"valid; this is a compiler gap, not a spec error.")
+        # `cost` must be carried even when absent: the runner reads it to charge the
+        # resource, so omitting the key here silently made every ability free -- the
+        # schema said 2 mp and the game charged nothing.
         slot = {"id": ab["id"], "kind": ab["kind"], "power": ab["power"],
-                "cooldown": ab.get("cooldown", 0.0)}
+                "cooldown": ab.get("cooldown", 0.0), "cost": ab.get("cost", 0) or 0}
         if ab.get("range") is not None:
             slot["range"] = ab["range"]
         if ab["kind"] == "projectile":
@@ -168,10 +171,17 @@ def compile_project(manifest_path: str | Path, out_dir: str | Path) -> dict:
                    for eid in spawned_enemy_ids]
     item_files = {w["entity"]: w["file"] for w in written if w["class"] == "item_icon"}
     ability_slots = _player_abilities(domains, player, item_files)
+    # gear the runtime needs to apply a bonus: what slot it fills and what it grants
+    gear = {it["id"]: {"slot": it["slot"], "stats": it.get("stats", {})}
+            for it in (domains.get("items", {}) or {}).get("items", [])}
+    pstats = player["stats"]
     write_scripts(out, kind=controller_kind, params=params, enemies=enemy_types,
-                  player_hp=int(player["stats"].get("hp", 20)),
-                  player_atk=int(player["stats"].get("atk", 1)),
-                  abilities=ability_slots)
+                  player_hp=int(pstats.get("hp", 20)),
+                  player_atk=int(pstats.get("atk", 1)),
+                  player_def=int(pstats.get("def", 0)),
+                  player_mp=int(pstats.get("mp", 0)),
+                  player_mp_regen=float(pstats.get("mp_regen", 0.0)),
+                  items=gear, abilities=ability_slots)
 
     def frame_files(entity_id: str, prefix: str) -> list[str]:
         return [w["file"] for w in sorted(written, key=lambda w: w.get("frame", 0))
