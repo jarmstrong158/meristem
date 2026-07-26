@@ -71,6 +71,13 @@ def compile_assets(domains: dict, assets_dir: str | Path,
         if sp:
             emit(sp["archetype"], sp.get("config", {}), "item_icon", it["id"], entity=it["id"])
 
+    # ability sprites (a projectile's shot). Same class as an item icon: 16x16.
+    for ab in (domains.get("abilities", {}) or {}).get("abilities", []):
+        sp = ab.get("sprite")
+        if sp:
+            emit(sp["archetype"], sp.get("config", {}), "item_icon",
+                 f"ability_{ab['id']}", entity=f"ability_{ab['id']}")
+
     for name, cfg in _HUD:                                           # fixed HUD pickups
         emit("pickup", cfg, "ui_element", name, entity=name)
         emit_frames("pickup", cfg, "ui_element", name, name, "spin", skip0=True)

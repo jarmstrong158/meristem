@@ -89,6 +89,10 @@ func take_damage(amount: int) -> void:
 	if hp <= 0:
 		_restart()
 
+func heal(amount: int) -> void:
+	hp = clampi(hp + amount, 0, max_hp)
+	hp_changed.emit(hp, max_hp)
+
 func collect(item_id: String) -> void:
 	items[item_id] = int(items.get(item_id, 0)) + 1
 	var total: int = 0
@@ -102,6 +106,117 @@ func _restart() -> void:
 	kills = 0
 	_pending_spawn = null
 	get_tree().call_deferred("reload_current_scene")
+'''
+
+PROJECTILE_GD = '''extends Area2D
+## A travelling shot fired by a `projectile` ability. speed/power/range are baked per
+## ability by the compiler; direction comes from whoever launched it.
+
+@export var speed: float = 120.0
+@export var power: int = 1
+@export var max_range: float = 120.0
+
+var _dir: Vector2 = Vector2.RIGHT
+var _travelled: float = 0.0
+
+func launch(from: Vector2, dir: Vector2) -> void:
+	global_position = from
+	_dir = dir.normalized() if dir.length() > 0.0 else Vector2.RIGHT
+
+func _ready() -> void:
+	body_entered.connect(_on_body_entered)
+
+func _physics_process(delta: float) -> void:
+	var step: float = speed * delta
+	global_position += _dir * step
+	_travelled += step
+	if _travelled >= max_range:
+		queue_free()
+
+func _on_body_entered(body: Node2D) -> void:
+	if not body.is_in_group("enemies"):
+		return
+	if body.has_method("take_damage"):
+		body.take_damage(power)
+	queue_free()
+'''
+
+ABILITY_RUNNER_GD = '''extends Node
+## The player's ability slots. A separate component rather than part of the controller
+## template, so abilities are not tied to one control scheme and a second controller
+## does not need its own copy of this.
+##
+## ABILITIES is baked by the compiler from the manifest, in the entity's declared
+## order, and each slot binds to the ability_<n> input action. Every `kind` in the
+## fixed library is implemented here; the compiler refuses a kind it cannot emit, so
+## the match below can never fall through to an unknown one.
+
+const ABILITIES: Array = {{abilities}}
+
+var _cooldowns: Array = []
+
+func _ready() -> void:
+	_cooldowns.resize(ABILITIES.size())
+	_cooldowns.fill(0.0)
+
+func _process(delta: float) -> void:
+	for i in range(_cooldowns.size()):
+		_cooldowns[i] = maxf(_cooldowns[i] - delta, 0.0)
+
+func ready_slot(slot: int) -> bool:
+	return slot >= 0 and slot < ABILITIES.size() and _cooldowns[slot] <= 0.0
+
+## Returns true if the ability fired, so the caller can tell "not ready" from "no such
+## slot" without reaching into the cooldown array.
+func use(slot: int, facing: Vector2) -> bool:
+	if not ready_slot(slot):
+		return false
+	var a: Dictionary = ABILITIES[slot]
+	_cooldowns[slot] = float(a.get("cooldown", 0.0))
+	match str(a.get("kind", "")):
+		"projectile": _fire(a, facing)
+		"melee_arc": _arc(a)
+		"heal": _heal(a)
+		"dash": _dash(a, facing)
+	return true
+
+func _owner_body() -> Node2D:
+	return get_parent() as Node2D
+
+func _fire(a: Dictionary, facing: Vector2) -> void:
+	var packed: PackedScene = load(str(a.get("scene", "")))
+	if packed == null:
+		return
+	var shot: Area2D = packed.instantiate()
+	# added to the SCENE, not to this node: a shot must outlive the caster's transform
+	# and keep flying if the player moves or dies
+	_owner_body().get_parent().add_child(shot)
+	shot.launch(_owner_body().global_position, facing)
+
+## Hits every enemy in reach, all round -- the difference from the basic swing is that
+## it does not care which way you are facing.
+func _arc(a: Dictionary) -> void:
+	var reach: float = float(a.get("range", 30.0))
+	var power: int = int(a.get("power", 1))
+	var here: Vector2 = _owner_body().global_position
+	for node in get_tree().get_nodes_in_group("enemies"):
+		var enemy: Node2D = node as Node2D
+		if enemy == null or not enemy.has_method("take_damage"):
+			continue
+		if here.distance_to(enemy.global_position) <= reach:
+			enemy.take_damage(power)
+
+func _heal(a: Dictionary) -> void:
+	Game.heal(int(a.get("power", 1)))
+
+func _dash(a: Dictionary, facing: Vector2) -> void:
+	var body: Node2D = _owner_body()
+	var dir: Vector2 = facing.normalized() if facing.length() > 0.0 else Vector2.RIGHT
+	if body is CharacterBody2D:
+		# move_and_collide so a dash cannot post the player through a wall
+		(body as CharacterBody2D).move_and_collide(dir * float(a.get("power", 16.0)))
+	else:
+		body.global_position += dir * float(a.get("power", 16.0))
 '''
 
 DOOR_GD = '''extends Area2D
@@ -212,22 +327,47 @@ ENEMY_AI: dict[str, tuple[str, dict[str, float]]] = {
 }
 DEFAULT_ENEMY_AI = "idle"
 
+# Ability `kind`s the runner implements. Same discipline again: an unlisted kind is
+# refused by the compiler rather than baked into a slot that silently does nothing when
+# pressed. All of these live in ONE script (ability_runner.gd) rather than one template
+# each, because a character holds several kinds at once and dispatches per slot at
+# runtime -- unlike a controller, where exactly one applies.
+ABILITY_KINDS = ("projectile", "melee_arc", "heal", "dash")
+# How many slots the input map binds. Abilities past this compile but are unreachable,
+# so the compiler says so rather than leaving the author to wonder.
+ABILITY_SLOTS = 3
+
+
+def _gd_literal(value) -> str:
+    """A GDScript literal for a baked ability table. json.dumps is close enough for
+    dicts/arrays/numbers/strings and produces valid GDScript for all of them."""
+    import json
+    return json.dumps(value)
+
 
 def write_scripts(project_dir: Path, *, kind: str, params: dict,
                   enemies: list[dict], player_hp: int = 20,
-                  player_atk: int = 1) -> None:
-    """player.gd + world.gd + game_state.gd/pickup.gd/hud.gd + one enemy_<id>.gd
-    per enemy type (stats and ai baked in).
+                  player_atk: int = 1, abilities: list[dict] | None = None) -> None:
+    """player.gd + world.gd + game_state.gd/pickup.gd/hud.gd/door.gd + one enemy_<id>.gd
+    per enemy type (stats and ai baked in), plus the ability runner and projectile
+    script when the player has abilities.
 
     `kind` selects the controller template; only its own declared params are
     substituted, so one controller's defaults can never leak into another's script.
-    Each enemy dict is {id, name, hp, atk, ai, stats}."""
+    Each enemy dict is {id, name, hp, atk, ai, stats}. `abilities` is the player's
+    resolved slot list, in order."""
     template, defaults = CONTROLLERS[kind]
     sd = project_dir / "scripts"
     sd.mkdir(parents=True, exist_ok=True)
+    slots = abilities or []
+    (sd / "ability_runner.gd").write_text(
+        ABILITY_RUNNER_GD.replace("{{abilities}}", _gd_literal(slots)), encoding="utf-8")
+    if any(a.get("kind") == "projectile" for a in slots):
+        (sd / "projectile.gd").write_text(PROJECTILE_GD, encoding="utf-8")
     (sd / "player.gd").write_text(
         render_template(template,
                         attack_damage=max(1, int(player_atk)),
+                        ability_slots=ABILITY_SLOTS,
                         **{key: float(params.get(key, fallback))
                            for key, fallback in defaults.items()}),
         encoding="utf-8")
@@ -340,11 +480,38 @@ shape = SubResource("shape_{item_id}")
 '''
 
 
+def _projectile_tscn(ability_id: str, texture_file: str, speed: float, power: int,
+                     max_range: float) -> str:
+    return f'''[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Texture2D" path="res://assets/{texture_file}" id="1_tex"]
+[ext_resource type="Script" path="res://scripts/projectile.gd" id="2_scr"]
+
+[sub_resource type="RectangleShape2D" id="shape_{ability_id}"]
+size = Vector2(8, 8)
+
+[node name="Projectile" type="Area2D"]
+script = ExtResource("2_scr")
+speed = {speed}
+power = {power}
+max_range = {max_range}
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = ExtResource("1_tex")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("shape_{ability_id}")
+'''
+
+
 def _player_tscn() -> str:
-    return '''[gd_scene load_steps=4 format=3]
+    # The ability runner is a child NODE rather than code in the controller script, so
+    # abilities are not coupled to a control scheme; the controller only forwards input.
+    return '''[gd_scene load_steps=5 format=3]
 
 [ext_resource type="SpriteFrames" path="res://scenes/player_frames.tres" id="1_frames"]
 [ext_resource type="Script" path="res://scripts/player.gd" id="2_scr"]
+[ext_resource type="Script" path="res://scripts/ability_runner.gd" id="3_abil"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_player"]
 size = Vector2(10, 16)
@@ -361,6 +528,9 @@ autoplay = "idle"
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(0, -8)
 shape = SubResource("RectangleShape2D_player")
+
+[node name="Abilities" type="Node" parent="."]
+script = ExtResource("3_abil")
 '''
 
 
@@ -469,7 +639,7 @@ theme_override_font_sizes/font_size = 8
 
 def write_scenes(project_dir: Path, *, player_idle: str, player_walk: list[str],
                  enemies: list[dict], heart_sprite: str, coin_frames: list[str],
-                 rooms: list[dict]) -> None:
+                 rooms: list[dict], abilities: list[dict] | None = None) -> None:
     """`enemies`: [{id, frames: [asset files]}] — one scene per enemy type.
     `rooms`: one entry per level, the FIRST being the start (written as main.tscn):
         {scene: "main.tscn", level_name: "grove_01", placements: {...}}
@@ -512,6 +682,15 @@ def write_scenes(project_dir: Path, *, player_idle: str, player_walk: list[str],
         coin_node = ('[node name="Coin" type="Sprite2D" parent="HUD"]\n'
                      'position = Vector2(12, 30)\n'
                      'texture = ExtResource("5_coin")')
+
+    # projectile scenes: one per projectile ABILITY (its sprite, speed, power and range
+    # are baked), shared by every room
+    for ab in abilities or []:
+        if ab.get("kind") == "projectile" and ab.get("texture"):
+            (sc / f"projectile_{ab['id']}.tscn").write_text(
+                _projectile_tscn(ab["id"], ab["texture"], float(ab.get("speed", 120.0)),
+                                 int(ab.get("power", 1)), float(ab.get("range", 120.0))),
+                encoding="utf-8")
 
     # pickup scenes: one per item TYPE, shared by every room that places it
     for room in rooms:

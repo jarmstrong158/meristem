@@ -29,6 +29,11 @@
           "description": "Enemy AI archetype the compiler emits a script for. Enemies only; omitted means 'idle'. Tuning comes from this entity's own stats: patrol reads speed + patrol_distance, chase reads speed + aggro_radius.",
           "enum": ["idle", "patrol", "chase"]
         },
+        "abilities": {
+          "description": "Ability ids from the abilities domain (cross-ref enforced). Order is significant: they bind to the ability_1..N input actions in this order.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
         "sprite": { "$ref": "#/$defs/sprite" }
       }
     },

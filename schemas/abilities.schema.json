@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "meristem:abilities",
+  "title": "Abilities",
+  "description": "Activatable actions over a FIXED kind library, the same principle as mechanics archetypes: parameters, never freeform code. An entity references abilities by id; the compiler bakes them into slots bound to the ability_1..N input actions.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["abilities"],
+  "properties": {
+    "abilities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "kind", "power", "cooldown"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+          "name": { "type": "string", "minLength": 1 },
+          "kind": {
+            "description": "projectile = fires a travelling shot; melee_arc = an immediate wide swing; heal = restores hp; dash = a burst of movement.",
+            "enum": ["projectile", "melee_arc", "heal", "dash"]
+          },
+          "power": {
+            "description": "damage for projectile/melee_arc, hp restored for heal, pixels of travel for dash.",
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "cooldown": { "type": "number", "minimum": 0 },
+          "range": {
+            "description": "projectile: how far the shot travels before expiring. melee_arc: reach. Ignored by heal and dash.",
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "speed": {
+            "description": "projectile only: travel speed in px/sec.",
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "sprite": {
+            "description": "projectile only: the shot's sprite. The `projectile` archetype (arrow/fireball/bolt/knife/shuriken) is the natural pick.",
+            "$ref": "#/$defs/sprite"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sprite": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["archetype"],
+      "properties": {
+        "archetype": { "enum": ["humanoid", "blob", "ghost", "quadruped", "flyer", "serpent", "spider", "raptor", "beetle", "weapon", "consumable", "pickup", "chest", "projectile", "tile"] },
+        "config": { "type": "object" }
+      }
+    }
+  }
+}

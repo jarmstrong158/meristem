@@ -33,9 +33,10 @@ Call the spec-store MCP tool `scaffold_project` with the answers:
 scaffold_project(title, genre, control, premise, protagonist, enemy, biome)
 ```
 
-This writes a complete, `validate_all`-clean manifest across all 8 domains (PICO-8 palette, one
-region, the protagonist + enemy, a starter weapon, a drop table). It is deliberately generic — that's
-the point: a valid baseline the user shapes, not a blank page.
+This writes a complete, `validate_all`-clean manifest across all 10 domains (PICO-8 palette, one
+region, the protagonist + enemy, a starter weapon, a drop table, a real starter level, and two
+starter abilities). It is deliberately generic — that's the point: a valid baseline the user shapes,
+not a blank page.
 
 ## Step 3 — Present and mutate
 
@@ -55,13 +56,33 @@ then `set_domain("levels", ...)`. Cross-ref validation catches ragged rows, unkn
 chars, unknown tiles, out-of-bounds or unresolvable spawns, so mutate freely and re-validate.
 Spawned enemies each get their own scene/stats; a spawned item must have a sprite descriptor.
 
+**Connecting rooms.** A level's `exits` are doors: `{x, y, to, to_spawn?}` moves the player to
+another level's scene, arriving at `to_spawn` or that level's own `player_spawn`. Every authored
+level compiles to its own room, so adding a level and a door each way is all a second room needs.
+
 **Giving something a look.** When you add or reskin an entity/item, set its `sprite: {archetype,
 config}` — but **discover the vocabulary first**, don't guess a build. Call `list_sprite_archetypes`
 for the live menu (every archetype + its build/kind/shape options + colours), pick one that fits the
 fiction (a bat enemy → `{archetype: "flyer", config: {build: "bat"}}`; a boss slime →
 `{archetype: "blob", config: {build: "king"}}`), and confirm it with `check_sprite` before the write.
 A bogus build (`{build: "dragon"}`) is schema-valid but a `validate_all` cross-ref error — so verify,
-don't ship it. No sprite field → the archetype's default build.
+don't ship it. No sprite field → the archetype's default build. To *see* a pick before writing it,
+call `preview_sprite` — it renders the sprite against this manifest's own style contract.
+
+**Giving something to do.** Abilities are the `abilities` domain, and like mechanics they are
+parameters over a fixed kind library — never freeform code:
+
+| kind | what it does | reads |
+|---|---|---|
+| `projectile` | fires a travelling shot that damages the first enemy it hits | `power`, `speed`, `range`, `sprite` |
+| `melee_arc` | damages every enemy in reach, all round | `power`, `range` |
+| `heal` | restores the player's hp | `power` |
+| `dash` | a burst of movement in the facing direction | `power` (pixels) |
+
+An entity holds them in `abilities: [id, …]`, and **order is significant** — they bind to
+`ability_1`, `ability_2`, `ability_3` in that order. Three slots exist; a fourth is refused rather
+than compiled into something unreachable. A `kind` the compiler cannot emit is refused too, so an
+ability is never bound to a key that silently does nothing.
 
 ## Step 4 — Hand off
 

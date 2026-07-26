@@ -158,6 +158,73 @@ def test_controller_params_cannot_leak_between_kinds():
     assert "platformer_controller" not in CONTROLLERS   # not implemented -> not offered
 
 
+def test_abilities_compile_to_slots_and_scenes(project):
+    """Abilities live on a child node, so they are not coupled to a control scheme and
+    a second controller will not need its own copy of the ability code."""
+    runner = (project / "scripts" / "ability_runner.gd").read_text(encoding="utf-8")
+    assert '"id": "firebolt"' in runner and '"kind": "projectile"' in runner
+    assert '"id": "mend"' in runner and '"kind": "heal"' in runner
+    assert '"scene": "res://scenes/projectile_firebolt.tscn"' in runner
+    # the runner implements every kind in the fixed library
+    for kind in ("projectile", "melee_arc", "heal", "dash"):
+        assert f'"{kind}"' in runner, kind
+    # the projectile got its own scene with the authored numbers baked in
+    proj = (project / "scenes" / "projectile_firebolt.tscn").read_text(encoding="utf-8")
+    assert "speed = 140.0" in proj and "power = 4" in proj and "max_range = 120.0" in proj
+    assert (project / "scripts" / "projectile.gd").exists()
+    # the player scene mounts the runner, and the controller only forwards input
+    player_scene = (project / "scenes" / "player.tscn").read_text(encoding="utf-8")
+    assert 'name="Abilities"' in player_scene and "ability_runner.gd" in player_scene
+    player = (project / "scripts" / "player.gd").read_text(encoding="utf-8")
+    assert "_abilities.use(slot, _facing)" in player
+    assert "ABILITY_SLOTS: int = 3" in player
+    # and the input map binds the slots
+    proj_godot = (project / "project.godot").read_text(encoding="utf-8")
+    for n in (1, 2, 3):
+        assert f"ability_{n}=" in proj_godot
+
+
+def test_unimplemented_ability_kind_is_refused():
+    """A slot bound to a kind the runner cannot execute would be pressable and silent.
+
+    Exercised against `_player_abilities` directly rather than through a manifest,
+    because `kind` is a schema enum — an unknown kind cannot reach the compiler through
+    a stored manifest at all. This guards the case where the enum gains a kind before
+    the runner implements it."""
+    from meristem_compiler.compile import _player_abilities
+    domains = {"abilities": {"abilities": [
+        {"id": "summon_bat", "name": "Summon", "kind": "summon", "power": 1, "cooldown": 1}]}}
+    player = {"id": "player", "abilities": ["summon_bat"]}
+    with pytest.raises(CompileError) as exc:
+        _player_abilities(domains, player, {})
+    msg = str(exc.value)
+    assert "summon" in msg and "compiler gap, not a spec error" in msg
+
+
+def test_more_abilities_than_input_slots_is_refused(tmp_path):
+    """An ability past the bound slots is unreachable, which is a spec that does not do
+    what it says."""
+    from meristem_compiler.compile import _player_abilities
+    from meristem_compiler.scenes import ABILITY_SLOTS
+    domains = {"abilities": {"abilities": [
+        {"id": f"a{i}", "name": f"A{i}", "kind": "heal", "power": 1, "cooldown": 1}
+        for i in range(ABILITY_SLOTS + 1)]}}
+    player = {"id": "player", "abilities": [f"a{i}" for i in range(ABILITY_SLOTS + 1)]}
+    with pytest.raises(CompileError) as exc:
+        _player_abilities(domains, player, {})
+    assert "unreachable" in str(exc.value)
+
+
+def test_player_without_abilities_still_compiles(tmp_path):
+    """The domain is optional; an empty slot table must not break the runner."""
+    from meristem_compiler.scenes import write_scripts
+    write_scripts(tmp_path, kind="top_down_controller", params={}, enemies=[],
+                  player_hp=10, player_atk=2, abilities=[])
+    runner = (tmp_path / "scripts" / "ability_runner.gd").read_text(encoding="utf-8")
+    assert "const ABILITIES: Array = []" in runner
+    assert not (tmp_path / "scripts" / "projectile.gd").exists()   # nothing fires
+
+
 def test_player_can_actually_fight_back(project):
     """Before this, the player had no attack at all and enemy `hp` was exported but
     never read by anything — you could only be hurt by walking into things."""
@@ -242,7 +309,8 @@ def test_all_assets_and_sidecars(project):
     a = project / "assets"
     pngs = sorted(p.name for p in a.glob("*.png"))
     # 9 base + 4 player-walk + 3 enemy idle-anim + 3 coin spin + the level's sand tile
-    assert len(pngs) == 20
+    # + 1 ability sprite (the firebolt's shot)
+    assert len(pngs) == 21
     for png in pngs:
         assert (a / f"{png}.prov.json").exists()
     # provenance backend is now the archetype the sprite was built from (dec-0022)
@@ -381,6 +449,21 @@ def test_invalid_manifest_refused(tmp_path):
     store.save(bad_path)
     with pytest.raises(CompileError):
         compile_project(bad_path, tmp_path / "out")
+
+
+@pytest.mark.skipif(not os.environ.get("MERISTEM_GODOT"),
+                    reason="set MERISTEM_GODOT to a Godot 4.x binary to run the engine smoke test")
+def test_ability_damage_verified_in_engine(project):
+    """A projectile ability has the most moving parts of any: its own scene, a launch
+    handoff, travel, and a collision. Checking the generated script for the right
+    strings proves none of that connects."""
+    from meristem_verifier.assertions import derive_assertions
+    from meristem_verifier.runner import run_assertions
+    asserts = [a for a in derive_assertions(SpecStore.load(MANIFEST).get_all())
+               if a["kind"] == "ability_damage"]
+    assert asserts, "no ability_damage assertion derived for a player with a projectile"
+    res = run_assertions(project, asserts, os.environ["MERISTEM_GODOT"])
+    assert res["ok"], res
 
 
 @pytest.mark.skipif(not os.environ.get("MERISTEM_GODOT"),

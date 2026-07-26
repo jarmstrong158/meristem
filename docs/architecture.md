@@ -14,7 +14,7 @@ the manifest reproduces the project (modulo user hand-edits, which are honored �
                  │   manifest.json  — schema-enforced writes    │
                  │   project · style-contract · narrative ·     │
                  │   entities · items · mechanics · economy ·   │
-                 │   world                                      │
+                 │   world · levels · abilities                 │
                  └───────────────┬─────────────────────────────┘
                                  │ (validated read)
           ┌──────────────────────┼──────────────────────────┐

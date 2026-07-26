@@ -18,6 +18,8 @@ func _ready() -> void:
 			results.append(await _check_move_speed(a))
 		elif kind == "melee_damage":
 			results.append(await _check_melee_damage(a))
+		elif kind == "ability_damage":
+			results.append(await _check_ability_damage(a))
 		elif kind == "room_transition":
 			results.append(await _check_room_transition(a))
 		else:
@@ -62,13 +64,9 @@ func _check_melee_damage(a: Dictionary) -> Dictionary:
 	# just to the right and within reach; the player faces DOWN by default, so drive a
 	# frame of rightward input first to turn it toward the target
 	enemy.global_position = Vector2(10, 0)
-	Input.action_press("move_right")
-	await get_tree().physics_frame
-	Input.action_release("move_right")
+	await _tap("move_right")
 	var before: int = int(enemy.hp)
-	Input.action_press("attack")
-	await get_tree().physics_frame
-	Input.action_release("attack")
+	await _tap("attack")
 	await get_tree().physics_frame
 	var measured: int = int(enemy.hp) if is_instance_valid(enemy) else 0
 	var killed: bool = not is_instance_valid(enemy)
@@ -85,6 +83,43 @@ func _check_melee_damage(a: Dictionary) -> Dictionary:
 		"kind": "melee_damage", "entity": enemy_id,
 		"expected": expected, "measured": measured, "before": before,
 		"separation": separation, "killed": killed, "ok": measured == expected,
+	}
+
+## Press an ability slot and check the shot actually reaches an enemy and damages it.
+## Driven through the input action, not by calling the runner directly, so the binding
+## from key to slot is part of what is proven.
+func _check_ability_damage(a: Dictionary) -> Dictionary:
+	var expected: int = int(a.get("expected", 0))
+	var enemy_id: String = str(a.get("entity", ""))
+	var slot: int = int(a.get("slot", 0))
+	var player_scene: PackedScene = load("res://scenes/player.tscn")
+	var enemy_scene: PackedScene = load("res://scenes/enemy_%s.tscn" % enemy_id)
+	if player_scene == null or enemy_scene == null:
+		return {"kind": "ability_damage", "ok": false, "error": "player or enemy scene missing"}
+	var player: CharacterBody2D = player_scene.instantiate()
+	var enemy: CharacterBody2D = enemy_scene.instantiate()
+	add_child(player)
+	add_child(enemy)
+	player.global_position = Vector2.ZERO
+	# well outside melee reach, so a hit can only come from the ability
+	enemy.global_position = Vector2(64, 0)
+	enemy.set_physics_process(false)          # hold it still; chasers would close in
+	await _tap("move_right")                  # turn to face the target
+	var before: int = int(enemy.hp)
+	await _tap("ability_%d" % (slot + 1))
+	# let the shot travel: 64px at the authored speed takes well under half a second
+	for _i in range(40):
+		await get_tree().physics_frame
+		if not is_instance_valid(enemy) or int(enemy.hp) != before:
+			break
+	var measured: int = int(enemy.hp) if is_instance_valid(enemy) else 0
+	if is_instance_valid(enemy):
+		enemy.queue_free()
+	player.queue_free()
+	return {
+		"kind": "ability_damage", "ability": a.get("ability", ""), "slot": slot,
+		"expected": expected, "measured": measured, "before": before,
+		"ok": measured == expected,
 	}
 
 ## Every door in a room must point at a scene that LOADS, and its arrival cell must
@@ -127,6 +162,19 @@ func _check_room_transition(a: Dictionary) -> Dictionary:
 	if checks.is_empty():
 		return {"kind": "room_transition", "ok": false, "error": "no doors found in scene"}
 	return {"kind": "room_transition", "doors": checks, "ok": all_ok}
+
+## Hold an action across TWO physics frames, then release.
+##
+## One frame is not enough. Input.action_press() lands mid-frame, so a listener polling
+## Input.is_action_just_pressed() in _physics_process can miss the window entirely if
+## its callback already ran for that frame -- and releasing immediately closes it. That
+## made the ability check pass only when other assertions had run first and warmed up
+## the frame counter: green in a full run, red on its own.
+func _tap(action: String) -> void:
+	Input.action_press(action)
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	Input.action_release(action)
 
 func _write(obj: Dictionary) -> void:
 	var wf: FileAccess = FileAccess.open("res://verifier/results.json", FileAccess.WRITE)

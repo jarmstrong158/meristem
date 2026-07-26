@@ -13,8 +13,8 @@ from .assets import compile_assets
 from .godot_project import write_project_godot
 from .ldtk import write_ldtk
 from .level import grid_from_level, pick_level, synthesize_grove
-from .scenes import (CONTROLLERS, DEFAULT_ENEMY_AI, ENEMY_AI, write_scenes,
-                     write_scripts)
+from .scenes import (ABILITY_KINDS, ABILITY_SLOTS, CONTROLLERS, DEFAULT_ENEMY_AI,
+                     ENEMY_AI, write_scenes, write_scripts)
 
 
 class CompileError(RuntimeError):
@@ -46,6 +46,46 @@ def _controller_kind(archetype: dict) -> str:
             f"would silently produce a {sorted(CONTROLLERS)[0]!r} game and discard this "
             f"archetype's params.")
     return kind
+
+
+def _player_abilities(domains: dict, player: dict, item_files: dict) -> list[dict]:
+    """The player's ability slots, in declared order, flattened for baking.
+
+    Refuses a kind the runner cannot execute, for the same reason as a controller or an
+    ai: a slot bound to an unimplemented kind would be pressable and silently do
+    nothing. Slots past what the input map binds are also called out, because an
+    unreachable ability is a spec that does not do what it says."""
+    by_id = {a["id"]: a for a in (domains.get("abilities", {}) or {}).get("abilities", [])}
+    slots: list[dict] = []
+    refs = player.get("abilities", [])
+    if len(refs) > ABILITY_SLOTS:
+        raise CompileError(
+            f"character {player.get('id')!r} declares {len(refs)} abilities but only "
+            f"{ABILITY_SLOTS} input slots exist (ability_1..ability_{ABILITY_SLOTS}); "
+            f"the extras would be unreachable")
+    for ref in refs:
+        ab = by_id.get(ref)
+        if ab is None:                       # cross-ref catches this; belt and braces
+            raise CompileError(f"character {player.get('id')!r} references ability "
+                               f"{ref!r} which is not defined")
+        if ab["kind"] not in ABILITY_KINDS:
+            raise CompileError(
+                f"ability {ref!r} has kind {ab['kind']!r}, which this compiler cannot "
+                f"emit yet -- implemented: {sorted(ABILITY_KINDS)}. The manifest is "
+                f"valid; this is a compiler gap, not a spec error.")
+        slot = {"id": ab["id"], "kind": ab["kind"], "power": ab["power"],
+                "cooldown": ab.get("cooldown", 0.0)}
+        if ab.get("range") is not None:
+            slot["range"] = ab["range"]
+        if ab["kind"] == "projectile":
+            slot["speed"] = ab.get("speed", 120.0)
+            slot["scene"] = f"res://scenes/projectile_{ab['id']}.tscn"
+            texture = item_files.get(f"ability_{ab['id']}")
+            if texture is None:
+                raise CompileError(f"projectile ability {ref!r} has no generated sprite")
+            slot["texture"] = texture
+        slots.append(slot)
+    return slots
 
 
 def _enemy_ai(entity: dict) -> str:
@@ -126,9 +166,12 @@ def compile_project(manifest_path: str | Path, out_dir: str | Path) -> dict:
                     "ai": _enemy_ai(enemies_by_id[eid]),
                     "stats": enemies_by_id[eid]["stats"]}
                    for eid in spawned_enemy_ids]
+    item_files = {w["entity"]: w["file"] for w in written if w["class"] == "item_icon"}
+    ability_slots = _player_abilities(domains, player, item_files)
     write_scripts(out, kind=controller_kind, params=params, enemies=enemy_types,
                   player_hp=int(player["stats"].get("hp", 20)),
-                  player_atk=int(player["stats"].get("atk", 1)))
+                  player_atk=int(player["stats"].get("atk", 1)),
+                  abilities=ability_slots)
 
     def frame_files(entity_id: str, prefix: str) -> list[str]:
         return [w["file"] for w in sorted(written, key=lambda w: w.get("frame", 0))
@@ -141,7 +184,6 @@ def compile_project(manifest_path: str | Path, out_dir: str | Path) -> dict:
          "frames": [asset_filename(contract, "enemy", eid, "idle")] + frame_files(eid, "anim_")}
         for eid in spawned_enemy_ids]
 
-    item_files = {w["entity"]: w["file"] for w in written if w["class"] == "item_icon"}
     T = 16
     rooms = []
     for r in rooms_src:
@@ -183,7 +225,7 @@ def compile_project(manifest_path: str | Path, out_dir: str | Path) -> dict:
                  player_walk=player_walk,
                  enemies=enemy_scene_data,
                  heart_sprite="ui_heart.png", coin_frames=coin_frames,
-                 rooms=rooms)
+                 rooms=rooms, abilities=ability_slots)
 
     # 4. project.godot
     write_project_godot(out, name=project["title"], main_scene="res://scenes/main.tscn",

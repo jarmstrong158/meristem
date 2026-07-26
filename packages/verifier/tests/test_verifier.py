@@ -36,6 +36,19 @@ def test_derive_melee_damage_assertion():
     assert melee[0]["expected"] == 4                    # 8 hp - 4 atk
 
 
+def test_derive_ability_damage_for_a_projectile_slot():
+    got = [x for x in derive_assertions(_domains()) if x["kind"] == "ability_damage"]
+    assert len(got) == 1
+    assert got[0]["ability"] == "firebolt" and got[0]["slot"] == 0
+    assert got[0]["power"] == 4 and got[0]["expected"] == 4      # 8 hp - 4 power
+
+
+def test_no_ability_assertion_for_a_player_with_none():
+    d = _domains()
+    d["entities"]["characters"][0]["abilities"] = []
+    assert [x for x in derive_assertions(d) if x["kind"] == "ability_damage"] == []
+
+
 def test_derive_room_transition_only_when_a_level_has_exits():
     d = _domains()
     assert [x for x in derive_assertions(d) if x["kind"] == "room_transition"] == []

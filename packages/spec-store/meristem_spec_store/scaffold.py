@@ -1,7 +1,7 @@
 """Scaffold a valid strawman manifest from a few high-level answers.
 
 The game-interview skill asks ~5 questions; this turns the answers into a complete,
-cross-reference-consistent manifest across all 8 domains that `validate_all` accepts.
+cross-reference-consistent manifest across all 10 domains that `validate_all` accepts.
 The model then enriches it — but it is never structurally invalid, and never starts
 from a blank page."""
 from __future__ import annotations
@@ -73,9 +73,21 @@ def strawman(*, title: str = "Untitled", genre: str = "adventure",
         "entities": {
             "characters": [{"id": "player", "name": protagonist,
                             "stats": {"hp": 20, "atk": 4, "def": 2, "spd": 6},
-                            "behavior_archetype": "main", "sprite": {"archetype": "humanoid"}}],
-            "enemies": [{"id": "slime", "name": enemy, "stats": {"hp": 8, "atk": 2, "def": 1, "spd": 3},
-                         "behavior_archetype": "main", "sprite": {"archetype": "blob"}}]},
+                            "behavior_archetype": "main", "sprite": {"archetype": "humanoid"},
+                            # bound to ability_1 / ability_2 in declared order
+                            "abilities": ["firebolt", "mend"]}],
+            "enemies": [{"id": "slime", "name": enemy, "stats": {"hp": 8, "atk": 2, "def": 1, "spd": 3,
+                                                                 "speed": 34, "aggro_radius": 96},
+                         "behavior_archetype": "main", "ai": "chase",
+                         "sprite": {"archetype": "blob"}}]},
+        # two starter abilities: one ranged attack and one sustain, so the compiled game
+        # exercises both a projectile (its own scene + sprite) and an instant effect.
+        "abilities": {"abilities": [
+            {"id": "firebolt", "name": "Firebolt", "kind": "projectile", "power": 4,
+             "cooldown": 0.6, "speed": 140, "range": 120,
+             "sprite": {"archetype": "projectile", "config": {"kind": "fireball"}}},
+            {"id": "mend", "name": "Mend", "kind": "heal", "power": 5, "cooldown": 8},
+        ]},
         "items": {"rarity_tiers": [{"id": "common", "name": "Common", "weight": 1}],
                   "items": [{"id": "sword", "name": "Starter Sword", "slot": "weapon",
                              "rarity": "common", "stats": {"atk": 2},
