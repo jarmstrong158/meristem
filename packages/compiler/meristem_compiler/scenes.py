@@ -44,10 +44,16 @@ GAME_STATE_GD = '''extends Node
 
 signal hp_changed(hp: int, max_hp: int)
 signal collected(item_id: String, total: int)
+signal enemy_killed(total: int)
 
 var max_hp: int = {{max_hp}}
 var hp: int = {{max_hp}}
 var items: Dictionary = {}
+var kills: int = 0
+
+func register_kill() -> void:
+	kills += 1
+	enemy_killed.emit(kills)
 
 func take_damage(amount: int) -> void:
 	hp = clampi(hp - amount, 0, max_hp)
@@ -65,6 +71,7 @@ func collect(item_id: String) -> void:
 func _restart() -> void:
 	hp = max_hp
 	items = {}
+	kills = 0
 	get_tree().call_deferred("reload_current_scene")
 '''
 
@@ -83,25 +90,31 @@ func _on_body_entered(body: Node2D) -> void:
 '''
 
 HUD_GD = '''extends CanvasLayer
-## HUD: hp readout next to the heart, collected count next to the coin.
+## HUD: hp readout next to the heart, collected count next to the coin, kill count.
 
 @onready var _hp_label: Label = $HpLabel
 @onready var _item_label: Label = $ItemLabel
+@onready var _kill_label: Label = $KillLabel
 
 func _ready() -> void:
 	Game.hp_changed.connect(_on_hp_changed)
 	Game.collected.connect(_on_collected)
+	Game.enemy_killed.connect(_on_enemy_killed)
 	_on_hp_changed(Game.hp, Game.max_hp)
 	var total: int = 0
 	for k in Game.items:
 		total += int(Game.items[k])
 	_item_label.text = "x %d" % total
+	_on_enemy_killed(Game.kills)
 
 func _on_hp_changed(hp: int, max_hp: int) -> void:
 	_hp_label.text = "%d/%d" % [hp, max_hp]
 
 func _on_collected(_item_id: String, total: int) -> void:
 	_item_label.text = "x %d" % total
+
+func _on_enemy_killed(total: int) -> void:
+	_kill_label.text = "slain %d" % total
 '''
 
 
@@ -125,29 +138,56 @@ def render_template(template: str, **params) -> str:
 # quietly building the wrong game.
 CONTROLLERS: dict[str, tuple[str, dict[str, float]]] = {
     "top_down_controller": ("top_down_controller.gd.tmpl",
-                            {"move_speed": 80.0, "accel": 600.0, "friction": 400.0}),
+                            # attack_range is measured between BODY ORIGINS, and two
+                            # colliding 16px actors sit ~24px apart (verified in-engine:
+                            # walking into an enemy settles at 23.9). A 22px reach could
+                            # therefore never hit an enemy the player was touching --
+                            # the attack looked correct in the script and did nothing in
+                            # the game. 30px reaches a touching enemy with margin.
+                            {"move_speed": 80.0, "accel": 600.0, "friction": 400.0,
+                             "attack_range": 30.0, "attack_cooldown": 0.35}),
 }
+
+# Enemy `ai` -> (template, the entity STATS it substitutes with defaults).
+#
+# Same shape and same discipline as CONTROLLERS: what is listed here is what the
+# compiler can actually emit, and an ai it has no template for is refused rather than
+# quietly downgraded to a bobbing placeholder. Tuning is read from the entity's own
+# free-form `stats`, not from the mechanics archetype, because how fast one particular
+# slime walks is a property of that slime and not of the control scheme.
+ENEMY_AI: dict[str, tuple[str, dict[str, float]]] = {
+    "idle":   ("enemy_idle.gd.tmpl", {}),
+    "patrol": ("enemy_patrol.gd.tmpl", {"speed": 26.0, "patrol_distance": 40.0}),
+    "chase":  ("enemy_chase.gd.tmpl", {"speed": 38.0, "aggro_radius": 90.0}),
+}
+DEFAULT_ENEMY_AI = "idle"
 
 
 def write_scripts(project_dir: Path, *, kind: str, params: dict,
                   enemies: list[dict], level_name: str = "grove_01",
-                  player_hp: int = 20) -> None:
+                  player_hp: int = 20, player_atk: int = 1) -> None:
     """player.gd + world.gd + game_state.gd/pickup.gd/hud.gd + one enemy_<id>.gd
-    per enemy type (stats baked in).
+    per enemy type (stats and ai baked in).
 
     `kind` selects the controller template; only its own declared params are
-    substituted, so one controller's defaults can never leak into another's script."""
+    substituted, so one controller's defaults can never leak into another's script.
+    Each enemy dict is {id, name, hp, atk, ai, stats}."""
     template, defaults = CONTROLLERS[kind]
     sd = project_dir / "scripts"
     sd.mkdir(parents=True, exist_ok=True)
     (sd / "player.gd").write_text(
         render_template(template,
+                        attack_damage=max(1, int(player_atk)),
                         **{key: float(params.get(key, fallback))
                            for key, fallback in defaults.items()}),
         encoding="utf-8")
     for e in enemies:
+        ai_template, ai_defaults = ENEMY_AI[e.get("ai", DEFAULT_ENEMY_AI)]
+        stats = e.get("stats", {}) or {}
         (sd / f"enemy_{e['id']}.gd").write_text(
-            render_template("enemy_idle.gd.tmpl", name=e["name"], hp=int(e["hp"]), atk=int(e["atk"])),
+            render_template(ai_template, name=e["name"], hp=int(e["hp"]), atk=int(e["atk"]),
+                            **{key: float(stats.get(key, fallback))
+                               for key, fallback in ai_defaults.items()}),
             encoding="utf-8")
     (sd / "world.gd").write_text(WORLD_GD.replace("{{level}}", level_name), encoding="utf-8")
     (sd / "game_state.gd").write_text(
@@ -388,5 +428,12 @@ offset_left = 22.0
 offset_top = 22.0
 offset_right = 80.0
 offset_bottom = 38.0
+theme_override_font_sizes/font_size = 8
+
+[node name="KillLabel" type="Label" parent="HUD"]
+offset_left = 22.0
+offset_top = 40.0
+offset_right = 100.0
+offset_bottom = 56.0
 theme_override_font_sizes/font_size = 8
 ''', encoding="utf-8")

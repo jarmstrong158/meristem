@@ -63,11 +63,85 @@ def test_refusal_happens_before_any_output_is_written(tmp_path):
 
 def test_controller_params_cannot_leak_between_kinds():
     """Each controller substitutes only its OWN declared params, so a default from one
-    (top-down `friction`) can never end up baked into another's script."""
+    can never end up baked into another's script."""
     from meristem_compiler.scenes import CONTROLLERS
-    template, defaults = CONTROLLERS["top_down_controller"]
-    assert set(defaults) == {"move_speed", "accel", "friction"}
+    _, defaults = CONTROLLERS["top_down_controller"]
+    assert {"move_speed", "accel", "friction"} <= set(defaults)
+    # nothing platformer-only may appear among a top-down controller's substitutions
+    assert not ({"jump_height", "gravity", "coyote_time", "air_control"} & set(defaults))
     assert "platformer_controller" not in CONTROLLERS   # not implemented -> not offered
+
+
+def test_player_can_actually_fight_back(project):
+    """Before this, the player had no attack at all and enemy `hp` was exported but
+    never read by anything — you could only be hurt by walking into things."""
+    gd = (project / "scripts" / "player.gd").read_text(encoding="utf-8")
+    assert 'Input.is_action_just_pressed("attack")' in gd
+    assert "func _swing()" in gd
+    assert "take_damage(ATTACK_DAMAGE)" in gd
+    assert "ATTACK_DAMAGE: int = 4" in gd            # the player entity's atk stat
+    # the swing is directional: you cannot hit what is behind you
+    assert "_facing" in gd and "dot(_facing)" in gd
+    # and it is rate-limited
+    assert "_attack_cd" in gd and "ATTACK_COOLDOWN" in gd
+
+
+def test_enemies_take_damage_and_die(project):
+    gd = (project / "scripts" / "enemy_slime.gd").read_text(encoding="utf-8")
+    assert "func take_damage(amount: int)" in gd
+    assert "Game.register_kill()" in gd and "queue_free()" in gd
+    state = (project / "scripts" / "game_state.gd").read_text(encoding="utf-8")
+    assert "signal enemy_killed(total: int)" in state
+    assert "func register_kill()" in state
+    assert "kills = 0" in state                      # a death resets the run's tally
+    hud = (project / "scripts" / "hud.gd").read_text(encoding="utf-8")
+    assert "Game.enemy_killed.connect" in hud
+    main = (project / "scenes" / "main.tscn").read_text(encoding="utf-8")
+    assert 'name="KillLabel"' in main                # the label the HUD binds to exists
+
+
+def test_enemy_ai_archetype_selects_its_template(tmp_path):
+    """`ai` picks a real behaviour script, and its tuning comes from the entity's own
+    stats rather than the mechanics archetype."""
+    from meristem_compiler.scenes import ENEMY_AI, write_scripts
+    assert set(ENEMY_AI) == {"idle", "patrol", "chase"}
+    enemies = [
+        {"id": "bobber", "name": "Bobber", "hp": 3, "atk": 1, "ai": "idle", "stats": {}},
+        {"id": "walker", "name": "Walker", "hp": 4, "atk": 2, "ai": "patrol",
+         "stats": {"speed": 55, "patrol_distance": 72}},
+        {"id": "hunter", "name": "Hunter", "hp": 5, "atk": 3, "ai": "chase",
+         "stats": {"speed": 44, "aggro_radius": 130}},
+    ]
+    write_scripts(tmp_path, kind="top_down_controller", params={},
+                  enemies=enemies, player_hp=10, player_atk=2)
+    sd = tmp_path / "scripts"
+    idle = (sd / "enemy_bobber.gd").read_text(encoding="utf-8")
+    patrol = (sd / "enemy_walker.gd").read_text(encoding="utf-8")
+    chase = (sd / "enemy_hunter.gd").read_text(encoding="utf-8")
+    assert "ai: idle" in idle and "SPEED" not in idle
+    assert "ai: patrol" in patrol
+    assert "SPEED: float = 55.0" in patrol and "PATROL_DISTANCE: float = 72.0" in patrol
+    assert "ai: chase" in chase
+    assert "SPEED: float = 44.0" in chase and "AGGRO_RADIUS: float = 130.0" in chase
+    # every archetype is damageable and reports its death
+    for gd in (idle, patrol, chase):
+        assert "func take_damage(amount: int)" in gd and "Game.register_kill()" in gd
+    # an unstated ai is the placeholder, not a crash
+    write_scripts(tmp_path, kind="top_down_controller", params={},
+                  enemies=[{"id": "plain", "name": "Plain", "hp": 1, "atk": 1}],
+                  player_hp=10, player_atk=1)
+    assert "ai: idle" in (sd / "enemy_plain.gd").read_text(encoding="utf-8")
+
+
+def test_unimplemented_enemy_ai_is_refused(tmp_path):
+    """As with the controller: a missing template must not silently downgrade a
+    chaser to a bobbing placeholder."""
+    from meristem_compiler.compile import _enemy_ai
+    assert _enemy_ai({"id": "e", "ai": "chase"}) == "chase"
+    assert _enemy_ai({"id": "e"}) == "idle"                 # unstated -> placeholder
+    with pytest.raises(CompileError) as exc:
+        _enemy_ai({"id": "boss", "ai": "flying_swarm"})
+    assert "flying_swarm" in str(exc.value) and "chase" in str(exc.value)
 
 
 def test_project_godot_written(project):

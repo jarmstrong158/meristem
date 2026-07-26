@@ -13,7 +13,8 @@ from .assets import compile_assets
 from .godot_project import write_project_godot
 from .ldtk import write_ldtk
 from .level import grid_from_level, pick_level, synthesize_grove
-from .scenes import CONTROLLERS, write_scenes, write_scripts
+from .scenes import (CONTROLLERS, DEFAULT_ENEMY_AI, ENEMY_AI, write_scenes,
+                     write_scripts)
 
 
 class CompileError(RuntimeError):
@@ -45,6 +46,20 @@ def _controller_kind(archetype: dict) -> str:
             f"would silently produce a {sorted(CONTROLLERS)[0]!r} game and discard this "
             f"archetype's params.")
     return kind
+
+
+def _enemy_ai(entity: dict) -> str:
+    """The enemy's ai archetype, refused loudly if there is no template for it.
+
+    Same rule as the controller: silently falling back to the placeholder would give
+    an author a stationary bobbing blob where they asked for a chaser, with nothing
+    anywhere saying so."""
+    ai = entity.get("ai", DEFAULT_ENEMY_AI)
+    if ai not in ENEMY_AI:
+        raise CompileError(
+            f"enemy {entity.get('id')!r} has ai {ai!r}, which this compiler cannot emit "
+            f"yet — implemented: {sorted(ENEMY_AI)}.")
+    return ai
 
 
 def compile_project(manifest_path: str | Path, out_dir: str | Path) -> dict:
@@ -97,11 +112,14 @@ def compile_project(manifest_path: str | Path, out_dir: str | Path) -> dict:
     spawned_enemy_ids = sorted({s["id"] for s in spawns if s["kind"] == "enemy"})
     enemy_types = [{"id": eid, "name": enemies_by_id[eid]["name"],
                     "hp": enemies_by_id[eid]["stats"].get("hp", 1),
-                    "atk": enemies_by_id[eid]["stats"].get("atk", 1)}
+                    "atk": enemies_by_id[eid]["stats"].get("atk", 1),
+                    "ai": _enemy_ai(enemies_by_id[eid]),
+                    "stats": enemies_by_id[eid]["stats"]}
                    for eid in spawned_enemy_ids]
     write_scripts(out, kind=controller_kind, params=params,
                   enemies=enemy_types, level_name=level_name,
-                  player_hp=int(player["stats"].get("hp", 20)))
+                  player_hp=int(player["stats"].get("hp", 20)),
+                  player_atk=int(player["stats"].get("atk", 1)))
 
     def frame_files(entity_id: str, prefix: str) -> list[str]:
         return [w["file"] for w in sorted(written, key=lambda w: w.get("frame", 0))
