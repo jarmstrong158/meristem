@@ -84,6 +84,16 @@ An entity holds them in `abilities: [id, …]`, and **order is significant** —
 than compiled into something unreachable. A `kind` the compiler cannot emit is refused too, so an
 ability is never bound to a key that silently does nothing.
 
+An optional `cost` is spent from the caster's **`mp` stat** (with `mp_regen` per second refilling
+it). An ability that cannot be paid for does not fire *and does not burn its cooldown*. Cross-ref
+refuses a `cost` larger than the caster's whole `mp` pool — that ability could never be used once.
+
+**Making gear matter.** An item's `slot` and `stats` are live: picking up something in a worn slot
+(`weapon`, `armor`, `accessory`) equips it, and its `stats` move the player's effective `atk` and
+`def` — the swing asks `Game.atk()` every time rather than carrying a frozen number. `consumable`
+and `key_item` are carried and grant nothing. So `{"slot": "weapon", "stats": {"atk": 2}}` is a real
++2 to every hit, and defence subtracts from incoming damage (a hit always lands for at least 1).
+
 ## Step 4 — Hand off
 
 When the user is happy, `validate_all` (must be ok), save the manifest, and tell them to compile:

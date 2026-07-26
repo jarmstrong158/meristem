@@ -72,7 +72,9 @@ def strawman(*, title: str = "Untitled", genre: str = "adventure",
                                       "faction": "allies"}]},
         "entities": {
             "characters": [{"id": "player", "name": protagonist,
-                            "stats": {"hp": 20, "atk": 4, "def": 2, "spd": 6},
+                            # mp is the ability resource; mp_regen refills it per second
+                            "stats": {"hp": 20, "atk": 4, "def": 2, "spd": 6,
+                                      "mp": 10, "mp_regen": 1.0},
                             "behavior_archetype": "main", "sprite": {"archetype": "humanoid"},
                             # bound to ability_1 / ability_2 in declared order
                             "abilities": ["firebolt", "mend"]}],
@@ -84,9 +86,10 @@ def strawman(*, title: str = "Untitled", genre: str = "adventure",
         # exercises both a projectile (its own scene + sprite) and an instant effect.
         "abilities": {"abilities": [
             {"id": "firebolt", "name": "Firebolt", "kind": "projectile", "power": 4,
-             "cooldown": 0.6, "speed": 140, "range": 120,
+             "cooldown": 0.6, "cost": 2, "speed": 140, "range": 120,
              "sprite": {"archetype": "projectile", "config": {"kind": "fireball"}}},
-            {"id": "mend", "name": "Mend", "kind": "heal", "power": 5, "cooldown": 8},
+            {"id": "mend", "name": "Mend", "kind": "heal", "power": 5, "cooldown": 8,
+             "cost": 6},
         ]},
         "items": {"rarity_tiers": [{"id": "common", "name": "Common", "weight": 1}],
                   "items": [{"id": "sword", "name": "Starter Sword", "slot": "weapon",

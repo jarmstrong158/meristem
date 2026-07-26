@@ -225,14 +225,68 @@ def test_player_without_abilities_still_compiles(tmp_path):
     assert not (tmp_path / "scripts" / "projectile.gd").exists()   # nothing fires
 
 
+def test_gear_stats_reach_the_runtime(project):
+    """Item `slot` and `stats` were authorable from the beginning and compiled to
+    nothing but a sprite and a placement. Now the item table is baked into Game, and
+    the player asks Game.atk() every swing instead of carrying a frozen constant."""
+    gs = (project / "scripts" / "game_state.gd").read_text(encoding="utf-8")
+    assert '"sword"' in gs and '"slot": "weapon"' in gs and '"atk": 2' in gs
+    assert "func stat_bonus(stat: String)" in gs
+    assert "func atk()" in gs and "func defense()" in gs
+    assert "base_atk: int = 4" in gs and "base_def: int = 2" in gs
+    # collecting equips, and only worn slots grant anything
+    assert "_try_equip(item_id)" in gs
+    assert 'EQUIP_SLOTS: Array = ["weapon", "armor", "accessory"]' in gs
+    # defence applies, but a hit always lands
+    assert "maxi(amount - defense(), 1)" in gs
+    # the swing is no longer a baked constant
+    player = (project / "scripts" / "player.gd").read_text(encoding="utf-8")
+    assert "Game.atk()" in player
+    assert "ATTACK_DAMAGE" not in player
+
+
+def test_ability_cost_is_baked_and_charged(project):
+    """The regression this shipped with for one commit: `cost` was in the schema and
+    read by the runner, but never copied into the baked slot -- so the manifest said
+    2 mp and the game charged nothing."""
+    runner = (project / "scripts" / "ability_runner.gd").read_text(encoding="utf-8")
+    assert '"cost": 2' in runner                       # firebolt's authored cost
+    assert "Game.spend(int(a.get(" in runner
+    gs = (project / "scripts" / "game_state.gd").read_text(encoding="utf-8")
+    assert "func spend(cost: int) -> bool" in gs
+    assert "max_mp: int = 10" in gs and "mp_regen: float = 1.000" in gs
+
+
+def test_every_ability_slot_carries_a_cost_key(project):
+    """A missing key defaults to free, so the key must always be present -- this is the
+    shape check that would have caught the cost regression without an engine run."""
+    import re
+    runner = (project / "scripts" / "ability_runner.gd").read_text(encoding="utf-8")
+    table = re.search(r"const ABILITIES: Array = (\[.*?\])\n", runner, re.S).group(1)
+    slots = json.loads(table)
+    assert slots, "no ability slots baked"
+    for slot in slots:
+        assert "cost" in slot, slot
+
+
+def test_hud_shows_the_new_state(project):
+    hud = (project / "scripts" / "hud.gd").read_text(encoding="utf-8")
+    assert "Game.mp_changed.connect" in hud
+    assert "Game.equipped_changed.connect" in hud
+    assert "slot_status()" in hud                      # per-slot ability readout
+    main = (project / "scenes" / "main.tscn").read_text(encoding="utf-8")
+    for node in ("MpLabel", "GearLabel", "AbilityLabel"):
+        assert f'name="{node}"' in main, node
+
+
 def test_player_can_actually_fight_back(project):
     """Before this, the player had no attack at all and enemy `hp` was exported but
     never read by anything — you could only be hurt by walking into things."""
     gd = (project / "scripts" / "player.gd").read_text(encoding="utf-8")
     assert 'Input.is_action_just_pressed("attack")' in gd
     assert "func _swing()" in gd
-    assert "take_damage(ATTACK_DAMAGE)" in gd
-    assert "ATTACK_DAMAGE: int = 4" in gd            # the player entity's atk stat
+    # damage is asked of Game.atk() per swing, not baked, so gear can change it
+    assert "take_damage(Game.atk())" in gd
     # the swing is directional: you cannot hit what is behind you
     assert "_facing" in gd and "dot(_facing)" in gd
     # and it is rate-limited
@@ -449,6 +503,22 @@ def test_invalid_manifest_refused(tmp_path):
     store.save(bad_path)
     with pytest.raises(CompileError):
         compile_project(bad_path, tmp_path / "out")
+
+
+@pytest.mark.skipif(not os.environ.get("MERISTEM_GODOT"),
+                    reason="set MERISTEM_GODOT to a Godot 4.x binary to run the engine smoke test")
+def test_gear_and_cost_verified_in_engine(project):
+    """The two claims that string checks cannot make: equipping actually raises the
+    swing, and an ability actually charges its resource. The cost check is what caught
+    `cost` never being baked into the slot table."""
+    from meristem_verifier.assertions import derive_assertions
+    from meristem_verifier.runner import run_assertions
+    wanted = {"gear_bonus", "ability_cost"}
+    asserts = [a for a in derive_assertions(SpecStore.load(MANIFEST).get_all())
+               if a["kind"] in wanted]
+    assert {a["kind"] for a in asserts} == wanted, asserts
+    res = run_assertions(project, asserts, os.environ["MERISTEM_GODOT"])
+    assert res["ok"], res
 
 
 @pytest.mark.skipif(not os.environ.get("MERISTEM_GODOT"),

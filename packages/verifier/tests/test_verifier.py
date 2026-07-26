@@ -49,6 +49,30 @@ def test_no_ability_assertion_for_a_player_with_none():
     assert [x for x in derive_assertions(d) if x["kind"] == "ability_damage"] == []
 
 
+def test_derive_gear_bonus_for_a_worn_item_with_atk():
+    got = [x for x in derive_assertions(_domains()) if x["kind"] == "gear_bonus"]
+    assert len(got) == 1
+    assert got[0]["item"] == "sword" and got[0]["slot"] == "weapon"
+    assert got[0]["base_atk"] == 4 and got[0]["bonus"] == 2
+    assert got[0]["expected"] == 6
+
+
+def test_no_gear_assertion_for_an_item_that_grants_nothing():
+    d = _domains()
+    d["items"]["items"][0]["stats"] = {}
+    assert [x for x in derive_assertions(d) if x["kind"] == "gear_bonus"] == []
+
+
+def test_derive_ability_cost_only_when_there_is_a_pool_to_spend():
+    got = [x for x in derive_assertions(_domains()) if x["kind"] == "ability_cost"]
+    assert len(got) == 1
+    assert got[0]["ability"] == "firebolt" and got[0]["cost"] == 2
+    assert got[0]["pool"] == 10 and got[0]["expected"] == 8
+    d = _domains()
+    d["entities"]["characters"][0]["stats"].pop("mp")
+    assert [x for x in derive_assertions(d) if x["kind"] == "ability_cost"] == []
+
+
 def test_derive_room_transition_only_when_a_level_has_exits():
     d = _domains()
     assert [x for x in derive_assertions(d) if x["kind"] == "room_transition"] == []

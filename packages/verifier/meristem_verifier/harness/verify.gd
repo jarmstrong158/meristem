@@ -20,6 +20,10 @@ func _ready() -> void:
 			results.append(await _check_melee_damage(a))
 		elif kind == "ability_damage":
 			results.append(await _check_ability_damage(a))
+		elif kind == "gear_bonus":
+			results.append(await _check_gear_bonus(a))
+		elif kind == "ability_cost":
+			results.append(await _check_ability_cost(a))
 		elif kind == "room_transition":
 			results.append(await _check_room_transition(a))
 		else:
@@ -120,6 +124,56 @@ func _check_ability_damage(a: Dictionary) -> Dictionary:
 		"kind": "ability_damage", "ability": a.get("ability", ""), "slot": slot,
 		"expected": expected, "measured": measured, "before": before,
 		"ok": measured == expected,
+	}
+
+## Equip the item through the real collect path and check the swing gets harder by
+## exactly the item's bonus. Item stats were authorable from the start and did nothing,
+## so this proves the number in the manifest reaches a hit.
+func _check_gear_bonus(a: Dictionary) -> Dictionary:
+	var item_id: String = str(a.get("item", ""))
+	var expected: int = int(a.get("expected", 0))
+	var before: int = Game.atk()
+	Game.collect(item_id)                     # collecting is what equips
+	var after: int = Game.atk()
+	var slot_used: String = str(Game.equipped.get(str(a.get("slot", "")), ""))
+	# put the run back as it was, so a later assertion is not fighting our loadout
+	Game.equipped = {}
+	Game.items = {}
+	return {
+		"kind": "gear_bonus", "item": item_id, "base_atk": before,
+		"expected": expected, "measured": after, "equipped_as": slot_used,
+		"ok": after == expected and slot_used == item_id,
+	}
+
+## Cost must come out of the pool, and an unaffordable ability must neither fire nor
+## burn its cooldown -- a failed cast that still started a cooldown reads as the game
+## eating inputs.
+func _check_ability_cost(a: Dictionary) -> Dictionary:
+	var slot: int = int(a.get("slot", 0))
+	var cost: int = int(a.get("cost", 0))
+	var expected: int = int(a.get("expected", 0))
+	var player: CharacterBody2D = load("res://scenes/player.tscn").instantiate()
+	add_child(player)
+	await get_tree().physics_frame
+	var runner: Node = player.get_node_or_null("Abilities")
+	if runner == null:
+		player.queue_free()
+		return {"kind": "ability_cost", "ok": false, "error": "no Abilities node"}
+	Game.mp = float(a.get("pool", 0))
+	var fired: bool = runner.use(slot, Vector2.RIGHT)
+	var after_spend: int = int(Game.mp)
+	# now starve it and confirm a broke cast changes nothing at all
+	Game.mp = 0.0
+	var status_before: Array = runner.slot_status()
+	var cd_before: float = float(status_before[slot]["cooldown"])
+	var fired_broke: bool = runner.use(slot, Vector2.RIGHT)
+	var cd_after: float = float(runner.slot_status()[slot]["cooldown"])
+	player.queue_free()
+	return {
+		"kind": "ability_cost", "ability": a.get("ability", ""), "cost": cost,
+		"expected": expected, "measured": after_spend, "fired": fired,
+		"fired_when_broke": fired_broke, "cooldown_burned_when_broke": cd_after > cd_before,
+		"ok": fired and after_spend == expected and not fired_broke and cd_after <= cd_before,
 	}
 
 ## Every door in a room must point at a scene that LOADS, and its arrival cell must
