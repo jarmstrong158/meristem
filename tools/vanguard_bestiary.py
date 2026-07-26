@@ -103,6 +103,97 @@ PARTY = {
     }),
 }
 
+# Generic NPC roster -- the sprite_id vocabulary Vanguard's scenes and battle loader
+# use for everyone who is not a party member or a named enemy.
+#
+# These retire the Puny-Characters placeholders, which are a different ART STYLE, not
+# just different art: Puny figures are chibi, roughly two heads tall, filling about
+# half the 32px cell with mitten hands, while everything Meristem builds is roughly
+# four heads tall and fills the cell. A Puny villager standing beside a generated
+# party member is half their height.
+#
+# SEVEN of these ids are referenced by shipped map scenes and were never in SPRITE_MAP
+# at all -- soldier_red (12 placements), fighter_red (11), thief_dark (5),
+# worker_purple (3), monk_grey (3), worker_green, soldier_gray. Vanguard's own 32x48
+# overworld generator is the primary path for NPCs so nothing was visibly broken, but
+# the sheet fallback silently resolved to "" for every one of them.
+#
+# Format matches Puny exactly (768x256, 32x32 cells), so this is a drop-in swap. It
+# deliberately does NOT touch Vanguard's own PartyOverworldSpriteGenerator, which is a
+# different format (32x48) and gives per-NPC colour variety the maps already author.
+_VILLAGER = {"hair_style": "short"}
+NPCS = {
+    # --- villagers: no weapon, working clothes; the colour is the id ---
+    "worker_cyan":   ("humanoid", {**_VILLAGER, "shirt": (78, 152, 160), "pants": (82, 74, 66),
+                                   "skin": (222, 178, 140), "hair": (92, 66, 44)}),
+    "worker_purple": ("humanoid", {**_VILLAGER, "shirt": (122, 92, 156), "pants": (78, 70, 64),
+                                   "skin": (198, 152, 116), "hair": (58, 44, 40),
+                                   "hair_style": "long"}),
+    "worker_green":  ("humanoid", {**_VILLAGER, "shirt": (96, 138, 84), "pants": (86, 76, 60),
+                                   "skin": (206, 164, 126), "hair": (120, 84, 48)}),
+    # --- soldiers: helmet + sword, faction colour on the tabard ---
+    "soldier_red":   ("humanoid", {"shirt": (162, 62, 58), "pants": (84, 76, 80),
+                                   "skin": (218, 174, 136), "hair": (86, 60, 42),
+                                   "hat": "helmet", "hat_color": (172, 178, 190),
+                                   "held": "sword", "held_color": (176, 182, 194)}),
+    "soldier_blue":  ("humanoid", {"shirt": (68, 104, 168), "pants": (76, 72, 84),
+                                   "skin": (222, 180, 142), "hair": (140, 108, 62),
+                                   "hat": "helmet", "hat_color": (172, 178, 190),
+                                   "held": "sword", "held_color": (176, 182, 194)}),
+    "soldier_yellow": ("humanoid", {"shirt": (196, 168, 68), "pants": (84, 76, 68),
+                                    "skin": (214, 170, 132), "hair": (72, 54, 40),
+                                    "hat": "helmet", "hat_color": (188, 178, 150),
+                                    "held": "spear", "held_color": (166, 172, 184)}),
+    "soldier_cyan":  ("humanoid", {"shirt": (72, 150, 162), "pants": (76, 74, 82),
+                                   "skin": (216, 172, 134), "hair": (62, 48, 42),
+                                   "hat": "helmet", "hat_color": (172, 178, 190),
+                                   "held": "spear", "held_color": (176, 182, 194)}),
+    "soldier_gray":  ("humanoid", {"shirt": (118, 120, 128), "pants": (78, 78, 86),
+                                   "skin": (208, 166, 128), "hair": (148, 144, 138),
+                                   "hat": "helmet", "hat_color": (156, 158, 168),
+                                   "held": "shield", "held_color": (150, 152, 162)}),
+    # kept for compatibility: the loader had both `soldier_red` (used) and this (unused)
+    "soldier_red_human": ("humanoid", {"shirt": (150, 56, 52), "pants": (80, 72, 76),
+                                       "skin": (212, 168, 130), "hair": (70, 52, 40),
+                                       "hat": "helmet", "hat_color": (164, 170, 182),
+                                       "held": "shield", "held_color": (168, 174, 186)}),
+    # --- specialists ---
+    "fighter_red":   ("humanoid", {"shirt": (170, 66, 54), "pants": (82, 66, 58),
+                                   "skin": (206, 158, 120), "hair": (58, 44, 38),
+                                   "beard": "short",
+                                   "held": "greatsword", "held_color": (184, 190, 202)}),
+    "thief_dark":    ("humanoid", {"shirt": (62, 58, 70), "pants": (52, 50, 60),
+                                   "skin": (198, 168, 142), "hair": (44, 40, 46),
+                                   "hair_style": "spiky",
+                                   "hat": "hood", "hat_color": (54, 52, 64),
+                                   "held": "daggers", "held_color": (158, 164, 176)}),
+    "monk_grey":     ("humanoid", {"shirt": (128, 126, 132), "pants": (104, 102, 110),
+                                   "skin": (200, 156, 120), "hair_style": "bald",
+                                   "feet": "bare"}),
+    "archer_purple": ("humanoid", {"shirt": (118, 88, 152), "pants": (74, 66, 62),
+                                   "skin": (216, 172, 134), "hair": (96, 70, 46),
+                                   "hat": "cap", "hat_color": (88, 64, 112),
+                                   "held": "bow", "held_color": (150, 112, 66)}),
+    # --- orcs: the same skeleton, green-skinned, rank by prop ---
+    "orc_grunt":        ("humanoid", {"skin": (118, 152, 92), "hair": (48, 56, 40),
+                                      "shirt": (104, 84, 62), "pants": (76, 64, 50),
+                                      "held": "axe", "held_color": (168, 174, 186)}),
+    "orc_peon_cyan":    ("humanoid", {"skin": (112, 148, 96), "hair": (44, 54, 42),
+                                      "shirt": (72, 132, 142), "pants": (70, 60, 48)}),
+    "orc_peon_red":     ("humanoid", {"skin": (116, 150, 90), "hair": (46, 54, 40),
+                                      "shirt": (146, 66, 58), "pants": (70, 60, 48)}),
+    "orc_soldier_cyan": ("humanoid", {"skin": (110, 146, 94), "hair": (42, 52, 40),
+                                      "shirt": (68, 128, 140), "pants": (66, 58, 48),
+                                      "hat": "helmet", "hat_color": (150, 156, 166),
+                                      "held": "sword", "held_color": (170, 176, 188)}),
+    "orc_soldier_red":  ("humanoid", {"skin": (114, 148, 88), "hair": (44, 52, 38),
+                                      "shirt": (142, 62, 54), "pants": (66, 58, 48),
+                                      "hat": "helmet", "hat_color": (150, 156, 166),
+                                      "held": "sword", "held_color": (170, 176, 188)}),
+    # a generic slime for the loader's `slime` id (distinct from the bestiary's)
+    "slime":            ("blob", {"build": "slime", "color": (96, 186, 108)}),
+}
+
 # Vanguard enemy id -> Meristem (archetype, config).
 #
 # Humanoids here used to be held to <=5 materials for a 15-colour budget. That budget
@@ -294,11 +385,13 @@ def _render_group(group: dict, out_dir: Path):
 def main(out_dir: Path) -> None:
     enemies_dir = out_dir / "enemies"
     cast_dir = out_dir / "characters"
-    enemies_dir.mkdir(parents=True, exist_ok=True)
-    cast_dir.mkdir(parents=True, exist_ok=True)
+    npc_dir = out_dir / "npcs"
+    for d in (enemies_dir, cast_dir, npc_dir):
+        d.mkdir(parents=True, exist_ok=True)
 
     beasts, beast_fails = _render_group(BESTIARY, enemies_dir)
     cast, cast_fails = _render_group(PARTY, cast_dir)
+    npcs, npc_fails = _render_group(NPCS, npc_dir)
 
     _contact_sheet(beasts,
                    f"Vanguard bestiary via Meristem  ({len(beasts)} creatures, "
@@ -308,11 +401,16 @@ def main(out_dir: Path) -> None:
                    f"Vanguard party via Meristem  ({len(cast)} characters, "
                    f"{len(cast_fails)} gate-fails) -- built from their own doc appearances",
                    ROOT / "docs" / "reference" / "vanguard-cast.png", cols=6, cell=96)
+    _contact_sheet(npcs,
+                   f"Vanguard generic NPCs via Meristem  ({len(npcs)} ids, "
+                   f"{len(npc_fails)} gate-fails) -- retires the Puny-Characters placeholders",
+                   ROOT / "docs" / "reference" / "vanguard-npcs.png", cols=7, cell=72)
 
     print(f"wrote {len(beasts)} creature sheets -> {enemies_dir}")
     print(f"wrote {len(cast)} party sheets     -> {cast_dir}")
-    print("contact sheets -> docs/reference/vanguard-bestiary.png, vanguard-cast.png")
-    fails = beast_fails + cast_fails
+    print(f"wrote {len(npcs)} npc sheets       -> {npc_dir}")
+    print("contact sheets -> docs/reference/{vanguard-bestiary,vanguard-cast,vanguard-npcs}.png")
+    fails = beast_fails + cast_fails + npc_fails
     if fails:
         print("GATE FAILURES:")
         for name, arch, reasons in fails:
