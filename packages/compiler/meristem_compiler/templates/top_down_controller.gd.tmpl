@@ -6,10 +6,20 @@ extends CharacterBody2D
 const MOVE_SPEED: float = {{move_speed}}
 const ACCEL: float = {{accel}}
 const FRICTION: float = {{friction}}
+## Reach and rate belong to the CONTROLLER archetype (how this control scheme
+## swings), but the damage is the player ENTITY's atk stat -- how hard you hit is a
+## property of the character, not of the control scheme.
+const ATTACK_RANGE: float = {{attack_range}}
+const ATTACK_COOLDOWN: float = {{attack_cooldown}}
+const ATTACK_DAMAGE: int = {{attack_damage}}
 
 @onready var _anim: AnimatedSprite2D = $AnimatedSprite2D
 
 var _invuln: float = 0.0
+var _attack_cd: float = 0.0
+## Last non-zero input direction: a top-down swing goes where you are FACING, and
+## standing still must not make you unable to attack.
+var _facing: Vector2 = Vector2.DOWN
 
 func _ready() -> void:
 	add_to_group("player")
@@ -17,6 +27,7 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	var dir: Vector2 = Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	if dir != Vector2.ZERO:
+		_facing = dir.normalized()
 		velocity = velocity.move_toward(dir * MOVE_SPEED, ACCEL * delta)
 	else:
 		velocity = velocity.move_toward(Vector2.ZERO, FRICTION * delta)
@@ -31,6 +42,9 @@ func _physics_process(delta: float) -> void:
 			_anim.play("idle")
 			_anim.speed_scale = 1.0
 	move_and_slide()
+	_attack_cd = maxf(_attack_cd - delta, 0.0)
+	if Input.is_action_just_pressed("attack") and _attack_cd <= 0.0:
+		_swing()
 	# contact damage: touching anything in the "enemies" group hurts, with i-frames
 	if _invuln > 0.0:
 		_invuln -= delta
@@ -45,3 +59,22 @@ func _physics_process(delta: float) -> void:
 				Game.take_damage(atk)
 				_invuln = 1.0
 				break
+
+## A melee swing: everything in the "enemies" group within reach and in front of us
+## takes ATTACK_DAMAGE. Deliberately a range+direction test rather than a physics
+## hitbox -- it needs no extra collision nodes or layers in the generated scene, and
+## the archetype has no attack ANIMATION yet, so there is nothing to sync frames to.
+func _swing() -> void:
+	_attack_cd = ATTACK_COOLDOWN
+	for node in get_tree().get_nodes_in_group("enemies"):
+		var enemy: Node2D = node as Node2D
+		if enemy == null or not enemy.has_method("take_damage"):
+			continue
+		var to_enemy: Vector2 = enemy.global_position - global_position
+		if to_enemy.length() > ATTACK_RANGE:
+			continue
+		# in FRONT of us: a ~130-degree arc around the facing direction, so you cannot
+		# hit something behind your back
+		if to_enemy.normalized().dot(_facing) < 0.35:
+			continue
+		enemy.take_damage(ATTACK_DAMAGE)

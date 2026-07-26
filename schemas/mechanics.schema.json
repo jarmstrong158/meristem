@@ -53,7 +53,9 @@
                     "move_speed": { "type": "number", "exclusiveMinimum": 0 },
                     "accel": { "type": "number", "exclusiveMinimum": 0 },
                     "friction": { "type": "number", "minimum": 0 },
-                    "diagonal_normalized": { "type": "boolean" }
+                    "diagonal_normalized": { "type": "boolean" },
+                    "attack_range": { "type": "number", "exclusiveMinimum": 0, "description": "Melee reach in pixels. Optional; the compiler defaults it." },
+                    "attack_cooldown": { "type": "number", "minimum": 0, "description": "Seconds between swings. Optional; the compiler defaults it." }
                   }
                 }
               }

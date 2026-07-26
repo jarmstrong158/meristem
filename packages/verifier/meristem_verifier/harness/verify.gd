@@ -16,6 +16,8 @@ func _ready() -> void:
 		var kind: String = a.get("kind", "")
 		if kind == "move_speed":
 			results.append(await _check_move_speed(a))
+		elif kind == "melee_damage":
+			results.append(await _check_melee_damage(a))
 		else:
 			results.append({"kind": kind, "ok": false, "error": "unsupported assertion"})
 	_write({"results": results})
@@ -37,6 +39,50 @@ func _check_move_speed(a: Dictionary) -> Dictionary:
 		"kind": "move_speed", "entity": a.get("entity", ""),
 		"expected": expected, "measured": measured,
 		"ok": absf(measured - expected) <= tol,
+	}
+
+## Put the player next to an enemy, press attack, and read the enemy's hp back. This
+## checks the swing actually CONNECTS -- a string check on the generated script only
+## proves the code was written.
+func _check_melee_damage(a: Dictionary) -> Dictionary:
+	var expected: int = int(a.get("expected", 0))
+	var enemy_id: String = String(a.get("entity", ""))
+	var player_scene: PackedScene = load("res://scenes/player.tscn")
+	var enemy_scene: PackedScene = load("res://scenes/enemy_%s.tscn" % enemy_id)
+	if player_scene == null or enemy_scene == null:
+		return {"kind": "melee_damage", "entity": enemy_id, "ok": false,
+				"error": "player or enemy scene missing"}
+	var player: CharacterBody2D = player_scene.instantiate()
+	var enemy: CharacterBody2D = enemy_scene.instantiate()
+	add_child(player)
+	add_child(enemy)
+	player.global_position = Vector2.ZERO
+	# just to the right and within reach; the player faces DOWN by default, so drive a
+	# frame of rightward input first to turn it toward the target
+	enemy.global_position = Vector2(10, 0)
+	Input.action_press("move_right")
+	await get_tree().physics_frame
+	Input.action_release("move_right")
+	var before: int = int(enemy.hp)
+	Input.action_press("attack")
+	await get_tree().physics_frame
+	Input.action_release("attack")
+	await get_tree().physics_frame
+	var measured: int = int(enemy.hp) if is_instance_valid(enemy) else 0
+	var killed: bool = not is_instance_valid(enemy)
+	# `separation` is the distance the bodies actually settled at once they collided.
+	# Reported because it is the number that decides whether a reach is usable at all:
+	# two colliding 16px actors sit ~24px apart, so a shorter reach silently never
+	# connects no matter how correct the attack code looks.
+	var separation: float = 0.0
+	if is_instance_valid(enemy):
+		separation = enemy.global_position.distance_to(player.global_position)
+		enemy.queue_free()
+	player.queue_free()
+	return {
+		"kind": "melee_damage", "entity": enemy_id,
+		"expected": expected, "measured": measured, "before": before,
+		"separation": separation, "killed": killed, "ok": measured == expected,
 	}
 
 func _write(obj: Dictionary) -> void:

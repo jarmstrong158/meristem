@@ -25,6 +25,10 @@
           "description": "References a mechanics archetype id (cross-ref enforced at validate_all).",
           "type": "string"
         },
+        "ai": {
+          "description": "Enemy AI archetype the compiler emits a script for. Enemies only; omitted means 'idle'. Tuning comes from this entity's own stats: patrol reads speed + patrol_distance, chase reads speed + aggro_radius.",
+          "enum": ["idle", "patrol", "chase"]
+        },
         "sprite": { "$ref": "#/$defs/sprite" }
       }
     },

@@ -18,8 +18,28 @@ def _domains():
 # ---- always-on unit tests ----
 def test_derive_move_speed_assertion():
     a = derive_assertions(_domains())
-    assert len(a) == 1
-    assert a[0]["kind"] == "move_speed" and a[0]["expected"] == 80.0
+    speed = [x for x in a if x["kind"] == "move_speed"]
+    assert len(speed) == 1 and speed[0]["expected"] == 80.0
+
+
+def test_derive_melee_damage_assertion():
+    """If the spec gives the player an atk, hitting an enemy must reduce that enemy's
+    hp by it. Checking the generated script for the right strings only proves the code
+    was written; this assertion proves the swing CONNECTS in the engine — and it is
+    what caught a reach shorter than the distance two colliding bodies settle at, an
+    attack that read as correct and could never land."""
+    a = derive_assertions(_domains())
+    melee = [x for x in a if x["kind"] == "melee_damage"]
+    assert len(melee) == 1
+    assert melee[0]["entity"] == "slime"
+    assert melee[0]["attack"] == 4 and melee[0]["enemy_hp"] == 8
+    assert melee[0]["expected"] == 4                    # 8 hp - 4 atk
+
+
+def test_no_melee_assertion_without_the_stats_to_check():
+    d = _domains()
+    d["entities"]["characters"][0]["stats"].pop("atk")
+    assert [x for x in derive_assertions(d) if x["kind"] == "melee_damage"] == []
 
 
 def test_no_assertions_without_matching_archetype():
