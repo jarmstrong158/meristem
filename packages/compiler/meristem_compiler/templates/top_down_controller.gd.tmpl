@@ -12,8 +12,13 @@ const FRICTION: float = {{friction}}
 const ATTACK_RANGE: float = {{attack_range}}
 const ATTACK_COOLDOWN: float = {{attack_cooldown}}
 const ATTACK_DAMAGE: int = {{attack_damage}}
+## How many ability slots the input map binds (ability_1 .. ability_N).
+const ABILITY_SLOTS: int = {{ability_slots}}
 
 @onready var _anim: AnimatedSprite2D = $AnimatedSprite2D
+## Abilities live on a child node, so this controller only forwards input to them and
+## does not need to know what any ability does.
+@onready var _abilities: Node = $Abilities
 
 var _invuln: float = 0.0
 var _attack_cd: float = 0.0
@@ -51,6 +56,10 @@ func _physics_process(delta: float) -> void:
 	_attack_cd = maxf(_attack_cd - delta, 0.0)
 	if Input.is_action_just_pressed("attack") and _attack_cd <= 0.0:
 		_swing()
+	if _abilities != null:
+		for slot in range(ABILITY_SLOTS):
+			if Input.is_action_just_pressed("ability_%d" % (slot + 1)):
+				_abilities.use(slot, _facing)
 	# contact damage: touching anything in the "enemies" group hurts, with i-frames
 	if _invuln > 0.0:
 		_invuln -= delta

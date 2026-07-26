@@ -13,6 +13,8 @@ spec-store boundary — the compiler and generators trust that anything in the s
 | `mechanics.schema.json` | mechanics | **parameters over a fixed archetype library**; per-kind typed params via if/then |
 | `economy.schema.json` | economy | currency, price_curves, progression_pacing |
 | `world.schema.json` | world | regions (biome, tileset_ref, levels) + connections (→ regions) |
+| `levels.schema.json` | levels | character-grid maps: legend (char→tile), rows, player_spawn, spawns (→ entities.enemies, items), exits (→ levels) |
+| `abilities.schema.json` | abilities | activatable actions over a **fixed kind library** (projectile · melee_arc · heal · dash); entities reference them by id (→ abilities) |
 
 Arrows (→) are **cross-references** validated by the spec store's `validate_all`, not by JSON Schema
 alone: structural validity per domain is necessary but not sufficient for a valid manifest.

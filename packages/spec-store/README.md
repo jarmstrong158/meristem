@@ -10,10 +10,15 @@ invalid *manifest*, and `validate_all` catches it.
 ## Domains (schemas in `../../schemas`)
 
 `project` · `style_contract` · `narrative` · `entities` · `items` · `mechanics` · `economy` · `world`
+· `levels` · `abilities`
 
 **Mechanics are parameters over a fixed archetype library** — never freeform code. The three
 archetypes (`platformer_controller`, `top_down_controller`, `turn_based_combat`) each have a typed,
-schema-checked parameter set.
+schema-checked parameter set. **Abilities follow the same rule**: a fixed kind library
+(`projectile`, `melee_arc`, `heal`, `dash`) with per-kind parameters, referenced by entity id.
+
+Only `project`, `style_contract`, `entities` and `mechanics` are required; the rest are optional, so
+a manifest can grow into them.
 
 ## Library
 
@@ -47,7 +52,7 @@ Tools exposed:
 |---|---|---|
 | `list_domains` / `get_domain` / `get_manifest` | read | |
 | `set_domain(domain, value, actor, reason)` | **validated write** | the *only* mutation; schema-enforced, rejected not coerced |
-| `scaffold_project(title, genre, control, …)` | scaffold | fill all 8 domains with a valid strawman (the game-interview on-ramp) |
+| `scaffold_project(title, genre, control, …)` | scaffold | fill all 10 domains with a valid strawman (the game-interview on-ramp) |
 | `diff_domain(domain, candidate)` | diff | preview a change |
 | `validate_all()` | validate | per-domain schemas + cross-references |
 | `inspect_manifest()` | UI panel | renders an inline spec-inspector (MCP Apps / SEP-1865); returns the same data as structured content for hosts without panel support |

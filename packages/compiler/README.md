@@ -28,8 +28,14 @@ build/slice-01/
 | `project` | → | `project.godot` (name, resolution, input map) |
 | `mechanics` archetype params | → | `scripts/player.gd` (template with params substituted) |
 | `entities` (sprite refs) | → | generated + gated `assets/*.png`, `scenes/{player,enemy}.tscn` |
-| `world` + synthesized layout | → | `levels/grove_01.ldtk` (semantic ints → resolved tiles, dec-0014) |
-| `items`, `narrative`, `economy` | → | (carried in the manifest; wired into gameplay in later phases) |
+| `levels` (or a synthesized layout) | → | one `levels/<id>.ldtk` + room scene per level; `exits` become doors |
+| `entities.ai` | → | `scripts/enemy_<id>.gd` from the AI archetype (idle · patrol · chase) |
+| `abilities` + `entities.abilities` | → | `scripts/ability_runner.gd` (baked slot table) + `scenes/projectile_<id>.tscn` |
+| `items`, `narrative`, `economy` | → | (carried in the manifest; item **sprites and placements** compile, but slot/stats/rarity/drop_tables, story and currency are not yet wired into gameplay) |
+
+A mechanics `kind` or an enemy `ai` or an ability `kind` the compiler has no template for is
+**refused**, never silently substituted — see `CONTROLLERS`, `ENEMY_AI` and `ABILITY_KINDS` in
+`scenes.py` for what it can actually emit.
 
 ## Design decisions
 

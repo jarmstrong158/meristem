@@ -10,7 +10,7 @@ from jsonschema import Draft202012Validator
 # manifest domains -> schema filename stem (files use hyphens)
 DOMAINS = [
     "project", "style_contract", "narrative", "entities",
-    "items", "mechanics", "economy", "world", "levels",
+    "items", "mechanics", "economy", "world", "levels", "abilities",
 ]
 
 

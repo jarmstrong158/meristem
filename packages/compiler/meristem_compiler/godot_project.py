@@ -11,16 +11,18 @@ _KEY = {
     "move_up": [87, 4194320], "move_down": [83, 4194322],
     "move_left": [65, 4194319], "move_right": [68, 4194321],
     "jump": [32], "attack": [88],  # X
+    # ability slots on the number row (1=49, 2=50, 3=51)
+    "ability_1": [49], "ability_2": [50], "ability_3": [51],
 }
+_ABILITY_ACTIONS = ("ability_1", "ability_2", "ability_3")
 
 
 def input_map_for(archetype_kind: str) -> dict[str, list[int]]:
     if archetype_kind == "platformer_controller":
-        return {k: _KEY[k] for k in ("move_left", "move_right", "jump", "attack")}
-    if archetype_kind == "turn_based_combat":
-        return {k: _KEY[k] for k in ("move_up", "move_down", "move_left", "move_right", "attack")}
-    # top_down_controller (default)
-    return {k: _KEY[k] for k in ("move_up", "move_down", "move_left", "move_right", "attack")}
+        base = ("move_left", "move_right", "jump", "attack")
+    else:                                   # top_down_controller / turn_based_combat
+        base = ("move_up", "move_down", "move_left", "move_right", "attack")
+    return {k: _KEY[k] for k in base + _ABILITY_ACTIONS}
 
 
 def _input_event(keycode: int) -> str:

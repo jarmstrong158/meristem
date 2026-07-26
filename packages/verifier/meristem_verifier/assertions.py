@@ -28,6 +28,28 @@ def derive_assertions(domains: dict) -> list[dict]:
                         "attack": atk, "enemy_hp": hp,
                         "expected": max(hp - atk, 0)})
 
+    # Abilities: a projectile has the most moving parts of any ability -- its own scene,
+    # a launch handoff, travel, and a collision -- so if it lands, the slot wiring and
+    # the input binding are both real. A slot that is bound but inert is pressable and
+    # silent, which is exactly what an author cannot see.
+    # Gated on `arch` as well: the controller is what forwards ability input, so with no
+    # resolvable control scheme there is no path from a keypress to a slot -- and the
+    # manifest would not compile anyway.
+    ability_defs = {a["id"]: a for a in (domains.get("abilities", {}) or {}).get("abilities", [])}
+    if arch and player and enemy:
+        for slot, ref in enumerate(player.get("abilities", [])):
+            ab = ability_defs.get(ref)
+            if not ab or ab.get("kind") != "projectile":
+                continue
+            hp = int(enemy.get("stats", {}).get("hp", 0))
+            power = int(ab.get("power", 0))
+            if hp > 0 and power > 0:
+                out.append({"kind": "ability_damage", "entity": enemy["id"],
+                            "ability": ref, "slot": slot, "power": power,
+                            "reach": float(ab.get("range", 0.0)),
+                            "expected": max(hp - power, 0)})
+            break                       # one is enough to prove the wiring
+
     # Doors: every exit's baked target scene must load, and its arrival cell must
     # actually move the player. A wrong res:// path is the obvious failure mode and is
     # invisible until someone walks into the doorway.

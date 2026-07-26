@@ -249,7 +249,8 @@ def build_server(service: Optional[SpecService] = None):
         return svc.set_domain(domain, value, actor, reason)
 
     @mcp.tool(description="Scaffold a complete, valid strawman manifest from high-level answers "
-                          "(the game-interview on-ramp). Fills all 8 domains; the model then enriches.")
+                          "(the game-interview on-ramp). Fills all 10 domains — including a real "
+                          "starter level and two starter abilities; the model then enriches.")
     def scaffold_project(title: str = "Untitled", genre: str = "adventure",
                          control: str = "top_down_controller",
                          premise: str = "A hero sets out on a journey.",

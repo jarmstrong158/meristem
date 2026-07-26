@@ -37,6 +37,43 @@ def _sprite_errors(domains: dict, skipped: list[str]) -> list[str]:
         if isinstance(sp, dict) and sp.get("archetype"):
             for p in validate_sprite(sp["archetype"], sp.get("config")):
                 errs.append(f"item {it.get('id')!r} sprite: {p}")
+    for ab in (domains.get("abilities", {}) or {}).get("abilities", []):
+        sp = ab.get("sprite")
+        if isinstance(sp, dict) and sp.get("archetype"):
+            for p in validate_sprite(sp["archetype"], sp.get("config")):
+                errs.append(f"ability {ab.get('id')!r} sprite: {p}")
+    return errs
+
+
+def _ability_errors(domains: dict, skipped: list[str]) -> list[str]:
+    """Abilities must be internally coherent and every entity reference must resolve.
+    A projectile also needs the numbers that make it a projectile — without speed and
+    range it has no way to travel, and defaulting those silently would ship an ability
+    that looks authored and does not behave as specified."""
+    errs: list[str] = []
+    abilities = (domains.get("abilities", {}) or {}).get("abilities", [])
+    seen: set = set()
+    for ab in abilities:
+        aid = ab.get("id")
+        if aid in seen:
+            errs.append(f"ability id {aid!r} is defined more than once")
+        seen.add(aid)
+        if ab.get("kind") == "projectile":
+            for key in ("speed", "range"):
+                if ab.get(key) is None:
+                    errs.append(f"ability {aid!r} is a projectile but has no {key}")
+            if not ab.get("sprite"):
+                errs.append(f"ability {aid!r} is a projectile but has no sprite to fire")
+        elif ab.get("kind") == "melee_arc" and ab.get("range") is None:
+            errs.append(f"ability {aid!r} is a melee_arc but has no range")
+
+    entities = domains.get("entities", {}) or {}
+    for group in ("characters", "enemies", "npcs"):
+        for e in entities.get(group, []):
+            for ref in e.get("abilities", []):
+                if ref not in seen:
+                    errs.append(f"entity {e.get('id')!r} references ability {ref!r} "
+                                f"which is not in the abilities domain")
     return errs
 
 
@@ -202,6 +239,9 @@ def cross_reference(domains: dict) -> tuple[list[str], list[str]]:
 
     # sprites: each entity/item sprite's variant must be a real generator build
     errs.extend(_sprite_errors(domains, skipped))
+
+    # abilities: coherent per kind, and every entity reference resolves
+    errs.extend(_ability_errors(domains, skipped))
 
     # levels: rectangular, legend-covered, refs resolve, spawns in bounds
     errs.extend(_level_errors(domains, skipped))
