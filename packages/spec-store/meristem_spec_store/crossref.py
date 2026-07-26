@@ -100,6 +100,32 @@ def _level_errors(domains: dict, skipped: list[str]) -> list[str]:
             if sp.get("id") not in pool:
                 errs.append(f"level {lid!r} {sp.get('kind')} spawn {sp.get('id')!r} does not resolve")
 
+    # exits: a door must sit on its own grid, point at a real level, and land the player
+    # somewhere inside THAT level. Checked in a second pass so a door may target a level
+    # defined later in the array.
+    sizes = {lv.get("id"): (len(lv.get("rows", [{}])[0]) if lv.get("rows") else 0,
+                            len(lv.get("rows", [])))
+             for lv in levels}
+    for lv in levels:
+        lid = lv.get("id")
+        w, h = sizes.get(lid, (0, 0))
+        for ex in lv.get("exits", []):
+            if ex.get("x", 0) >= w or ex.get("y", 0) >= h:
+                errs.append(f"level {lid!r} exit ({ex.get('x')},{ex.get('y')}) is outside "
+                            f"the {w}x{h} grid")
+            target = ex.get("to")
+            if target not in seen:
+                errs.append(f"level {lid!r} exit leads to {target!r} which is not a defined level")
+                continue
+            if target == lid:
+                errs.append(f"level {lid!r} exit leads to itself")
+            ts = ex.get("to_spawn")
+            if ts:
+                tw, th = sizes.get(target, (0, 0))
+                if ts.get("x", 0) >= tw or ts.get("y", 0) >= th:
+                    errs.append(f"level {lid!r} exit to {target!r} arrives at "
+                                f"({ts.get('x')},{ts.get('y')}), outside that level's {tw}x{th} grid")
+
     # world regions listing level ids must have them defined (when levels domain present)
     for r in (domains.get("world", {}) or {}).get("regions", []):
         for lid in r.get("levels", []):

@@ -45,6 +45,21 @@
                 "y": { "type": "integer", "minimum": 0 }
               }
             }
+          },
+          "exits": {
+            "type": "array",
+            "description": "doors: stepping on this cell moves the player to another level. Level-scoped on purpose -- world.connections joins REGIONS, which are too coarse to say which room a doorway leads to.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["x", "y", "to"],
+              "properties": {
+                "x": { "type": "integer", "minimum": 0 },
+                "y": { "type": "integer", "minimum": 0 },
+                "to": { "type": "string", "description": "references another level id" },
+                "to_spawn": { "$ref": "#/$defs/cell", "description": "arrival cell in the target level; defaults to that level's player_spawn" }
+              }
+            }
           }
         }
       }

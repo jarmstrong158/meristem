@@ -18,6 +18,8 @@ func _ready() -> void:
 			results.append(await _check_move_speed(a))
 		elif kind == "melee_damage":
 			results.append(await _check_melee_damage(a))
+		elif kind == "room_transition":
+			results.append(await _check_room_transition(a))
 		else:
 			results.append({"kind": kind, "ok": false, "error": "unsupported assertion"})
 	_write({"results": results})
@@ -84,6 +86,47 @@ func _check_melee_damage(a: Dictionary) -> Dictionary:
 		"expected": expected, "measured": measured, "before": before,
 		"separation": separation, "killed": killed, "ok": measured == expected,
 	}
+
+## Every door in a room must point at a scene that LOADS, and its arrival cell must
+## actually move an arriving player. Deliberately does not call change_scene_to_file:
+## that would replace this harness mid-run and throw the results away. The scene swap
+## itself is engine behaviour; the baked res:// path and the arrival handoff are ours,
+## and a wrong path is invisible until someone walks into the doorway.
+func _check_room_transition(a: Dictionary) -> Dictionary:
+	var from_scene: String = str(a.get("from_scene", "res://scenes/main.tscn"))
+	var packed: PackedScene = load(from_scene)
+	if packed == null:
+		return {"kind": "room_transition", "ok": false, "error": "start scene did not load"}
+	var room: Node = packed.instantiate()
+	add_child(room)
+	await get_tree().physics_frame
+	var checks: Array = []
+	var all_ok: bool = true
+	for child in room.get_children():
+		if not (child is Area2D):
+			continue
+		var raw_target: Variant = child.get("to_scene")
+		if raw_target == null:
+			continue                       # not a door (pickups are Area2D too)
+		var target_path: String = str(raw_target)
+		if target_path == "":
+			continue
+		var arrival: Vector2 = child.get("to_spawn") as Vector2
+		var loads: bool = load(target_path) != null
+		var spawn_applied: bool = false
+		if loads:
+			Game.set_pending_spawn(arrival)
+			var pl: Node = load("res://scenes/player.tscn").instantiate()
+			add_child(pl)
+			await get_tree().physics_frame
+			spawn_applied = (pl as Node2D).global_position.distance_to(arrival) < 1.0
+			pl.queue_free()
+		checks.append({"to": target_path, "loads": loads, "spawn_applied": spawn_applied})
+		all_ok = all_ok and loads and spawn_applied
+	room.queue_free()
+	if checks.is_empty():
+		return {"kind": "room_transition", "ok": false, "error": "no doors found in scene"}
+	return {"kind": "room_transition", "doors": checks, "ok": all_ok}
 
 func _write(obj: Dictionary) -> void:
 	var wf: FileAccess = FileAccess.open("res://verifier/results.json", FileAccess.WRITE)

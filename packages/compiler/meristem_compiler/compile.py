@@ -85,39 +85,48 @@ def compile_project(manifest_path: str | Path, out_dir: str | Path) -> dict:
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
 
-    # 1. the level grid: authored in the `levels` domain, else the synthesized grove
-    level = pick_level(domains)
-    if level is not None:
-        grid = grid_from_level(level)
-        level_name = level["id"]
-        spawns = level.get("spawns", [])
-        player_cell = (level["player_spawn"]["x"], level["player_spawn"]["y"])
+    # 1. every authored level becomes its own room; the start comes first. Pre-domain
+    # manifests still get the one synthesized grove.
+    start = pick_level(domains)
+    authored = (domains.get("levels", {}) or {}).get("levels", [])
+    if start is not None:
+        ordered = [start] + [lv for lv in authored if lv["id"] != start["id"]]
+        rooms_src = [{"id": lv["id"], "grid": grid_from_level(lv),
+                      "spawns": lv.get("spawns", []), "exits": lv.get("exits", []),
+                      "player_cell": (lv["player_spawn"]["x"], lv["player_spawn"]["y"])}
+                     for lv in ordered]
     else:
-        grid = synthesize_grove()
-        level_name = "grove_01"
-        spawns = [{"id": domains["entities"]["enemies"][0]["id"], "kind": "enemy", "x": 13, "y": 8}]
-        player_cell = (4, 5)
-    used_tiles = tuple(sorted({c for row in grid for c in row}))
+        rooms_src = [{"id": "grove_01", "grid": synthesize_grove(),
+                      "spawns": [{"id": domains["entities"]["enemies"][0]["id"],
+                                  "kind": "enemy", "x": 13, "y": 8}],
+                      "exits": [], "player_cell": (4, 5)}]
+    # the START room keeps the name main.tscn, so it stays project.godot's entry point
+    scene_of = {r["id"]: ("main.tscn" if i == 0 else f"level_{r['id']}.tscn")
+                for i, r in enumerate(rooms_src)}
+    spawn_cell_of = {r["id"]: r["player_cell"] for r in rooms_src}
+    used_tiles = tuple(sorted({c for r in rooms_src for row in r["grid"] for c in row}))
 
-    # 2. assets (generate + gate + provenance), incl. any tiles the level uses
+    # 2. assets (generate + gate + provenance), incl. every tile any room uses
     written = compile_assets(domains, out / "assets", extra_tiles=used_tiles)
 
-    # 3. level -> .ldtk (canonical) + tileset + runtime grid
-    ldtk_info = write_ldtk(grid, out / "assets", out / "levels", name=level_name)
+    # 3. each level -> .ldtk (canonical) + tileset + runtime grid
+    ldtk_infos = [write_ldtk(r["grid"], out / "assets", out / "levels", name=r["id"])
+                  for r in rooms_src]
+    ldtk_info = ldtk_infos[0]
 
     # 4. scripts + scenes: one enemy type per distinct spawned enemy, items placed
     params = archetype.get("params", {})
     player = domains["entities"]["characters"][0]
     enemies_by_id = {e["id"]: e for e in domains["entities"].get("enemies", [])}
-    spawned_enemy_ids = sorted({s["id"] for s in spawns if s["kind"] == "enemy"})
+    spawned_enemy_ids = sorted({s["id"] for r in rooms_src for s in r["spawns"]
+                                if s["kind"] == "enemy"})
     enemy_types = [{"id": eid, "name": enemies_by_id[eid]["name"],
                     "hp": enemies_by_id[eid]["stats"].get("hp", 1),
                     "atk": enemies_by_id[eid]["stats"].get("atk", 1),
                     "ai": _enemy_ai(enemies_by_id[eid]),
                     "stats": enemies_by_id[eid]["stats"]}
                    for eid in spawned_enemy_ids]
-    write_scripts(out, kind=controller_kind, params=params,
-                  enemies=enemy_types, level_name=level_name,
+    write_scripts(out, kind=controller_kind, params=params, enemies=enemy_types,
                   player_hp=int(player["stats"].get("hp", 20)),
                   player_atk=int(player["stats"].get("atk", 1)))
 
@@ -134,28 +143,47 @@ def compile_project(manifest_path: str | Path, out_dir: str | Path) -> dict:
 
     item_files = {w["entity"]: w["file"] for w in written if w["class"] == "item_icon"}
     T = 16
-    placements = {
-        "player": (player_cell[0] * T + 8, player_cell[1] * T + 16),
-        "camera": (len(grid[0]) * T // 2, len(grid) * T // 2),
-        "enemies": [{"id": s["id"], "px": s["x"] * T + 8, "py": s["y"] * T + 16}
-                    for s in spawns if s["kind"] == "enemy"],
-        "items": [],
-    }
-    for s in spawns:
-        if s["kind"] != "item":
-            continue
-        if s["id"] not in item_files:
-            raise CompileError(f"level {level_name!r} places item {s['id']!r}, "
-                               f"but it has no sprite (give it a sprite descriptor)")
-        placements["items"].append({"id": s["id"], "file": item_files[s["id"]],
-                                    "px": s["x"] * T + 8, "py": s["y"] * T + 8})
+    rooms = []
+    for r in rooms_src:
+        grid = r["grid"]
+        placements = {
+            "player": (r["player_cell"][0] * T + 8, r["player_cell"][1] * T + 16),
+            "camera": (len(grid[0]) * T // 2, len(grid) * T // 2),
+            "enemies": [{"id": s["id"], "px": s["x"] * T + 8, "py": s["y"] * T + 16}
+                        for s in r["spawns"] if s["kind"] == "enemy"],
+            "items": [],
+            "doors": [],
+        }
+        for s in r["spawns"]:
+            if s["kind"] != "item":
+                continue
+            if s["id"] not in item_files:
+                raise CompileError(f"level {r['id']!r} places item {s['id']!r}, "
+                                   f"but it has no sprite (give it a sprite descriptor)")
+            placements["items"].append({"id": s["id"], "file": item_files[s["id"]],
+                                        "px": s["x"] * T + 8, "py": s["y"] * T + 8})
+        for ex in r["exits"]:
+            target = ex["to"]
+            if target not in scene_of:      # cross-ref catches this; belt and braces
+                raise CompileError(f"level {r['id']!r} exit leads to {target!r}, "
+                                   f"which is not a compiled level")
+            # arrival defaults to the target room's own player_spawn
+            cell = ex.get("to_spawn") or {"x": spawn_cell_of[target][0],
+                                          "y": spawn_cell_of[target][1]}
+            placements["doors"].append({
+                "px": ex["x"] * T + 8, "py": ex["y"] * T + 8,
+                "to_scene": f"res://scenes/{scene_of[target]}",
+                "sx": cell["x"] * T + 8, "sy": cell["y"] * T + 16,
+            })
+        rooms.append({"scene": scene_of[r["id"]], "level_name": r["id"],
+                      "placements": placements})
 
     write_scenes(out,
                  player_idle=asset_filename(contract, "character", player["id"], "idle"),
                  player_walk=player_walk,
                  enemies=enemy_scene_data,
                  heart_sprite="ui_heart.png", coin_frames=coin_frames,
-                 placements=placements)
+                 rooms=rooms)
 
     # 4. project.godot
     write_project_godot(out, name=project["title"], main_scene="res://scenes/main.tscn",

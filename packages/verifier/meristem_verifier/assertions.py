@@ -27,4 +27,14 @@ def derive_assertions(domains: dict) -> list[dict]:
             out.append({"kind": "melee_damage", "entity": enemy["id"],
                         "attack": atk, "enemy_hp": hp,
                         "expected": max(hp - atk, 0)})
+
+    # Doors: every exit's baked target scene must load, and its arrival cell must
+    # actually move the player. A wrong res:// path is the obvious failure mode and is
+    # invisible until someone walks into the doorway.
+    levels = (domains.get("levels", {}) or {}).get("levels", [])
+    if any(lv.get("exits") for lv in levels):
+        start = next((lv for lv in levels if lv.get("exits")), None)
+        scene = "main.tscn" if start is levels[0] else f"level_{start['id']}.tscn"
+        out.append({"kind": "room_transition", "from_scene": f"res://scenes/{scene}",
+                    "doors": len(start.get("exits", []))})
     return out
