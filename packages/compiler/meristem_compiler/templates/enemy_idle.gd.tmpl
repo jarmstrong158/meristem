@@ -1,6 +1,8 @@
-extends CharacterBody2D
+﻿extends CharacterBody2D
 ## Generated enemy '{{name}}' -- ai: idle. Holds position with a gentle bob.
 ## Parameters are substituted by meristem-compiler from the manifest.
+
+const ENEMY_ID: String = "{{id}}"
 
 @export var hp: int = {{hp}}
 @export var atk: int = {{atk}}
@@ -25,6 +27,8 @@ func take_damage(amount: int) -> void:
 	hp -= amount
 	if hp <= 0:
 		Game.register_kill()
+		# roll loot BEFORE freeing: a freed node has no position to drop at
+		Game.drop_loot(ENEMY_ID, global_position)
 		queue_free()
 		return
 	_hurt = 0.12

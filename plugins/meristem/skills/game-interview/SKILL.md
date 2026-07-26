@@ -94,6 +94,13 @@ refuses a `cost` larger than the caster's whole `mp` pool — that ability could
 and `key_item` are carried and grant nothing. So `{"slot": "weapon", "stats": {"atk": 2}}` is a real
 +2 to every hit, and defence subtracts from incoming damage (a hit always lands for at least 1).
 
+**Loot.** `items.drop_tables` are live too: killing an enemy rolls its table and spawns the winning
+item where it fell, ready to be picked up (and therefore equipped). Weights are relative, and
+`nothing_weight` sits in the same pool as the miss chance — omit it and **every** kill drops
+something, which is rarely what you want. An item that only ever arrives as loot still gets its own
+pickup scene, but it must have a `sprite`, or there would be nothing to spawn (the compiler refuses).
+That completes the loop: fight → loot → equip → hit harder.
+
 ## Step 4 — Hand off
 
 When the user is happy, `validate_all` (must be ok), save the manifest, and tell them to compile:

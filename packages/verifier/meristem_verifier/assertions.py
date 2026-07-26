@@ -79,6 +79,23 @@ def derive_assertions(domains: dict) -> list[dict]:
                         "cost": int(ab["cost"]), "pool": pool,
                         "expected": pool - int(ab["cost"])})
 
+    # Loot: drop_tables were authorable from the start and nothing dropped on kill, so
+    # "this enemy drops a sword" is the claim to prove. Only assert on a table with a
+    # single guaranteed drop -- a weighted roll is not deterministic, and an assertion
+    # that passes most of the time is worse than none.
+    # Gated on `arch` like the others: a manifest whose control scheme does not resolve
+    # will not compile, so there is no build to assert against.
+    tables = (domains.get("items", {}) or {}).get("drop_tables", [])
+    if arch and enemy:
+        for dt in tables:
+            if dt.get("enemy_id") != enemy["id"]:
+                continue
+            drops = dt.get("drops", [])
+            if len(drops) == 1 and not int(dt.get("nothing_weight", 0) or 0):
+                out.append({"kind": "loot_drop", "entity": enemy["id"],
+                            "expected": drops[0]["item_id"]})
+            break
+
     # Doors: every exit's baked target scene must load, and its arrival cell must
     # actually move the player. A wrong res:// path is the obvious failure mode and is
     # invisible until someone walks into the doorway.

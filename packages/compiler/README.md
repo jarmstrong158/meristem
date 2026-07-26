@@ -32,7 +32,8 @@ build/slice-01/
 | `entities.ai` | → | `scripts/enemy_<id>.gd` from the AI archetype (idle · patrol · chase) |
 | `abilities` + `entities.abilities` | → | `scripts/ability_runner.gd` (baked slot table incl. `cost`) + `scenes/projectile_<id>.tscn` |
 | `items` (`slot`, `stats`) | → | the `ITEMS` table in `game_state.gd`: collecting equips a worn slot and its stats move `Game.atk()` / `Game.defense()` |
-| `narrative`, `economy`, `items.rarity_tiers`, `items.drop_tables` | → | (carried in the manifest; not yet wired into gameplay) |
+| `items.drop_tables` | → | the `DROPS` table: a kill rolls it and spawns the winning item where the enemy fell (`nothing_weight` is the miss chance) |
+| `narrative`, `economy`, `items.rarity_tiers` | → | (carried in the manifest; not yet wired into gameplay) |
 
 A mechanics `kind` or an enemy `ai` or an ability `kind` the compiler has no template for is
 **refused**, never silently substituted — see `CONTROLLERS`, `ENEMY_AI` and `ABILITY_KINDS` in
