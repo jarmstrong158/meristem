@@ -18,6 +18,92 @@ def project(tmp_path_factory):
     return out
 
 
+def two_room_manifest(tmp_path: Path) -> Path:
+    """The slice manifest with a second level and a door each way. Shared by the
+    compiler tests and (via the same helper) the verifier's engine test."""
+    store = SpecStore.load(MANIFEST)
+    levels = store.get("levels")
+    first = levels["levels"][0]
+    w = len(first["rows"][0])
+    cave = {
+        "id": "cave_01",
+        "region": first["region"],
+        "legend": {".": "stone", "~": "water"},
+        "rows": ["." * w for _ in range(8)],
+        "player_spawn": {"x": 2, "y": 2},
+        "spawns": [],
+        "exits": [{"x": 1, "y": 1, "to": first["id"], "to_spawn": {"x": 3, "y": 3}}],
+    }
+    first["exits"] = [{"x": 2, "y": 2, "to": "cave_01"}]      # no to_spawn -> cave default
+    levels["levels"].append(cave)
+    store.set_domain("levels", levels, {"actor": "test"})
+    world = store.get("world")
+    for r in world["regions"]:
+        if r["id"] == first["region"]:
+            r.setdefault("levels", []).append("cave_01")
+    store.set_domain("world", world, {"actor": "test"})
+    out = tmp_path / "two_room.manifest.json"
+    store.save(out)
+    return out
+
+
+def test_two_room_manifest_compiles_both_rooms(tmp_path):
+    """Levels used to be compiled one at a time — `pick_level` chose the first and the
+    rest of the manifest's rooms were silently never built."""
+    manifest = two_room_manifest(tmp_path)
+    assert SpecStore.load(manifest).validate_all().ok
+    out = tmp_path / "build"
+    compile_project(manifest, out)
+    # a scene per room; the start keeps the name main.tscn so it stays the entry point
+    assert (out / "scenes" / "main.tscn").exists()
+    assert (out / "scenes" / "level_cave_01.tscn").exists()
+    # and a runtime grid per room
+    assert (out / "levels" / "grove_01.grid.json").exists()
+    assert (out / "levels" / "cave_01.grid.json").exists()
+    # one shared world.gd, told which grid to build by the scene
+    world = (out / "scripts" / "world.gd").read_text(encoding="utf-8")
+    assert "@export var level_name" in world and "grove_01" not in world
+    assert 'level_name = "grove_01"' in (out / "scenes" / "main.tscn").read_text(encoding="utf-8")
+    assert 'level_name = "cave_01"' in (out / "scenes" / "level_cave_01.tscn").read_text(encoding="utf-8")
+
+
+def test_doors_bake_target_scene_and_arrival(tmp_path):
+    manifest = two_room_manifest(tmp_path)
+    out = tmp_path / "build"
+    compile_project(manifest, out)
+    assert (out / "scripts" / "door.gd").exists()
+    main = (out / "scenes" / "main.tscn").read_text(encoding="utf-8")
+    cave = (out / "scenes" / "level_cave_01.tscn").read_text(encoding="utf-8")
+    assert 'to_scene = "res://scenes/level_cave_01.tscn"' in main
+    # grove's exit gave no to_spawn, so it defaults to the cave's own player_spawn (2,2)
+    assert "to_spawn = Vector2(40, 48)" in main
+    # the cave's door goes back and names an explicit arrival cell (3,3)
+    assert 'to_scene = "res://scenes/main.tscn"' in cave
+    assert "to_spawn = Vector2(56, 64)" in cave
+    # state that must survive a room change lives on the autoload
+    gs = (out / "scripts" / "game_state.gd").read_text(encoding="utf-8")
+    assert "func go_to_room" in gs and "func take_pending_spawn" in gs
+    player = (out / "scripts" / "player.gd").read_text(encoding="utf-8")
+    assert "Game.take_pending_spawn()" in player
+
+
+def test_exit_to_an_unknown_level_is_refused(tmp_path):
+    """Cross-ref catches this first; the compiler must not build a dead doorway even
+    if it is somehow reached with one."""
+    from meristem_compiler.compile import compile_project as cp
+    store = SpecStore.load(MANIFEST)
+    levels = store.get("levels")
+    levels["levels"][0]["exits"] = [{"x": 1, "y": 1, "to": "nowhere"}]
+    store.set_domain("levels", levels, {"actor": "test"})
+    bad = tmp_path / "bad_exit.manifest.json"
+    store.save(bad)
+    report = SpecStore.load(bad).validate_all()
+    assert not report.ok
+    assert any("nowhere" in e for e in report.crossref_errors)
+    with pytest.raises(CompileError):
+        cp(bad, tmp_path / "out")
+
+
 def _platformer_manifest(tmp_path: Path) -> Path:
     """The slice manifest with its controller switched to a platformer. Keeps the
     archetype id so entities' behavior_archetype refs still resolve — i.e. a manifest
@@ -295,6 +381,24 @@ def test_invalid_manifest_refused(tmp_path):
     store.save(bad_path)
     with pytest.raises(CompileError):
         compile_project(bad_path, tmp_path / "out")
+
+
+@pytest.mark.skipif(not os.environ.get("MERISTEM_GODOT"),
+                    reason="set MERISTEM_GODOT to a Godot 4.x binary to run the engine smoke test")
+def test_room_transition_verified_in_engine(tmp_path):
+    """Doors are only real if their baked res:// path resolves and the arrival handoff
+    lands. A wrong path is invisible until someone walks into the doorway, and no
+    amount of checking the .tscn text catches it."""
+    from meristem_verifier.assertions import derive_assertions
+    from meristem_verifier.runner import run_assertions
+    manifest = two_room_manifest(tmp_path)
+    out = tmp_path / "build"
+    compile_project(manifest, out)
+    asserts = [a for a in derive_assertions(SpecStore.load(manifest).get_all())
+               if a["kind"] == "room_transition"]
+    assert asserts, "no room_transition assertion derived for a manifest with exits"
+    res = run_assertions(out, asserts, os.environ["MERISTEM_GODOT"])
+    assert res["ok"], res
 
 
 @pytest.mark.skipif(not os.environ.get("MERISTEM_GODOT"),
