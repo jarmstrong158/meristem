@@ -112,16 +112,38 @@ def render_template(template: str, **params) -> str:
     return text
 
 
-def write_scripts(project_dir: Path, *, move_speed, accel, friction,
+# Mechanics `kind` -> (controller template, the params it substitutes with defaults).
+#
+# This mapping is the compiler's honest statement of what it can actually emit. The
+# mechanics schema offers three kinds; only the ones listed here have a template. The
+# player script used to be rendered from `top_down_controller.gd.tmpl`
+# UNCONDITIONALLY, so a fully valid platformer manifest — validate_all green — compiled
+# "successfully" into a top-down game: jump_height and gravity were dropped on the
+# floor and a FRICTION constant was invented from a default for a parameter the
+# platformer schema does not even allow. Adding a controller is one entry here plus one
+# template file; until then the compiler REFUSES the kind (see compile.py) rather than
+# quietly building the wrong game.
+CONTROLLERS: dict[str, tuple[str, dict[str, float]]] = {
+    "top_down_controller": ("top_down_controller.gd.tmpl",
+                            {"move_speed": 80.0, "accel": 600.0, "friction": 400.0}),
+}
+
+
+def write_scripts(project_dir: Path, *, kind: str, params: dict,
                   enemies: list[dict], level_name: str = "grove_01",
                   player_hp: int = 20) -> None:
     """player.gd + world.gd + game_state.gd/pickup.gd/hud.gd + one enemy_<id>.gd
-    per enemy type (stats baked in)."""
+    per enemy type (stats baked in).
+
+    `kind` selects the controller template; only its own declared params are
+    substituted, so one controller's defaults can never leak into another's script."""
+    template, defaults = CONTROLLERS[kind]
     sd = project_dir / "scripts"
     sd.mkdir(parents=True, exist_ok=True)
     (sd / "player.gd").write_text(
-        render_template("top_down_controller.gd.tmpl",
-                        move_speed=float(move_speed), accel=float(accel), friction=float(friction)),
+        render_template(template,
+                        **{key: float(params.get(key, fallback))
+                           for key, fallback in defaults.items()}),
         encoding="utf-8")
     for e in enemies:
         (sd / f"enemy_{e['id']}.gd").write_text(
