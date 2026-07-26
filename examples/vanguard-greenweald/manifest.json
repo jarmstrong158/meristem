@@ -1,0 +1,1714 @@
+{
+  "meristem_manifest_version": 1,
+  "version": 10,
+  "domains": {
+    "style_contract": {
+      "name": "pico8-default-v1",
+      "version": 1,
+      "palette": {
+        "source": "PICO-8 (Lexaloffle)",
+        "license": "CC0",
+        "colors": [
+          {
+            "i": 0,
+            "hex": "#000000",
+            "name": "black"
+          },
+          {
+            "i": 1,
+            "hex": "#1D2B53",
+            "name": "dark_blue"
+          },
+          {
+            "i": 2,
+            "hex": "#7E2553",
+            "name": "dark_purple"
+          },
+          {
+            "i": 3,
+            "hex": "#008751",
+            "name": "dark_green"
+          },
+          {
+            "i": 4,
+            "hex": "#AB5236",
+            "name": "brown"
+          },
+          {
+            "i": 5,
+            "hex": "#5F574F",
+            "name": "dark_grey"
+          },
+          {
+            "i": 6,
+            "hex": "#C2C3C7",
+            "name": "light_grey"
+          },
+          {
+            "i": 7,
+            "hex": "#FFF1E8",
+            "name": "white"
+          },
+          {
+            "i": 8,
+            "hex": "#FF004D",
+            "name": "red"
+          },
+          {
+            "i": 9,
+            "hex": "#FFA300",
+            "name": "orange"
+          },
+          {
+            "i": 10,
+            "hex": "#FFEC27",
+            "name": "yellow"
+          },
+          {
+            "i": 11,
+            "hex": "#00E436",
+            "name": "green"
+          },
+          {
+            "i": 12,
+            "hex": "#29ADFF",
+            "name": "blue"
+          },
+          {
+            "i": 13,
+            "hex": "#83769C",
+            "name": "lavender"
+          },
+          {
+            "i": 14,
+            "hex": "#FF77A8",
+            "name": "pink"
+          },
+          {
+            "i": 15,
+            "hex": "#FFCCAA",
+            "name": "peach"
+          }
+        ],
+        "free_classes": [
+          "character",
+          "enemy",
+          "item_icon",
+          "ui_element",
+          "terrain_tile"
+        ]
+      },
+      "canvas": {
+        "terrain_tile": {
+          "w": 16,
+          "h": 16
+        },
+        "character": {
+          "w": 32,
+          "h": 32
+        },
+        "enemy": {
+          "w": 32,
+          "h": 32
+        },
+        "item_icon": {
+          "w": 16,
+          "h": 16
+        },
+        "ui_element": {
+          "w": 16,
+          "h": 16
+        }
+      },
+      "outline": {
+        "policy": "selective_dark_1px",
+        "color_rule": "darkest_shade_of_subject_ramp",
+        "fallback_color_index": 0
+      },
+      "shading": {
+        "ramp_steps": 3,
+        "light_direction": "top_left"
+      },
+      "anchor": {
+        "terrain_tile": "top_left",
+        "character": "bottom_center",
+        "enemy": "bottom_center",
+        "item_icon": "center",
+        "ui_element": "center"
+      },
+      "background": {
+        "mode": "transparent",
+        "alpha": "hard"
+      },
+      "grid": {
+        "base_unit": 16
+      },
+      "naming": {
+        "convention": "{class}_{name}[_{variant}].png",
+        "class_prefixes": {
+          "terrain_tile": "tile",
+          "character": "char",
+          "enemy": "enemy",
+          "item_icon": "icon",
+          "ui_element": "ui"
+        }
+      },
+      "asset_set": [
+        {
+          "class": "terrain_tile",
+          "name": "grass"
+        },
+        {
+          "class": "terrain_tile",
+          "name": "dirt"
+        },
+        {
+          "class": "terrain_tile",
+          "name": "water"
+        },
+        {
+          "class": "terrain_tile",
+          "name": "stone"
+        }
+      ]
+    },
+    "mechanics": {
+      "archetypes": [
+        {
+          "id": "overworld",
+          "kind": "top_down_controller",
+          "params": {
+            "move_speed": 72,
+            "accel": 620,
+            "friction": 460,
+            "diagonal_normalized": true,
+            "attack_range": 30,
+            "attack_cooldown": 0.4
+          }
+        }
+      ]
+    },
+    "project": {
+      "title": "Vanguard - Greenweald Detour",
+      "genre": "action-adventure",
+      "camera": "top_down",
+      "control_scheme": "overworld",
+      "core_loop": "explore the marsh, fight agitated wildlife, find Lida's rod and herbs",
+      "target_resolution": {
+        "w": 320,
+        "h": 180
+      }
+    },
+    "narrative": {
+      "premise": "Lattice surges from the attack on Thornwall have disturbed the Greenweald marshes, Lida's home territory. The road south is blocked by Ashguard patrols, but a side path leads into the wetlands.",
+      "beats": [
+        "the road home is closed",
+        "the marsh is agitated",
+        "Tova's cottage stands empty"
+      ],
+      "factions": [
+        {
+          "id": "thornwall",
+          "name": "Thornwall"
+        },
+        {
+          "id": "wildlife",
+          "name": "Greenweald Wildlife"
+        }
+      ],
+      "characters": [
+        {
+          "id": "maren",
+          "name": "Maren",
+          "role": "protagonist",
+          "faction": "thornwall"
+        },
+        {
+          "id": "lida",
+          "name": "Lida",
+          "role": "ally",
+          "faction": "thornwall"
+        }
+      ]
+    },
+    "entities": {
+      "characters": [
+        {
+          "id": "maren",
+          "name": "Maren",
+          "stats": {
+            "hp": 34,
+            "atk": 4,
+            "def": 3,
+            "spd": 6,
+            "mp": 18,
+            "mp_regen": 1.5
+          },
+          "behavior_archetype": "overworld",
+          "abilities": [
+            "conduit_pulse",
+            "mend",
+            "surge_step"
+          ],
+          "sprite": {
+            "archetype": "humanoid",
+            "config": {
+              "hair": [
+                86,
+                66,
+                48
+              ],
+              "shirt": [
+                92,
+                116,
+                150
+              ],
+              "pants": [
+                72,
+                66,
+                84
+              ],
+              "held": "staff",
+              "held_color": [
+                150,
+                122,
+                84
+              ]
+            }
+          }
+        }
+      ],
+      "enemies": [
+        {
+          "id": "marsh_viper",
+          "name": "Marsh Viper",
+          "stats": {
+            "hp": 18,
+            "atk": 6,
+            "def": 2,
+            "speed": 40,
+            "aggro_radius": 100
+          },
+          "behavior_archetype": "overworld",
+          "ai": "chase",
+          "sprite": {
+            "archetype": "serpent",
+            "config": {
+              "build": "viper",
+              "color": [
+                104,
+                132,
+                86
+              ]
+            }
+          }
+        },
+        {
+          "id": "bog_toad",
+          "name": "Bog Toad",
+          "stats": {
+            "hp": 24,
+            "atk": 5,
+            "def": 4,
+            "speed": 22,
+            "patrol_distance": 40
+          },
+          "behavior_archetype": "overworld",
+          "ai": "patrol",
+          "sprite": {
+            "archetype": "blob",
+            "config": {
+              "build": "slime",
+              "color": [
+                96,
+                124,
+                84
+              ]
+            }
+          }
+        },
+        {
+          "id": "plains_wolf",
+          "name": "Plains Wolf",
+          "stats": {
+            "hp": 22,
+            "atk": 7,
+            "def": 3,
+            "speed": 46,
+            "aggro_radius": 120
+          },
+          "behavior_archetype": "overworld",
+          "ai": "chase",
+          "sprite": {
+            "archetype": "quadruped",
+            "config": {
+              "build": "wolf",
+              "color": [
+                126,
+                118,
+                108
+              ]
+            }
+          }
+        },
+        {
+          "id": "thornwall_kestrel",
+          "name": "Thornwall Kestrel",
+          "stats": {
+            "hp": 16,
+            "atk": 5,
+            "def": 2,
+            "speed": 54,
+            "aggro_radius": 90
+          },
+          "behavior_archetype": "overworld",
+          "ai": "chase",
+          "sprite": {
+            "archetype": "flyer",
+            "config": {
+              "build": "bird",
+              "color": [
+                150,
+                116,
+                78
+              ]
+            }
+          }
+        },
+        {
+          "id": "mud_puddle",
+          "name": "Mud Puddle",
+          "stats": {
+            "hp": 28,
+            "atk": 3,
+            "def": 5
+          },
+          "behavior_archetype": "overworld",
+          "ai": "idle",
+          "sprite": {
+            "archetype": "blob",
+            "config": {
+              "build": "ooze",
+              "color": [
+                118,
+                96,
+                70
+              ]
+            }
+          }
+        },
+        {
+          "id": "thornbug",
+          "name": "Thornbug",
+          "stats": {
+            "hp": 25,
+            "atk": 5,
+            "def": 6,
+            "speed": 18,
+            "patrol_distance": 28
+          },
+          "behavior_archetype": "overworld",
+          "ai": "patrol",
+          "sprite": {
+            "archetype": "beetle",
+            "config": {
+              "build": "beetle",
+              "color": [
+                92,
+                84,
+                64
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "abilities": {
+      "abilities": [
+        {
+          "id": "conduit_pulse",
+          "name": "Conduit Pulse",
+          "kind": "projectile",
+          "power": 5,
+          "cooldown": 0.7,
+          "cost": 3,
+          "speed": 150,
+          "range": 130,
+          "sprite": {
+            "archetype": "projectile",
+            "config": {
+              "kind": "bolt",
+              "color": [
+                126,
+                196,
+                214
+              ]
+            }
+          }
+        },
+        {
+          "id": "mend",
+          "name": "Mend",
+          "kind": "heal",
+          "power": 8,
+          "cooldown": 6,
+          "cost": 6
+        },
+        {
+          "id": "surge_step",
+          "name": "Surge Step",
+          "kind": "dash",
+          "power": 26,
+          "cooldown": 2,
+          "cost": 2
+        }
+      ]
+    },
+    "items": {
+      "rarity_tiers": [
+        {
+          "id": "common",
+          "name": "Common",
+          "weight": 3
+        },
+        {
+          "id": "uncommon",
+          "name": "Uncommon",
+          "weight": 1
+        }
+      ],
+      "items": [
+        {
+          "id": "carved_rod",
+          "name": "Carved Rod",
+          "slot": "weapon",
+          "rarity": "uncommon",
+          "stats": {
+            "atk": 4
+          },
+          "sprite": {
+            "archetype": "weapon",
+            "config": {
+              "kind": "wand",
+              "orb": [
+                126,
+                196,
+                214
+              ]
+            }
+          }
+        },
+        {
+          "id": "militia_sword",
+          "name": "Militia Sword",
+          "slot": "weapon",
+          "rarity": "common",
+          "stats": {
+            "atk": 4
+          },
+          "sprite": {
+            "archetype": "weapon",
+            "config": {
+              "kind": "sword"
+            }
+          }
+        },
+        {
+          "id": "linen_tunic",
+          "name": "Linen Tunic",
+          "slot": "armor",
+          "rarity": "common",
+          "stats": {
+            "def": 2
+          },
+          "sprite": {
+            "archetype": "consumable",
+            "config": {
+              "shape": "pouch",
+              "cork": [
+                196,
+                184,
+                156
+              ]
+            }
+          }
+        },
+        {
+          "id": "power_band",
+          "name": "Power Band",
+          "slot": "accessory",
+          "rarity": "uncommon",
+          "stats": {
+            "atk": 3
+          },
+          "sprite": {
+            "archetype": "pickup",
+            "config": {
+              "shape": "ring",
+              "color": [
+                204,
+                168,
+                96
+              ]
+            }
+          }
+        },
+        {
+          "id": "marsh_herbs",
+          "name": "Medicinal Herbs",
+          "slot": "consumable",
+          "rarity": "common",
+          "sprite": {
+            "archetype": "consumable",
+            "config": {
+              "shape": "flask",
+              "liquid": [
+                124,
+                186,
+                108
+              ]
+            }
+          }
+        }
+      ],
+      "drop_tables": [
+        {
+          "enemy_id": "marsh_viper",
+          "nothing_weight": 2,
+          "drops": [
+            {
+              "item_id": "marsh_herbs",
+              "weight": 3
+            }
+          ]
+        },
+        {
+          "enemy_id": "bog_toad",
+          "nothing_weight": 3,
+          "drops": [
+            {
+              "item_id": "marsh_herbs",
+              "weight": 2
+            }
+          ]
+        },
+        {
+          "enemy_id": "plains_wolf",
+          "nothing_weight": 4,
+          "drops": [
+            {
+              "item_id": "power_band",
+              "weight": 1
+            }
+          ]
+        },
+        {
+          "enemy_id": "thornbug",
+          "nothing_weight": 3,
+          "drops": [
+            {
+              "item_id": "linen_tunic",
+              "weight": 1
+            }
+          ]
+        }
+      ]
+    },
+    "economy": {
+      "currency": {
+        "name": "Marks",
+        "symbol": "M"
+      },
+      "progression_pacing": {
+        "xp_curve": "linear",
+        "levels": 30
+      }
+    },
+    "world": {
+      "regions": [
+        {
+          "id": "thornwall",
+          "biome": "marsh",
+          "tileset_ref": "greenweald",
+          "levels": [
+            "greenweald_marsh",
+            "tova_cottage"
+          ]
+        }
+      ]
+    },
+    "levels": {
+      "levels": [
+        {
+          "id": "greenweald_marsh",
+          "region": "thornwall",
+          "legend": {
+            "#": "stone",
+            ".": "grass",
+            ",": "dirt",
+            "~": "water"
+          },
+          "rows": [
+            "####################",
+            "#..................#",
+            "#..,,,,,,..~~~~~...#",
+            "#..,....,..~~~~~~..#",
+            "#..,....,...~~~~...#",
+            "#..,,,,,,....~~....#",
+            "#.......,..........#",
+            "#..~~~..,....~~~~..#",
+            "#.~~~~~.,...~~~~~~.#",
+            "#..~~~..,,,,..~~~..#",
+            "#...........,......#",
+            "####################"
+          ],
+          "player_spawn": {
+            "x": 8,
+            "y": 10
+          },
+          "spawns": [
+            {
+              "id": "marsh_viper",
+              "kind": "enemy",
+              "x": 4,
+              "y": 6
+            },
+            {
+              "id": "marsh_viper",
+              "kind": "enemy",
+              "x": 16,
+              "y": 5
+            },
+            {
+              "id": "bog_toad",
+              "kind": "enemy",
+              "x": 13,
+              "y": 10
+            },
+            {
+              "id": "mud_puddle",
+              "kind": "enemy",
+              "x": 6,
+              "y": 3
+            },
+            {
+              "id": "thornbug",
+              "kind": "enemy",
+              "x": 17,
+              "y": 9
+            },
+            {
+              "id": "thornwall_kestrel",
+              "kind": "enemy",
+              "x": 10,
+              "y": 1
+            },
+            {
+              "id": "plains_wolf",
+              "kind": "enemy",
+              "x": 2,
+              "y": 10
+            },
+            {
+              "id": "militia_sword",
+              "kind": "item",
+              "x": 8,
+              "y": 6
+            }
+          ],
+          "exits": [
+            {
+              "x": 8,
+              "y": 2,
+              "to": "tova_cottage",
+              "to_spawn": {
+                "x": 8,
+                "y": 5
+              }
+            }
+          ]
+        },
+        {
+          "id": "tova_cottage",
+          "region": "thornwall",
+          "legend": {
+            "#": "stone",
+            ".": "dirt",
+            ",": "grass"
+          },
+          "rows": [
+            "############",
+            "#..........#",
+            "#..######..#",
+            "#..#....#..#",
+            "#..#....#..#",
+            "#..#....,..#",
+            "#..######..#",
+            "#..........#",
+            "#..........#",
+            "############"
+          ],
+          "player_spawn": {
+            "x": 8,
+            "y": 5
+          },
+          "spawns": [
+            {
+              "id": "carved_rod",
+              "kind": "item",
+              "x": 5,
+              "y": 4
+            },
+            {
+              "id": "marsh_herbs",
+              "kind": "item",
+              "x": 6,
+              "y": 4
+            }
+          ],
+          "exits": [
+            {
+              "x": 8,
+              "y": 8,
+              "to": "greenweald_marsh",
+              "to_spawn": {
+                "x": 8,
+                "y": 3
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "history": [
+    {
+      "version": 1,
+      "domain": "style_contract",
+      "op": "set",
+      "at": "2026-07-26T23:24:46+00:00",
+      "provenance": {
+        "actor": "vanguard-sim",
+        "reason": "Meristem default; Vanguard's own guide is 32x32 hue-shifted, the same standard"
+      },
+      "diff": {
+        "added": {
+          "outline": {
+            "policy": "selective_dark_1px",
+            "color_rule": "darkest_shade_of_subject_ramp",
+            "fallback_color_index": 0
+          },
+          "asset_set": [
+            {
+              "class": "terrain_tile",
+              "name": "grass"
+            },
+            {
+              "class": "terrain_tile",
+              "name": "dirt"
+            },
+            {
+              "class": "terrain_tile",
+              "name": "water"
+            },
+            {
+              "class": "terrain_tile",
+              "name": "stone"
+            }
+          ],
+          "naming": {
+            "convention": "{class}_{name}[_{variant}].png",
+            "class_prefixes": {
+              "terrain_tile": "tile",
+              "character": "char",
+              "enemy": "enemy",
+              "item_icon": "icon",
+              "ui_element": "ui"
+            }
+          },
+          "version": 1,
+          "shading": {
+            "ramp_steps": 3,
+            "light_direction": "top_left"
+          },
+          "grid": {
+            "base_unit": 16
+          },
+          "name": "pico8-default-v1",
+          "palette": {
+            "source": "PICO-8 (Lexaloffle)",
+            "license": "CC0",
+            "colors": [
+              {
+                "i": 0,
+                "hex": "#000000",
+                "name": "black"
+              },
+              {
+                "i": 1,
+                "hex": "#1D2B53",
+                "name": "dark_blue"
+              },
+              {
+                "i": 2,
+                "hex": "#7E2553",
+                "name": "dark_purple"
+              },
+              {
+                "i": 3,
+                "hex": "#008751",
+                "name": "dark_green"
+              },
+              {
+                "i": 4,
+                "hex": "#AB5236",
+                "name": "brown"
+              },
+              {
+                "i": 5,
+                "hex": "#5F574F",
+                "name": "dark_grey"
+              },
+              {
+                "i": 6,
+                "hex": "#C2C3C7",
+                "name": "light_grey"
+              },
+              {
+                "i": 7,
+                "hex": "#FFF1E8",
+                "name": "white"
+              },
+              {
+                "i": 8,
+                "hex": "#FF004D",
+                "name": "red"
+              },
+              {
+                "i": 9,
+                "hex": "#FFA300",
+                "name": "orange"
+              },
+              {
+                "i": 10,
+                "hex": "#FFEC27",
+                "name": "yellow"
+              },
+              {
+                "i": 11,
+                "hex": "#00E436",
+                "name": "green"
+              },
+              {
+                "i": 12,
+                "hex": "#29ADFF",
+                "name": "blue"
+              },
+              {
+                "i": 13,
+                "hex": "#83769C",
+                "name": "lavender"
+              },
+              {
+                "i": 14,
+                "hex": "#FF77A8",
+                "name": "pink"
+              },
+              {
+                "i": 15,
+                "hex": "#FFCCAA",
+                "name": "peach"
+              }
+            ],
+            "free_classes": [
+              "character",
+              "enemy",
+              "item_icon",
+              "ui_element",
+              "terrain_tile"
+            ]
+          },
+          "canvas": {
+            "terrain_tile": {
+              "w": 16,
+              "h": 16
+            },
+            "character": {
+              "w": 32,
+              "h": 32
+            },
+            "enemy": {
+              "w": 32,
+              "h": 32
+            },
+            "item_icon": {
+              "w": 16,
+              "h": 16
+            },
+            "ui_element": {
+              "w": 16,
+              "h": 16
+            }
+          },
+          "anchor": {
+            "terrain_tile": "top_left",
+            "character": "bottom_center",
+            "enemy": "bottom_center",
+            "item_icon": "center",
+            "ui_element": "center"
+          },
+          "background": {
+            "mode": "transparent",
+            "alpha": "hard"
+          }
+        },
+        "removed": {},
+        "changed": {},
+        "has_changes": true
+      }
+    },
+    {
+      "version": 2,
+      "domain": "mechanics",
+      "op": "set",
+      "at": "2026-07-26T23:24:46+00:00",
+      "provenance": {
+        "actor": "vanguard-sim",
+        "reason": "Vanguard's overworld is top-down; its battles are a separate scene"
+      },
+      "diff": {
+        "added": {
+          "archetypes": [
+            {
+              "id": "overworld",
+              "kind": "top_down_controller",
+              "params": {
+                "move_speed": 72,
+                "accel": 620,
+                "friction": 460,
+                "diagonal_normalized": true,
+                "attack_range": 30,
+                "attack_cooldown": 0.4
+              }
+            }
+          ]
+        },
+        "removed": {},
+        "changed": {},
+        "has_changes": true
+      }
+    },
+    {
+      "version": 3,
+      "domain": "project",
+      "op": "set",
+      "at": "2026-07-26T23:24:46+00:00",
+      "provenance": {
+        "actor": "vanguard-sim",
+        "reason": "Act 1 scene 1-7, the optional Greenweald dungeon"
+      },
+      "diff": {
+        "added": {
+          "genre": "action-adventure",
+          "title": "Vanguard - Greenweald Detour",
+          "camera": "top_down",
+          "core_loop": "explore the marsh, fight agitated wildlife, find Lida's rod and herbs",
+          "target_resolution": {
+            "w": 320,
+            "h": 180
+          },
+          "control_scheme": "overworld"
+        },
+        "removed": {},
+        "changed": {},
+        "has_changes": true
+      }
+    },
+    {
+      "version": 4,
+      "domain": "narrative",
+      "op": "set",
+      "at": "2026-07-26T23:24:46+00:00",
+      "provenance": {
+        "actor": "vanguard-sim",
+        "reason": "premise and beats from quest_scene_list 1-7"
+      },
+      "diff": {
+        "added": {
+          "characters": [
+            {
+              "id": "maren",
+              "name": "Maren",
+              "role": "protagonist",
+              "faction": "thornwall"
+            },
+            {
+              "id": "lida",
+              "name": "Lida",
+              "role": "ally",
+              "faction": "thornwall"
+            }
+          ],
+          "beats": [
+            "the road home is closed",
+            "the marsh is agitated",
+            "Tova's cottage stands empty"
+          ],
+          "factions": [
+            {
+              "id": "thornwall",
+              "name": "Thornwall"
+            },
+            {
+              "id": "wildlife",
+              "name": "Greenweald Wildlife"
+            }
+          ],
+          "premise": "Lattice surges from the attack on Thornwall have disturbed the Greenweald marshes, Lida's home territory. The road south is blocked by Ashguard patrols, but a side path leads into the wetlands."
+        },
+        "removed": {},
+        "changed": {},
+        "has_changes": true
+      }
+    },
+    {
+      "version": 5,
+      "domain": "entities",
+      "op": "set",
+      "at": "2026-07-26T23:24:46+00:00",
+      "provenance": {
+        "actor": "vanguard-sim",
+        "reason": "Maren plus the six region-1 enemies at their documented E1 stats"
+      },
+      "diff": {
+        "added": {
+          "characters": [
+            {
+              "id": "maren",
+              "name": "Maren",
+              "stats": {
+                "hp": 34,
+                "atk": 4,
+                "def": 3,
+                "spd": 6,
+                "mp": 18,
+                "mp_regen": 1.5
+              },
+              "behavior_archetype": "overworld",
+              "abilities": [
+                "conduit_pulse",
+                "mend",
+                "surge_step"
+              ],
+              "sprite": {
+                "archetype": "humanoid",
+                "config": {
+                  "hair": [
+                    86,
+                    66,
+                    48
+                  ],
+                  "shirt": [
+                    92,
+                    116,
+                    150
+                  ],
+                  "pants": [
+                    72,
+                    66,
+                    84
+                  ],
+                  "held": "staff",
+                  "held_color": [
+                    150,
+                    122,
+                    84
+                  ]
+                }
+              }
+            }
+          ],
+          "enemies": [
+            {
+              "id": "marsh_viper",
+              "name": "Marsh Viper",
+              "stats": {
+                "hp": 18,
+                "atk": 6,
+                "def": 2,
+                "speed": 40,
+                "aggro_radius": 100
+              },
+              "behavior_archetype": "overworld",
+              "ai": "chase",
+              "sprite": {
+                "archetype": "serpent",
+                "config": {
+                  "build": "viper",
+                  "color": [
+                    104,
+                    132,
+                    86
+                  ]
+                }
+              }
+            },
+            {
+              "id": "bog_toad",
+              "name": "Bog Toad",
+              "stats": {
+                "hp": 24,
+                "atk": 5,
+                "def": 4,
+                "speed": 22,
+                "patrol_distance": 40
+              },
+              "behavior_archetype": "overworld",
+              "ai": "patrol",
+              "sprite": {
+                "archetype": "blob",
+                "config": {
+                  "build": "slime",
+                  "color": [
+                    96,
+                    124,
+                    84
+                  ]
+                }
+              }
+            },
+            {
+              "id": "plains_wolf",
+              "name": "Plains Wolf",
+              "stats": {
+                "hp": 22,
+                "atk": 7,
+                "def": 3,
+                "speed": 46,
+                "aggro_radius": 120
+              },
+              "behavior_archetype": "overworld",
+              "ai": "chase",
+              "sprite": {
+                "archetype": "quadruped",
+                "config": {
+                  "build": "wolf",
+                  "color": [
+                    126,
+                    118,
+                    108
+                  ]
+                }
+              }
+            },
+            {
+              "id": "thornwall_kestrel",
+              "name": "Thornwall Kestrel",
+              "stats": {
+                "hp": 16,
+                "atk": 5,
+                "def": 2,
+                "speed": 54,
+                "aggro_radius": 90
+              },
+              "behavior_archetype": "overworld",
+              "ai": "chase",
+              "sprite": {
+                "archetype": "flyer",
+                "config": {
+                  "build": "bird",
+                  "color": [
+                    150,
+                    116,
+                    78
+                  ]
+                }
+              }
+            },
+            {
+              "id": "mud_puddle",
+              "name": "Mud Puddle",
+              "stats": {
+                "hp": 28,
+                "atk": 3,
+                "def": 5
+              },
+              "behavior_archetype": "overworld",
+              "ai": "idle",
+              "sprite": {
+                "archetype": "blob",
+                "config": {
+                  "build": "ooze",
+                  "color": [
+                    118,
+                    96,
+                    70
+                  ]
+                }
+              }
+            },
+            {
+              "id": "thornbug",
+              "name": "Thornbug",
+              "stats": {
+                "hp": 25,
+                "atk": 5,
+                "def": 6,
+                "speed": 18,
+                "patrol_distance": 28
+              },
+              "behavior_archetype": "overworld",
+              "ai": "patrol",
+              "sprite": {
+                "archetype": "beetle",
+                "config": {
+                  "build": "beetle",
+                  "color": [
+                    92,
+                    84,
+                    64
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "removed": {},
+        "changed": {},
+        "has_changes": true
+      }
+    },
+    {
+      "version": 6,
+      "domain": "abilities",
+      "op": "set",
+      "at": "2026-07-26T23:24:46+00:00",
+      "provenance": {
+        "actor": "vanguard-sim",
+        "reason": "Conduit Pulse is Maren's documented starting action; Mend is the Attunement unlocked in 1-6"
+      },
+      "diff": {
+        "added": {
+          "abilities": [
+            {
+              "id": "conduit_pulse",
+              "name": "Conduit Pulse",
+              "kind": "projectile",
+              "power": 5,
+              "cooldown": 0.7,
+              "cost": 3,
+              "speed": 150,
+              "range": 130,
+              "sprite": {
+                "archetype": "projectile",
+                "config": {
+                  "kind": "bolt",
+                  "color": [
+                    126,
+                    196,
+                    214
+                  ]
+                }
+              }
+            },
+            {
+              "id": "mend",
+              "name": "Mend",
+              "kind": "heal",
+              "power": 8,
+              "cooldown": 6,
+              "cost": 6
+            },
+            {
+              "id": "surge_step",
+              "name": "Surge Step",
+              "kind": "dash",
+              "power": 26,
+              "cooldown": 2,
+              "cost": 2
+            }
+          ]
+        },
+        "removed": {},
+        "changed": {},
+        "has_changes": true
+      }
+    },
+    {
+      "version": 7,
+      "domain": "items",
+      "op": "set",
+      "at": "2026-07-26T23:24:46+00:00",
+      "provenance": {
+        "actor": "vanguard-sim",
+        "reason": "T1 Thornwall gear from items_equipment.md; herbs are the documented 1-7 reward"
+      },
+      "diff": {
+        "added": {
+          "items": [
+            {
+              "id": "carved_rod",
+              "name": "Carved Rod",
+              "slot": "weapon",
+              "rarity": "uncommon",
+              "stats": {
+                "atk": 4
+              },
+              "sprite": {
+                "archetype": "weapon",
+                "config": {
+                  "kind": "wand",
+                  "orb": [
+                    126,
+                    196,
+                    214
+                  ]
+                }
+              }
+            },
+            {
+              "id": "militia_sword",
+              "name": "Militia Sword",
+              "slot": "weapon",
+              "rarity": "common",
+              "stats": {
+                "atk": 4
+              },
+              "sprite": {
+                "archetype": "weapon",
+                "config": {
+                  "kind": "sword"
+                }
+              }
+            },
+            {
+              "id": "linen_tunic",
+              "name": "Linen Tunic",
+              "slot": "armor",
+              "rarity": "common",
+              "stats": {
+                "def": 2
+              },
+              "sprite": {
+                "archetype": "consumable",
+                "config": {
+                  "shape": "pouch",
+                  "cork": [
+                    196,
+                    184,
+                    156
+                  ]
+                }
+              }
+            },
+            {
+              "id": "power_band",
+              "name": "Power Band",
+              "slot": "accessory",
+              "rarity": "uncommon",
+              "stats": {
+                "atk": 3
+              },
+              "sprite": {
+                "archetype": "pickup",
+                "config": {
+                  "shape": "ring",
+                  "color": [
+                    204,
+                    168,
+                    96
+                  ]
+                }
+              }
+            },
+            {
+              "id": "marsh_herbs",
+              "name": "Medicinal Herbs",
+              "slot": "consumable",
+              "rarity": "common",
+              "sprite": {
+                "archetype": "consumable",
+                "config": {
+                  "shape": "flask",
+                  "liquid": [
+                    124,
+                    186,
+                    108
+                  ]
+                }
+              }
+            }
+          ],
+          "rarity_tiers": [
+            {
+              "id": "common",
+              "name": "Common",
+              "weight": 3
+            },
+            {
+              "id": "uncommon",
+              "name": "Uncommon",
+              "weight": 1
+            }
+          ],
+          "drop_tables": [
+            {
+              "enemy_id": "marsh_viper",
+              "nothing_weight": 2,
+              "drops": [
+                {
+                  "item_id": "marsh_herbs",
+                  "weight": 3
+                }
+              ]
+            },
+            {
+              "enemy_id": "bog_toad",
+              "nothing_weight": 3,
+              "drops": [
+                {
+                  "item_id": "marsh_herbs",
+                  "weight": 2
+                }
+              ]
+            },
+            {
+              "enemy_id": "plains_wolf",
+              "nothing_weight": 4,
+              "drops": [
+                {
+                  "item_id": "power_band",
+                  "weight": 1
+                }
+              ]
+            },
+            {
+              "enemy_id": "thornbug",
+              "nothing_weight": 3,
+              "drops": [
+                {
+                  "item_id": "linen_tunic",
+                  "weight": 1
+                }
+              ]
+            }
+          ]
+        },
+        "removed": {},
+        "changed": {},
+        "has_changes": true
+      }
+    },
+    {
+      "version": 8,
+      "domain": "economy",
+      "op": "set",
+      "at": "2026-07-26T23:24:46+00:00",
+      "provenance": {
+        "actor": "vanguard-sim",
+        "reason": "currency named in second_pass_resolutions; 30 levels per progression_balance"
+      },
+      "diff": {
+        "added": {
+          "currency": {
+            "name": "Marks",
+            "symbol": "M"
+          },
+          "progression_pacing": {
+            "xp_curve": "linear",
+            "levels": 30
+          }
+        },
+        "removed": {},
+        "changed": {},
+        "has_changes": true
+      }
+    },
+    {
+      "version": 9,
+      "domain": "world",
+      "op": "set",
+      "at": "2026-07-26T23:24:46+00:00",
+      "provenance": {
+        "actor": "vanguard-sim",
+        "reason": "Thornwall region, Greenweald marshes"
+      },
+      "diff": {
+        "added": {
+          "regions": [
+            {
+              "id": "thornwall",
+              "biome": "marsh",
+              "tileset_ref": "greenweald",
+              "levels": [
+                "greenweald_marsh",
+                "tova_cottage"
+              ]
+            }
+          ]
+        },
+        "removed": {},
+        "changed": {},
+        "has_changes": true
+      }
+    },
+    {
+      "version": 10,
+      "domain": "levels",
+      "op": "set",
+      "at": "2026-07-26T23:24:46+00:00",
+      "provenance": {
+        "actor": "vanguard-sim",
+        "reason": "the marsh plus Tova's empty cottage, both from scene 1-7"
+      },
+      "diff": {
+        "added": {
+          "levels": [
+            {
+              "id": "greenweald_marsh",
+              "region": "thornwall",
+              "legend": {
+                "#": "stone",
+                ".": "grass",
+                ",": "dirt",
+                "~": "water"
+              },
+              "rows": [
+                "####################",
+                "#..................#",
+                "#..,,,,,,..~~~~~...#",
+                "#..,....,..~~~~~~..#",
+                "#..,....,...~~~~...#",
+                "#..,,,,,,....~~....#",
+                "#.......,..........#",
+                "#..~~~..,....~~~~..#",
+                "#.~~~~~.,...~~~~~~.#",
+                "#..~~~..,,,,..~~~..#",
+                "#...........,......#",
+                "####################"
+              ],
+              "player_spawn": {
+                "x": 8,
+                "y": 10
+              },
+              "spawns": [
+                {
+                  "id": "marsh_viper",
+                  "kind": "enemy",
+                  "x": 4,
+                  "y": 6
+                },
+                {
+                  "id": "marsh_viper",
+                  "kind": "enemy",
+                  "x": 16,
+                  "y": 5
+                },
+                {
+                  "id": "bog_toad",
+                  "kind": "enemy",
+                  "x": 13,
+                  "y": 10
+                },
+                {
+                  "id": "mud_puddle",
+                  "kind": "enemy",
+                  "x": 6,
+                  "y": 3
+                },
+                {
+                  "id": "thornbug",
+                  "kind": "enemy",
+                  "x": 17,
+                  "y": 9
+                },
+                {
+                  "id": "thornwall_kestrel",
+                  "kind": "enemy",
+                  "x": 10,
+                  "y": 1
+                },
+                {
+                  "id": "plains_wolf",
+                  "kind": "enemy",
+                  "x": 2,
+                  "y": 10
+                },
+                {
+                  "id": "militia_sword",
+                  "kind": "item",
+                  "x": 8,
+                  "y": 6
+                }
+              ],
+              "exits": [
+                {
+                  "x": 8,
+                  "y": 2,
+                  "to": "tova_cottage",
+                  "to_spawn": {
+                    "x": 8,
+                    "y": 5
+                  }
+                }
+              ]
+            },
+            {
+              "id": "tova_cottage",
+              "region": "thornwall",
+              "legend": {
+                "#": "stone",
+                ".": "dirt",
+                ",": "grass"
+              },
+              "rows": [
+                "############",
+                "#..........#",
+                "#..######..#",
+                "#..#....#..#",
+                "#..#....#..#",
+                "#..#....,..#",
+                "#..######..#",
+                "#..........#",
+                "#..........#",
+                "############"
+              ],
+              "player_spawn": {
+                "x": 8,
+                "y": 5
+              },
+              "spawns": [
+                {
+                  "id": "carved_rod",
+                  "kind": "item",
+                  "x": 5,
+                  "y": 4
+                },
+                {
+                  "id": "marsh_herbs",
+                  "kind": "item",
+                  "x": 6,
+                  "y": 4
+                }
+              ],
+              "exits": [
+                {
+                  "x": 8,
+                  "y": 8,
+                  "to": "greenweald_marsh",
+                  "to_spawn": {
+                    "x": 8,
+                    "y": 3
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "removed": {},
+        "changed": {},
+        "has_changes": true
+      }
+    }
+  ]
+}
