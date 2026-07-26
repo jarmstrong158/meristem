@@ -40,3 +40,13 @@ Every sprite is built to the one construction standard (dec-0021): named materia
 3-shade hue-shifted ramps, top-left light, selective outline (no colour-count limit). That shared
 standard — not a single locked palette — is what makes independently-built assets read
 as one game.
+
+## Two defaults worth knowing
+
+- **`pickup.color` defaults per shape**, not globally: a heart is red, a gem is blue,
+  a skull is bone, a coin is gold. Passing `color` explicitly still overrides it.
+- **A `build`/`kind` changes the silhouette, not just the trim.** Variants within an
+  archetype are required to be distinguishable as pure alpha masks — see
+  `test_quadruped_builds_differ_in_silhouette` and the note in
+  [research/03-quadruped.md](../research/03-quadruped.md) §6 on why byte-difference
+  tests are not enough to keep that true.

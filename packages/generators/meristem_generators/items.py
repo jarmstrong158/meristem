@@ -39,21 +39,39 @@ def _grip(cv, grip, gold, c0, c1, r0, r1):
     cv.rect(r1 + 1, r1 + 1, c0, c1, gold.base)              # pommel
 
 
-def _wp_sword(cv, blade, gold, grip, wood, orb, big=False):
-    if big:                                                  # greatsword
-        _vblade(cv, blade, 6, 9, 1, 10)
-        _guard(cv, gold, 11, 3, 12); cv.rect(12, 12, 4, 11, gold.shadow)
-        _grip(cv, grip, gold, 7, 8, 12, 14)
-    else:                                                    # sword
-        _vblade(cv, blade, 6, 8, 2, 10)
-        _guard(cv, gold, 11, 4, 11)
-        _grip(cv, grip, gold, 6, 8, 12, 13)
+# The three blades must differ in OUTLINE, not just in overall length. They used to
+# be one drawing at three scales (same blade-to-guard ratio, same grip), so at 16px
+# the silhouettes were indistinguishable; what separates a dagger from a greatsword
+# to the eye is how far the guard overhangs the blade and how heavy the pommel is.
+def _wp_sword(cv, blade, gold, grip, wood, orb):
+    """Arming sword: medium blade under a wide cruciform guard."""
+    _vblade(cv, blade, 6, 8, 2, 10)
+    _guard(cv, gold, 11, 3, 12)                              # guard overhangs well past the blade
+    _grip(cv, grip, gold, 6, 8, 12, 14)
+
+
+def _wp_greatsword(cv, blade, gold, grip, wood, orb):
+    """Greatsword: a broad blade running off the top, a ricasso, flared quillons and
+    a heavy disc pommel — the widest, heaviest outline of the three."""
+    _vblade(cv, blade, 6, 9, 0, 8, tip=False)                # 4px blade, no room for a tip
+    cv.px(0, 7, blade.highlight); cv.px(0, 8, blade.highlight)
+    _vblade(cv, blade, 7, 8, 9, 10, tip=False)               # ricasso (narrow waist)
+    _guard(cv, gold, 11, 1, 14)                              # very wide crossguard
+    cv.px(12, 1, gold.base); cv.px(12, 14, gold.shadow)      # quillons turn down at the tips
+    cv.rect(12, 13, 7, 8, grip.base); cv.rect(12, 13, 8, 8, grip.shadow)
+    cv.rect(14, 15, 6, 9, gold.base)                         # heavy disc pommel
+    cv.px(14, 6, gold.highlight); cv.px(15, 9, gold.shadow)
 
 
 def _wp_dagger(cv, blade, gold, grip, wood, orb):
-    _vblade(cv, blade, 7, 8, 4, 9)
-    _guard(cv, gold, 10, 5, 10)
-    _grip(cv, grip, gold, 7, 8, 11, 12)
+    """Dagger: a short narrow blade on a guard that barely overhangs it. The three
+    blades are separated by GUARD SPAN — 4px here, 10 on the sword, 14 on the
+    greatsword — which is what the eye actually reads at icon size."""
+    _vblade(cv, blade, 7, 8, 4, 9)                           # short, narrow, pointed
+    cv.rect(10, 10, 6, 9, gold.base)                         # stubby guard
+    cv.px(10, 6, gold.highlight); cv.px(10, 9, gold.shadow)
+    cv.rect(11, 13, 7, 8, grip.base); cv.px(11, 8, grip.shadow); cv.px(13, 8, grip.shadow)
+    cv.px(14, 7, gold.base); cv.px(14, 8, gold.base)         # small pommel
 
 
 def _wp_axe(cv, blade, gold, grip, wood, orb):
@@ -120,9 +138,9 @@ def _wp_wand(cv, blade, gold, grip, wood, orb):
 
 
 _WEAPONS = {
-    "sword": lambda cv, b, g, gr, w, o: _wp_sword(cv, b, g, gr, w, o),
+    "sword": _wp_sword,
     "dagger": _wp_dagger,
-    "greatsword": lambda cv, b, g, gr, w, o: _wp_sword(cv, b, g, gr, w, o, big=True),
+    "greatsword": _wp_greatsword,
     "axe": _wp_axe,
     "spear": _wp_spear,
     "staff": _wp_staff,
@@ -273,8 +291,8 @@ def _pickup_ring(cv, color):
 
 
 def _pickup_skull(cv, color):
-    bone = Ramp((222, 220, 202))
-    dk = (46, 44, 52)
+    bone = Ramp(color)
+    dk = outline_dark(color)
     cv.disc(7, 8, 4, 4, bone.base)                                        # cranium
     cv.rect(11, 13, 5, 11, bone.base); cv.rect(13, 13, 6, 10, bone.base)  # jaw
     cv.rect(5, 6, 5, 7, bone.highlight)                                   # lit brow
@@ -282,7 +300,7 @@ def _pickup_skull(cv, color):
     cv.px(10, 8, dk); cv.px(10, 9, dk)                                    # nasal cavity
     for c in (7, 9, 11):
         cv.px(13, c, dk)                                                  # teeth gaps
-    cv.outline(outline_dark((222, 220, 202)))
+    cv.outline(dk)
 
 
 def _pickup_star(cv, color):
@@ -299,14 +317,31 @@ _PICKUPS = {"coin": _pickup_coin, "heart": _pickup_heart, "key": _pickup_key,
             "gem": _pickup_gem, "ring": _pickup_ring, "skull": _pickup_skull, "star": _pickup_star}
 
 
-PICKUP_DEFAULT = {"shape": "coin", "color": (240, 206, 84)}
+# A pickup's colour is part of what it IS — a heart is red, a skull is bone, an
+# emerald is green. One global gold default meant every shape came out gold: the
+# library sheet was a row of gold objects including a gold heart and a gold star,
+# and `_pickup_skull` quietly ignored `color` and hardcoded bone to escape it. So
+# the fallback is now per shape, and an explicit config colour still wins.
+_PICKUP_COLORS = {
+    "coin":  (240, 206, 84),
+    "heart": (216, 60, 76),
+    "key":   (206, 172, 96),
+    "gem":   (92, 190, 226),
+    "ring":  (238, 200, 96),
+    "skull": (222, 220, 202),
+    "star":  (248, 224, 112),
+}
+
+PICKUP_DEFAULT = {"shape": "coin", "color": _PICKUP_COLORS["coin"]}
 
 
 def pickup(contract, config=None) -> np.ndarray:
     cfg = {**PICKUP_DEFAULT, **(config or {})}
-    cls = "ui_element" if cfg["shape"] in ("coin", "heart") else "item_icon"
+    shape = cfg["shape"]
+    color = (config or {}).get("color") or _PICKUP_COLORS.get(shape, PICKUP_DEFAULT["color"])
+    cls = "ui_element" if shape in ("coin", "heart") else "item_icon"
     cv = _icon(contract, cls)
-    _PICKUPS.get(cfg["shape"], _pickup_coin)(cv, cfg["color"])
+    _PICKUPS.get(shape, _pickup_coin)(cv, color)
     return cv.array()
 
 
@@ -350,18 +385,43 @@ def chest(contract, config=None) -> np.ndarray:
     metal = Ramp(cfg["metal"])
     dark = outline_dark(cfg["wood"])
     cv = _icon(contract)
-    cv.rect(8, 14, 3, 12, wood.base)                        # box body
-    cv.rect(8, 14, 12, 12, wood.shadow); cv.rect(8, 9, 4, 6, wood.highlight)
+    # A chest reads as a chest from two things: it is WIDER than it is tall, and the
+    # lid is visibly a separate piece. The old one was a narrow upright box whose lid
+    # was painted in the same wood.base as the body with no seam between them, so all
+    # four builds read as a flat plank with two stripes — and `open` only swapped a
+    # yellow band in, leaving open and closed all but identical.
+    # Two cues do the work, and the old chest had neither: the lid OVERHANGS the body
+    # (lid cols 1-14, body cols 2-13), and the body sits in the lid's cast shadow. A
+    # 1px seam alone is not enough — lid and body were both flat wood.base, so all
+    # four builds read as a plank with two stripes.
+    cv.rect(9, 14, 2, 13, wood.base)                         # body: wide and low
+    cv.rect(9, 9, 2, 13, wood.shadow)                        # cast shadow under the overhang
+    cv.rect(9, 14, 12, 13, wood.shadow)                      # right face turns away
+    cv.rect(10, 12, 3, 6, wood.highlight)                    # lit upper-left of the front
+    cv.rect(14, 14, 3, 12, wood.shadow)                      # ground contact
+
     if cfg["open"]:
-        cv.rect(3, 5, 3, 12, wood.shadow)                   # lifted lid (behind)
-        cv.rect(6, 7, 4, 11, (255, 236, 150)); cv.px(6, 5, (255, 255, 210))   # gold inside
+        cv.rect(0, 2, 1, 14, wood.shadow)                    # lid swung back, underside to us
+        cv.rect(1, 1, 3, 12, wood.base)
+        cv.rect(3, 8, 3, 12, dark)                           # a real open cavity
+        cv.rect(6, 8, 4, 11, (255, 226, 120))                # treasure heaped inside
+        cv.px(5, 6, (255, 250, 206)); cv.px(6, 9, (255, 250, 206))   # glints
+        cv.px(7, 5, (255, 250, 206))
     else:
-        cv.rect(5, 7, 3, 12, wood.base); cv.rect(4, 4, 4, 11, wood.base)      # domed lid
-        cv.rect(5, 5, 4, 7, wood.highlight); cv.rect(7, 7, 3, 12, wood.shadow)
-    for bc in (4, 11):                                       # metal bands
-        cv.rect(4, 14, bc, bc, metal.base)
-    cv.rect(9, 11, 7, 8, metal.base); cv.px(9, 7, metal.highlight)   # lock
-    cv.px(11, 7, dark)                                       # keyhole
+        cv.rect(5, 7, 1, 14, wood.base)                      # lid slab, overhanging
+        cv.rect(3, 4, 3, 12, wood.base)                      # domed crown
+        cv.rect(3, 4, 4, 8, wood.highlight)                  # lit crown (top-left)
+        cv.rect(5, 7, 13, 14, wood.shadow)                   # lid's shaded right end
+        cv.rect(8, 8, 1, 14, dark)                           # THE SEAM: lid meets body
+        cv.rect(7, 10, 7, 8, metal.base)                     # lock plate straddles the seam
+        cv.px(7, 7, metal.highlight); cv.px(10, 8, metal.shadow)
+        cv.px(9, 8, dark)                                    # keyhole
+
+    for bc in (4, 11):                                       # metal bands down both pieces
+        cv.rect(9, 14, bc, bc, metal.base)
+        if not cfg["open"]:
+            cv.rect(3, 7, bc, bc, metal.base)
+        cv.px(14, bc, metal.shadow)
     cv.outline(dark)
     return cv.array()
 
