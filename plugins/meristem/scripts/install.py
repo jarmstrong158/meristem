@@ -178,6 +178,15 @@ def doctor(home: Path) -> int:
                            "h=[a for a in sprite_catalog() if a['archetype']=='humanoid'][0]; "
                            "assert 'held' in h['variants'] and 'garment' in h['variants']; "
                            "print('prop axes ok:', sorted(h['variants']))"),
+        # preview_sprite/compare_builds span generators + asset-gate + Pillow, so this
+        # is the check that the whole render path is wired -- the MCP's rendering tools
+        # are useless if any link is missing, and importing the packages does not prove it.
+        ("sprite render", "from asset_gate import load_contract; "
+                          "from meristem_generators import render_sprite; "
+                          f"c=load_contract(r'{home / 'experiments' / '00-bakeoff' / 'style-contract.json'}'); "
+                          "png,meta=render_sprite(c,'quadruped',{'build':'wolf'},scale=2); "
+                          "assert png[:8]==b'\\x89PNG\\r\\n\\x1a\\n'; "
+                          "print('rendered %s bytes, native %s' % (len(png), meta['native_size']))"),
     ]
     ok = True
     for label, code in checks:

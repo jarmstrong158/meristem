@@ -13,7 +13,12 @@ license = { text = "MIT" }
 # entity/item sprite descriptor and every level legend tile against the live
 # generator catalog. Without it those checks cannot run, and a validation report
 # that silently skips checks is worse than one that fails.
-dependencies = ["jsonschema>=4.20", "meristem-generators"]
+#
+# meristem-asset-gate is likewise required, for the same reason it is required by the
+# compiler: the style contract lives IN the manifest, and turning that domain into a
+# usable contract (StyleContract.from_dict) is what lets preview_sprite render against
+# the same contract the build will use, and report the gate verdict beside the picture.
+dependencies = ["jsonschema>=4.20", "meristem-generators", "meristem-asset-gate"]
 
 [project.optional-dependencies]
 mcp = ["mcp>=1.0"]
