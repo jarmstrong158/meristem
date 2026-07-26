@@ -415,3 +415,153 @@ def test_default_generate_frames_is_single(contract):
     # a tile has no animation; generate_frames returns one frame
     frames = get("procedural").generate_frames(AssetSpec("terrain_tile", "grass"), contract)
     assert len(frames) == 1
+
+
+# --------------------------------------------------------------------------------
+# Readability regressions.
+#
+# The "...builds_vary" tests above only assert that two renders are not byte-equal,
+# which a one-pixel ear tweak satisfies. The library shipped a long time in a state
+# where every one of them passed and the sprites were still indistinguishable on
+# screen: dog/wolf/boar/cat were a single hardcoded body loaf differing by +/-1px of
+# ear and leg. The tests below assert on what a player actually reads — SILHOUETTE
+# and COLOUR — and each threshold is calibrated so it FAILS against the versions
+# that shipped (measured: quadruped worst pair 46px, flyer 60px, blade widths
+# 8/10/12) and passes with headroom now (144px, 108px, 6/12/16).
+#
+# Deliberately absent: an image-level "is this tile seamless" metric. Every cheap
+# formulation (seam difference vs interior mean, roll-and-compare) fires on brick
+# and water, whose own mortar and ripple periods make a correct seam look like a
+# discontinuity — it reports "cannot tell" as "broken". The tile invariants below
+# are the exact ones instead: primitives wrap, and band periods divide the tile.
+# --------------------------------------------------------------------------------
+def _silhouette(arr):
+    """The alpha mask — the shape alone, with all colour and interior detail gone."""
+    return arr[..., 3] > 0
+
+
+def _worst_silhouette_gap(renders):
+    import itertools
+    import numpy as np
+    sils = {k: _silhouette(v) for k, v in renders.items()}
+    return min(int(np.logical_xor(sils[a], sils[b]).sum())
+               for a, b in itertools.combinations(sils, 2))
+
+
+def test_quadruped_builds_differ_in_silhouette(contract):
+    """Four beasts, four outlines. Was 46px worst-pair (one loaf, cosmetic knobs)."""
+    from meristem_generators.creatures import build_quadruped
+    renders = {b: build_quadruped(contract, {"build": b})
+               for b in ("dog", "wolf", "boar", "cat")}
+    gap = _worst_silhouette_gap(renders)
+    assert gap >= 100, f"closest pair differs by only {gap}px of silhouette"
+
+
+def test_flyer_builds_differ_in_silhouette(contract):
+    """bird and moth used to be the same ellipse pair; their only difference was
+    interior feather lines, which are invisible in a 32px silhouette."""
+    from meristem_generators.creatures import build_flyer
+    renders = {b: build_flyer(contract, {"build": b}) for b in ("bat", "bird", "moth")}
+    gap = _worst_silhouette_gap(renders)
+    assert gap >= 90, f"closest pair differs by only {gap}px of silhouette"
+
+
+def test_blade_family_scales_by_guard_span(contract):
+    """dagger/sword/greatsword were one drawing at three scales. What separates them
+    to the eye at 16px is how far the guard overhangs the blade."""
+    from meristem_generators.items import weapon
+    widths = {k: int(_silhouette(weapon(contract, {"kind": k})).any(axis=0).sum())
+              for k in ("dagger", "sword", "greatsword")}
+    assert widths["dagger"] < widths["sword"] < widths["greatsword"], widths
+    assert widths["greatsword"] >= widths["dagger"] * 2, widths
+
+
+def test_pickup_default_colour_is_per_shape(contract):
+    """Every shape defaulted to one gold, so the library had a gold heart and a gold
+    skull. A pickup's colour is part of its identity."""
+    import numpy as np
+    from meristem_generators.items import _PICKUP_COLORS, pickup
+
+    def colours(arr):
+        return {tuple(int(c) for c in px[:3]) for px in arr[arr[..., 3] == 255]}
+
+    gold = _PICKUP_COLORS["coin"]
+    for shape in ("heart", "gem", "skull", "key"):
+        seen = colours(pickup(contract, {"shape": shape}))
+        assert _PICKUP_COLORS[shape] in seen, f"{shape} does not draw its own colour"
+        assert gold not in seen, f"{shape} still renders in the coin's gold"
+    # an explicit colour still overrides the per-shape default
+    assert not np.array_equal(pickup(contract, {"shape": "heart"}),
+                              pickup(contract, {"shape": "heart", "color": (60, 90, 220)}))
+
+
+def test_pickup_skull_honours_its_colour_knob(contract):
+    """It accepted `color` and hardcoded bone, so recolouring a skull did nothing."""
+    import numpy as np
+    from meristem_generators.items import pickup
+    assert not np.array_equal(pickup(contract, {"shape": "skull"}),
+                              pickup(contract, {"shape": "skull", "color": (90, 160, 110)}))
+
+
+def test_chest_lid_reads_as_separate_from_the_body(contract):
+    """Closed: a wide dark seam where the lid meets the body. Open: a lit interior.
+    Lid and body used to be one flat wood.base with no seam, so every build read as
+    a plank with two stripes and `open` merely swapped in a yellow band."""
+    import numpy as np
+    from meristem_generators.items import _CHEST_BUILDS, chest
+    from meristem_generators.sprite import outline_dark
+    closed = chest(contract, {"build": "wood"})
+    opened = chest(contract, {"build": "wood", "open": True})
+    dark = outline_dark(_CHEST_BUILDS["wood"]["wood"])
+    seam = sum(1 for c in range(closed.shape[1])
+               if closed[8, c][3] == 255 and tuple(int(v) for v in closed[8, c][:3]) == dark)
+    assert seam >= 8, f"closed chest has no lid seam ({seam}px of dark on row 8)"
+    treasure = (opened[..., :3] == np.array([255, 226, 120])).all(axis=2)
+    assert int(treasure.sum()) >= 6, "open chest shows no contents"
+
+
+def test_tile_primitives_wrap_around_the_torus():
+    """A tile is a torus. Anything that draws on it must wrap, not clamp."""
+    import numpy as np
+    from meristem_generators.procedural import _disc, _put
+    img = np.zeros((16, 16, 4), dtype=np.uint8)
+    _put(img, -1, -1, (255, 0, 0))
+    assert tuple(int(v) for v in img[15, 15][:3]) == (255, 0, 0)
+    _put(img, 16, 16, (0, 255, 0))
+    assert tuple(int(v) for v in img[0, 0][:3]) == (0, 255, 0)
+    img[:] = 0
+    _disc(img, 0, 0, 2.0, (0, 0, 255))
+    for y, x in ((0, 0), (15, 0), (0, 15), (15, 15)):   # a disc on the origin hits all corners
+        assert tuple(int(v) for v in img[y, x][:3]) == (0, 0, 255), (y, x)
+
+
+def test_cracks_wrap_instead_of_piling_on_the_border():
+    """The exact regression: the crack walk clamped (`min(w-1, max(0, x))`), so a
+    crack that ran off an edge stacked its remaining pixels against that edge — a
+    dark smudge that repeated at every tile boundary, plainly visible in a 3x3
+    preview of `stone`. Started near the bottom, a crack must CONTINUE at the top."""
+    import numpy as np
+    from meristem_generators.procedural import _cracks
+    from meristem_generators.shading import Ramp
+
+    class _ScriptedRng:
+        def __init__(self, values):
+            self._values = list(values)
+
+        def integers(self, lo, hi=None):
+            return self._values.pop(0)
+
+    #        x=3  y=14  vertical  len=4   then dx=0 per step
+    rng = _ScriptedRng([3, 14, 1, 4, 0, 0, 0, 0])
+    img = np.zeros((16, 16, 4), dtype=np.uint8)
+    _cracks(img, Ramp((150, 150, 160)), rng, 1)
+    assert img[15, 3][3] == 255, "crack did not reach the bottom row"
+    assert img[0, 3][3] == 255 and img[1, 3][3] == 255, "crack clamped instead of wrapping"
+
+
+def test_periodic_tile_features_divide_the_tile(contract):
+    """Band spacing must divide the tile height, or the courses collide at the seam."""
+    from meristem_generators.procedural import RIPPLE_PERIOD, WAVE_PERIOD
+    _, h = contract.canvas_of("terrain_tile")
+    assert h % WAVE_PERIOD == 0, (h, WAVE_PERIOD)
+    assert h % RIPPLE_PERIOD == 0, (h, RIPPLE_PERIOD)

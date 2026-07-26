@@ -150,88 +150,166 @@ def ghost_idle(contract, config=None) -> list[np.ndarray]:
 
 QUADRUPED_DEFAULT = {"color": (150, 118, 86), "build": "dog"}
 
-# Proportion/appendage knobs over the fixed quadruped skeleton (research 03 §6).
-# paw   = ground row for the near legs (leg length; far paws sit 1px higher)
-# ear   = ear height in px (upright pointed vs small)
-# muzzle= how far the snout juts right (short face vs long snout)
-# tail  = tail style: "curl" up, "low" straight-down, "stub" tiny, "scurve" long S
+
+def _edge(knots) -> dict[int, int]:
+    """A piecewise-linear col -> row profile from (col, row) knots (both inclusive).
+
+    Used for the top (back) and bottom (belly) edges of a body, so a build declares
+    an outline shape rather than a hardcoded per-row span table."""
+    out: dict[int, int] = {}
+    for (c0, r0), (c1, r1) in zip(knots, knots[1:]):
+        for c in range(c0, c1 + 1):
+            t = 0.0 if c1 == c0 else (c - c0) / (c1 - c0)
+            out[c] = int(round(r0 + (r1 - r0) * t))
+    return out
+
+
+# Proportion knobs over the ONE quadruped skeleton. A build reshapes the BODY —
+# `back`/`belly` are (col, row) knots for the torso's top and bottom edges — not just
+# the appendages hung off it. At 32x32 a player names an animal from its silhouette
+# before colour or detail registers, so four builds sharing one body outline and
+# differing by an ear pixel all read as the same beast; that is exactly what dog/
+# wolf/boar/cat did (one hardcoded loaf, +/-1px of ear height and leg length).
+#   legs  = near-pair hind/fore columns, leg width, ground row, far-pair offset
+#   head  = (top, left, bottom, right) skull box; `muzzle` is how far the snout juts
+#   ear   = ear height in px; tail = silhouette style drawn clear of the rump
 _QUAD_BUILDS = {
-    "dog":  {"paw": 28, "ear": 2, "muzzle": 30, "tail": "curl"},    # balanced
-    "wolf": {"paw": 29, "ear": 3, "muzzle": 31, "tail": "low"},     # leggy, tall ears, long
-    "boar": {"paw": 27, "ear": 1, "muzzle": 31, "tail": "stub"},    # low & heavy, long snout
-    "cat":  {"paw": 28, "ear": 1, "muzzle": 29, "tail": "scurve"},  # slim, short face
+    # canid baseline: level back, medium depth, medium legs, perky ears, curled tail
+    "dog": {
+        "back":  [(7, 12), (13, 11), (21, 11), (26, 12)],
+        "belly": [(7, 18), (13, 19), (21, 19), (26, 18)],
+        "legs":  {"hind": 11, "fore": 21, "w": 2, "paw": 28, "spread": 5},
+        "head":  (8, 23, 14, 29), "muzzle": 30, "ear": 3, "tail": "curl",
+    },
+    # LONG, LEGGY, deep chest, tucked waist, head carried LOW and forward (a lope)
+    "wolf": {
+        "back":  [(4, 12), (10, 11), (22, 10), (27, 12)],
+        "belly": [(4, 17), (11, 19), (18, 18), (23, 20), (27, 19)],
+        "legs":  {"hind": 9, "fore": 22, "w": 2, "paw": 30, "spread": 5},
+        "head":  (12, 24, 18, 30), "muzzle": 31, "ear": 4, "tail": "low",
+    },
+    # SHORT, DEEP, huge shoulder hump, stubby legs, big low head with a tusk
+    "boar": {
+        "back":  [(8, 15), (13, 13), (19, 8), (23, 10), (26, 13)],
+        "belly": [(8, 20), (14, 21), (22, 21), (26, 19)],
+        "legs":  {"hind": 10, "fore": 22, "w": 2, "paw": 27, "spread": 5},
+        "head":  (13, 22, 20, 29), "muzzle": 31, "ear": 1, "tail": "stub",
+        "tusk": True, "bristle": True,
+    },
+    # SHORT, SHALLOW, arched back, thin legs, small high head, tall S tail
+    "cat": {
+        "back":  [(9, 14), (13, 11), (17, 10), (21, 11), (25, 13)],
+        "belly": [(9, 17), (13, 18), (19, 18), (25, 17)],
+        "legs":  {"hind": 12, "fore": 21, "w": 1, "paw": 27, "spread": 4},
+        "head":  (8, 23, 13, 28), "muzzle": 29, "ear": 3, "tail": "scurve",
+    },
 }
 
 
-def _quad_tail(cv, body, style):
-    """Draw a build-specific tail off the rump (left edge, ~col 2-7)."""
-    if style == "curl":                              # dog: sweeps down then curls up
-        cv.rect(12, 16, 4, 7, body.base); cv.rect(11, 13, 2, 5, body.base)
-        cv.rect(15, 16, 4, 6, body.shadow)
-    elif style == "low":                             # wolf: long, hangs low & straight
-        cv.rect(13, 22, 4, 6, body.base)
-        cv.rect(18, 22, 4, 5, body.shadow)
-    elif style == "stub":                            # boar: tiny nub
-        cv.rect(13, 15, 5, 7, body.base)
-        cv.rect(15, 15, 5, 6, body.shadow)
-    elif style == "scurve":                          # cat: long, tall S-curve
-        cv.rect(9, 15, 5, 7, body.base); cv.rect(8, 10, 6, 9, body.base)
-        cv.rect(12, 15, 5, 5, body.shadow)
+# Tail silhouettes as (row, col-offset-from-rump) paths, base -> tip. A tail must be
+# a TAPERING CURVE, not stacked rects: at this scale a 2px-thick block reads as a
+# flag or a balloon stuck to the rump, which is what the old rect tails did. `lit`
+# pixels take the highlight, `shade` the shadow, so the tail still carries the
+# top-left light.
+_QUAD_TAILS = {
+    # dog: sweeps back off the rump then curls up over the back
+    "curl":   {"path": [(15, -1), (14, -2), (13, -3), (12, -3), (11, -3),
+                        (10, -2), (9, -1), (9, 0)],
+               "shade": [(15, -2), (14, -3)], "lit": [(9, -1), (9, 0)]},
+    # wolf: long and heavy, hangs low behind the hocks
+    "low":    {"path": [(13, -1), (14, -1), (15, -2), (16, -2), (17, -3),
+                        (18, -3), (19, -3), (20, -2)],
+               "shade": [(18, -4), (19, -4), (20, -3)], "lit": [(13, -1)]},
+    # boar: a tiny upright nub
+    "stub":   {"path": [(14, -1), (13, -1), (13, -2)],
+               "shade": [(15, -1)], "lit": [(13, -2)]},
+    # cat: a tall vertical S rising well clear of the arched back
+    "scurve": {"path": [(15, -1), (14, -2), (13, -2), (12, -3), (11, -3),
+                        (10, -3), (9, -4), (8, -4), (7, -4), (6, -3), (5, -2), (4, -2)],
+               "shade": [(15, -2), (14, -3), (13, -3)], "lit": [(5, -2), (4, -2)]},
+}
+
+
+def _quad_tail(cv, body, style, rump):
+    """A build-specific tapering tail, drawn CLEAR of the rump column so it reads in
+    the silhouette instead of merging into the body outline."""
+    t = _QUAD_TAILS.get(style)
+    if t is None:
+        return
+    for r, dc in t["path"]:
+        cv.px(r, rump + dc, body.base)
+    for r, dc in t["shade"]:
+        cv.px(r, rump + dc, body.shadow)
+    for r, dc in t["lit"]:
+        cv.px(r, rump + dc, body.highlight)
 
 
 def build_quadruped(contract, config=None) -> np.ndarray:
     """A side-view four-legged beast (facing right), built to the quadruped spec
-    (docs/research/03-quadruped.md): a thick body loaf on a curved spine; TWO sets of
-    biped legs — the far pair darker + paws 1px higher (depth), the near pair on the
-    ground; legs hang *below* the body with 3px gaps so they read as four and never
-    fuse into a floor. Parametric by colour and `build` (dog/wolf/boar/cat) — the
-    build knobs (leg length, ears, muzzle, tail) reshape the one skeleton (§6)."""
+    (docs/research/03-quadruped.md): a torso between a back-edge and a belly-edge
+    profile; TWO sets of legs — the far pair darker with paws 1px higher (depth),
+    the near pair on the ground; legs hang *below* the belly with >=3px gaps so they
+    read as four and never fuse into a floor. Parametric by colour and `build`
+    (dog/wolf/boar/cat), where the build reshapes the torso outline itself (§6)."""
     cfg = {**QUADRUPED_DEFAULT, **(config or {})}
     b = _QUAD_BUILDS.get(cfg["build"], _QUAD_BUILDS["dog"])
     body = Ramp(cfg["color"])
     dark = outline_dark(cfg["color"])
     w, h = contract.canvas_of("enemy")
     cv = Canvas(w, h)
-    npaw, fpaw = b["paw"], b["paw"] - 1              # near on ground, far 1px higher
-
-    # --- FAR leg pair (behind): shadow, thin 2px, tuck under belly (row 17).
-    # Legs at cols 6/11/16/21 -> 3px gaps that survive the outline (a 2px gap gets
-    # closed when both sides are outlined, fusing the paws into a floor). ---
-    cv.rect(17, fpaw, 6, 7, body.shadow)             # far-back
-    cv.rect(17, fpaw, 16, 17, body.shadow)           # far-front
-
-    # --- BODY loaf: THICK. ~9 rows tall (9-17), wide (cols 6-28) with a WIDE belly
-    # so the legs hang below it and the body reads as a full beast, not a rail. The
-    # legs start at row 18 (below the body) so they never eat into its thickness.
-    body_rows = {9: (19, 24), 10: (11, 26), 11: (8, 27), 12: (6, 28), 13: (6, 28),
-                 14: (6, 28), 15: (6, 28), 16: (6, 27), 17: (6, 25)}
-    for r, (c0, c1) in body_rows.items():
-        cv.rect(r, r, c0, c1, body.base)
-    cv.rect(11, 13, 10, 22, body.highlight)          # broad spine highlight (top of back)
-    cv.rect(16, 17, 8, 25, body.shadow)              # belly underside (darkest)
-
-    # --- NEAR leg pair (front): base, thin 2px, on the ground ---
-    cv.rect(18, npaw, 11, 12, body.base)             # near-back
-    cv.rect(18, npaw, 21, 22, body.base)             # near-front
-    cv.rect(18, npaw - 1, 21, 21, body.highlight)    # lit front edge
-
-    # --- HEAD + neck + muzzle (front-right); muzzle length is a build knob.
-    # `head_dy` bobs the head (not the neck root) for a breathing idle. ---
-    mz = b["muzzle"]
     hd = int(cfg.get("head_dy", 0))
-    cv.rect(11, 15, 20, 24, body.base)               # diagonal neck (fixed to body)
-    cv.rect(8 + hd, 14 + hd, 23, 29, body.base)      # skull
-    cv.rect(12 + hd, 14 + hd, 28, mz, body.base)     # muzzle wedge (juts to `mz`)
-    cv.rect(8 + hd, 9 + hd, 24, 28, body.highlight)  # skull top highlight
-    cv.rect(14 + hd, 14 + hd, 24, mz, body.shadow)   # muzzle/jaw underside
-    cv.px(13 + hd, mz, dark)                         # nose (tip of snout)
-    cv.px(11 + hd, 28, dark)                         # eye (single pixel, high-front)
-    ear_top = 8 - b["ear"]                            # taller ears reach higher
-    cv.rect(ear_top + hd, 8 + hd, 23, 24, body.base); cv.rect(ear_top + hd, 8 + hd, 26, 27, body.base)
-    cv.px(8 + hd, 24, body.shadow); cv.px(8 + hd, 27, body.shadow)
 
-    # --- TAIL: build-specific silhouette off the rump ---
-    _quad_tail(cv, body, b["tail"])
+    back, belly = _edge(b["back"]), _edge(b["belly"])
+    cols = sorted(back)
+    rump, chest = cols[0], cols[-1]
+    lg = b["legs"]
+
+    def leg(col, shade, paw):
+        """One leg, hung from the belly at its own column so it always attaches."""
+        top = belly.get(min(max(col, rump), chest), 18) - 1
+        cv.rect(top, paw, col, col + lg["w"] - 1, shade)
+
+    # --- FAR leg pair (behind the body): shadow shade, paws 1px higher ---
+    leg(lg["hind"] - lg["spread"], body.shadow, lg["paw"] - 1)
+    leg(lg["fore"] - lg["spread"], body.shadow, lg["paw"] - 1)
+
+    # --- TORSO: fill each column between the back and belly edges ---
+    for c in cols:
+        cv.rect(back[c], belly[c], c, c, body.base)
+    for c in cols:                                   # light rides the back, shade the belly
+        cv.rect(back[c], back[c] + 1, c, c, body.highlight)
+        cv.rect(belly[c] - 1, belly[c], c, c, body.shadow)
+    if b.get("bristle"):                             # boar: dark bristles along the hump
+        for c in range(rump + 4, chest - 3, 2):
+            cv.px(back[c] - 1, c, body.shadow)
+
+    # --- NEAR leg pair (in front): base shade, on the ground ---
+    leg(lg["hind"], body.base, lg["paw"])
+    leg(lg["fore"], body.base, lg["paw"])
+    cv.rect(belly.get(lg["fore"], 18), lg["paw"] - 1, lg["fore"], lg["fore"], body.highlight)
+
+    # --- NECK + HEAD; `head_dy` bobs the head only, for the breathing idle ---
+    hr0, hc0, hr1, hc1 = b["head"]
+    mz = b["muzzle"]
+    neck_top = min(back[chest], hr0) + 1
+    cv.rect(neck_top, belly[chest], chest - 4, hc0 + 2, body.base)   # neck ties head to chest
+    cv.rect(hr0 + hd, hr1 + hd, hc0, hc1, body.base)                 # skull
+    mid = (hr0 + hr1) // 2
+    cv.rect(mid + hd, hr1 - 1 + hd, hc1 - 1, mz, body.base)          # muzzle wedge
+    cv.rect(hr0 + hd, hr0 + 1 + hd, hc0 + 1, hc1 - 1, body.highlight)  # lit skull top
+    cv.rect(hr1 + hd, hr1 + hd, hc0 + 1, mz, body.shadow)            # jaw underside
+    cv.px(hr1 - 1 + hd, mz, dark)                                    # nose at the snout tip
+    cv.px(hr0 + 2 + hd, hc1 - 1, dark)                               # eye
+    for ex in (hc0 + 1, hc1 - 2):                                    # upright ears
+        cv.rect(hr0 - b["ear"] + hd, hr0 + hd, ex, ex + 1, body.base)
+        cv.px(hr0 - b["ear"] + hd, ex + 1, body.shadow)
+    if b.get("tusk"):                                                # boar: an upswept tusk
+        cv.px(hr1 - 1 + hd, mz - 1, (238, 232, 210))
+        cv.px(hr1 - 2 + hd, mz, (238, 232, 210))
+        cv.px(hr1 - 3 + hd, mz, (208, 200, 178))
+
+    # --- TAIL: build-specific silhouette, clear of the rump ---
+    _quad_tail(cv, body, b["tail"], rump)
 
     cv.outline(dark)
     return cv.array()
@@ -251,27 +329,51 @@ FLYER_DEFAULT = {"color": (92, 80, 112), "build": "bat"}
 # wings, ears vs beak. `wing_dy` raises/lowers the wings for the flap animation.
 _FLYER_BUILDS = {
     "bat":  {"wing": "membrane", "ears": True,  "beak": False},
-    "bird": {"wing": "feather",  "ears": False, "beak": True},
-    "moth": {"wing": "round",    "ears": True,  "beak": False},
+    "bird": {"wing": "feather",  "ears": False, "beak": True, "tailfan": True},
+    "moth": {"wing": "round",    "ears": True,  "beak": False, "antennae": True},
 }
+
+# A bird's swept wing as (top, bottom) row offsets from the wing centre, stepping
+# outward from the shoulder. It RISES and narrows toward the tip, which is what
+# separates a bird from a moth in silhouette — drawing both as the same ellipse and
+# distinguishing them with interior feather lines (as this used to) reads as one
+# creature twice, because interior detail is invisible in a 32px silhouette.
+_BIRD_WING = [(-2, 3), (-2, 3), (-3, 2), (-3, 2), (-4, 1), (-4, 0), (-5, -1), (-6, -2)]
 
 
 def _flyer_wing(cv, body, kind, wd, side):
-    """One wing: an ellipse off the shoulder, lit on top, shaded below. `side` is
-    -1 (left) / +1 (right); `wd` is the flap offset (negative = raised)."""
+    """One wing off the shoulder, lit on top and shaded below. `side` is -1 (left) /
+    +1 (right); `wd` is the flap offset (negative = raised). Each `kind` has its own
+    OUTLINE, not just its own interior shading."""
     cx = 16
     ecx = cx + side * 7                              # wing centre column
     ecy = 12 + wd                                    # wing centre row (flap moves it)
-    ry, rx = (5, 7) if kind == "round" else (4, 7)
-    cv.disc(ecy, ecx, ry, rx, body.base)
-    cv.disc(ecy - 1, ecx - side * 2, ry * 0.55, rx * 0.5, body.highlight)   # upper-inner sheen
-    cv.disc(ecy + 2, ecx + side, ry * 0.5, rx * 0.55, body.shadow)          # lower shade
-    if kind == "membrane":                           # bat: scalloped trailing edge
-        for k in (-4, 0, 4):
-            cv.clear_disc(ecy + ry - 1, ecx + k, 2.4, 2.0)
-    elif kind == "feather":                          # bird: feather-separation lines
-        for k in (-3, 1):
-            cv.rect(ecy - 2, ecy + 3, ecx + k, ecx + k, body.shadow)
+
+    if kind == "feather":                            # bird: swept, pointed, splayed tips
+        for i, (t, b) in enumerate(_BIRD_WING):
+            c = cx + side * (3 + i)
+            cv.rect(ecy + t, ecy + b, c, c, body.base)
+            cv.px(ecy + t, c, body.highlight)        # lit leading edge
+            cv.px(ecy + b, c, body.shadow)           # shaded trailing edge
+        for i in (5, 7):                             # notch the trailing edge -> primaries
+            t, b = _BIRD_WING[i]
+            cv.clear_disc(ecy + b, cx + side * (3 + i), 0.6, 0.6)
+        return
+
+    if kind == "round":                              # moth: fore + hind wing lobes
+        cv.disc(ecy - 1, ecx, 4, 7, body.base)                        # forewing
+        cv.disc(ecy + 4, ecx - side * 2, 3, 4.5, body.base)           # hindwing (lower, inboard)
+        cv.disc(ecy - 2, ecx - side * 2, 2.2, 3.5, body.highlight)    # upper-inner sheen
+        cv.disc(ecy + 5, ecx - side, 1.6, 3, body.shadow)             # under-lobe shade
+        cv.px(ecy - 1, ecx + side * 4, body.shadow)                   # wing eyespot
+        cv.px(ecy, ecx + side * 4, body.highlight)
+        return
+
+    cv.disc(ecy, ecx, 4, 7, body.base)                                # bat: membrane
+    cv.disc(ecy - 1, ecx - side * 2, 2.2, 3.5, body.highlight)
+    cv.disc(ecy + 2, ecx + side, 2, 3.85, body.shadow)
+    for k in (-4, 0, 4):                             # scalloped trailing edge
+        cv.clear_disc(ecy + 3, ecx + k, 2.4, 2.0)
 
 
 def build_flyer(contract, config=None) -> np.ndarray:
@@ -295,9 +397,18 @@ def build_flyer(contract, config=None) -> np.ndarray:
     cv.disc(9, cx, 3, 3, body.base)                  # head
     cv.disc(8, cx - 1, 1.4, 1.4, body.highlight)
 
+    if b.get("tailfan"):                             # bird: a spread tail below the torso
+        cv.rect(20, 22, cx - 2, cx + 2, body.base)
+        cv.rect(23, 24, cx - 1, cx + 1, body.base)
+        cv.px(22, cx - 2, body.highlight)
+        cv.px(23, cx + 1, body.shadow); cv.px(24, cx, body.shadow)
     if b["ears"]:                                    # upright ears
         cv.rect(4, 7, cx - 4, cx - 3, body.base); cv.rect(4, 7, cx + 3, cx + 4, body.base)
         cv.px(4, cx - 4, body.shadow); cv.px(4, cx + 4, body.shadow)
+    if b.get("antennae"):                            # moth: long feathered feelers
+        for side, tip in ((-1, cx - 6), (1, cx + 6)):
+            cv.line(6, cx + side, 3, tip, body.base)
+            cv.px(2, tip, body.highlight)            # clubbed tip
     if b["beak"]:                                    # small down-beak
         cv.px(11, cx, (240, 202, 96)); cv.px(12, cx, (198, 150, 62))
 

@@ -71,21 +71,32 @@ toe-caps — both re-bridge the feet.
 ## 6. Parametric knobs (implemented)
 
 Beyond `config.color`, the build takes `config.build` — a preset that reshapes
-the one skeleton via a handful of knobs (leg length, ear height, muzzle jut,
-tail style). Shipped in `_QUAD_BUILDS`:
+the one skeleton. Crucially, a preset reshapes the **torso**, not just what hangs
+off it: `back` and `belly` are lists of `(col, row)` knots that `_edge` expands
+into the top and bottom edges of the body, and each column is filled between
+them. Shipped in `_QUAD_BUILDS`:
 
-| variant | legs | ears | muzzle | tail | reads as |
-|---------|------|------|--------|------|----------|
-| dog     | balanced (paw 28) | upright (2px) | short (col 30) | curl up | balanced hound |
-| wolf    | leggy (paw 29) | tall pointed (3px) | long (col 31) | low straight | lean predator |
-| boar    | short (paw 27) | small (1px) | long snout (col 31) | tiny stub | low & heavy |
-| cat     | balanced (paw 28) | small (1px) | short (col 29) | tall S-curve | slim feline |
+| variant | torso | legs | head | tail | reads as |
+|---------|-------|------|------|------|----------|
+| dog     | level back, medium depth | medium, paw 28 | mid-height, perky ears | curl up over the back | balanced hound |
+| wolf    | long, deep chest, tucked waist | longest, paw 30 | carried **low and forward** | long, hangs low | lean predator loping |
+| boar    | short, big shoulder hump, very deep | stubby, paw 27 | big, low, tusked | tiny stub | low & heavy |
+| cat     | short, shallow, **arched** back | thin (1px), paw 27 | small, high | tall vertical S | slim feline |
 
-These are proportion + appendage swaps over the fixed archetype — the same
-"sprites are parameters over an archetype" principle as the rest of the library.
-Adding a variant is a row in the preset table, not new drawing code. The body
-loaf itself is shared (thick, per §1); the silhouette differences come entirely
-from the appendages, which is enough to read four distinct beasts at 1×.
+Adding a variant is a row in the preset table, not new drawing code.
+
+**This section used to say the opposite, and it was wrong.** The original build
+shared one hardcoded body loaf across all four presets and varied only leg length,
+ear height, muzzle jut and tail — and this doc claimed that was "enough to read
+four distinct beasts at 1×". It was not. Rendered as pure alpha masks the four
+silhouettes were nearly the same animal: the closest pair differed by 46px, and
+most of that was tail. Appendages decorate a silhouette; they do not create one.
+The rule in §1 — *a quadruped is legible from its outline alone* — applies just as
+much **between variants** as it does to a single beast against the background.
+
+The regression guard is `test_quadruped_builds_differ_in_silhouette`, which
+compares alpha masks rather than pixels (a byte-difference test passes on a 1px
+ear and so caught none of this). Worst pair is now 144px.
 
 ## 7. The gate does not judge this
 
