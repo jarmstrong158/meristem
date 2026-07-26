@@ -18,6 +18,58 @@ def project(tmp_path_factory):
     return out
 
 
+def _platformer_manifest(tmp_path: Path) -> Path:
+    """The slice manifest with its controller switched to a platformer. Keeps the
+    archetype id so entities' behavior_archetype refs still resolve — i.e. a manifest
+    that validate_all considers completely valid."""
+    store = SpecStore.load(MANIFEST)
+    mech = store.get("mechanics")
+    mech["archetypes"][0]["kind"] = "platformer_controller"
+    mech["archetypes"][0]["params"] = {"move_speed": 120, "accel": 900,
+                                       "jump_height": 48, "gravity": 980,
+                                       "coyote_time": 0.1, "jump_buffer": 0.1,
+                                       "air_control": 0.8}
+    store.set_domain("mechanics", mech, {"actor": "test"})
+    out = tmp_path / "platformer.manifest.json"
+    store.save(out)
+    return out
+
+
+def test_valid_platformer_manifest_is_refused_not_silently_built(tmp_path):
+    """The regression: `write_scripts` rendered the top-down template regardless of
+    kind, so this manifest compiled "successfully" into a game with no gravity and no
+    jump, silently discarding jump_height and gravity and inventing a FRICTION constant
+    the platformer schema does not even allow."""
+    manifest = _platformer_manifest(tmp_path)
+    store = SpecStore.load(manifest)
+    assert store.validate_all().ok                       # the SPEC is fine...
+    with pytest.raises(CompileError) as exc:             # ...the COMPILER must say no
+        compile_project(manifest, tmp_path / "build")
+    msg = str(exc.value)
+    assert "platformer_controller" in msg
+    assert "top_down_controller" in msg                  # names what IS implemented
+    assert "compiler gap, not a spec error" in msg       # does not blame the manifest
+
+
+def test_refusal_happens_before_any_output_is_written(tmp_path):
+    """A dead end should not first generate every asset and write the level."""
+    manifest = _platformer_manifest(tmp_path)
+    out = tmp_path / "build"
+    with pytest.raises(CompileError):
+        compile_project(manifest, out)
+    assert not (out / "assets").exists()
+    assert not (out / "scripts").exists()
+
+
+def test_controller_params_cannot_leak_between_kinds():
+    """Each controller substitutes only its OWN declared params, so a default from one
+    (top-down `friction`) can never end up baked into another's script."""
+    from meristem_compiler.scenes import CONTROLLERS
+    template, defaults = CONTROLLERS["top_down_controller"]
+    assert set(defaults) == {"move_speed", "accel", "friction"}
+    assert "platformer_controller" not in CONTROLLERS   # not implemented -> not offered
+
+
 def test_project_godot_written(project):
     txt = (project / "project.godot").read_text(encoding="utf-8")
     assert 'config/name="Slime Grove"' in txt

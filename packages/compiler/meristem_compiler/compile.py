@@ -13,7 +13,7 @@ from .assets import compile_assets
 from .godot_project import write_project_godot
 from .ldtk import write_ldtk
 from .level import grid_from_level, pick_level, synthesize_grove
-from .scenes import write_scenes, write_scripts
+from .scenes import CONTROLLERS, write_scenes, write_scripts
 
 
 class CompileError(RuntimeError):
@@ -25,6 +25,26 @@ def _archetype_for(domains: dict, control_scheme: str) -> dict:
         if a["id"] == control_scheme:
             return a
     raise CompileError(f"control_scheme {control_scheme!r} has no matching mechanics archetype")
+
+
+def _controller_kind(archetype: dict) -> str:
+    """The archetype's kind, refused loudly if the compiler has no template for it.
+
+    The manifest is not wrong here — the mechanics schema legitimately offers
+    platformer_controller and turn_based_combat, and a spec may describe one before the
+    compiler can build it. What was wrong is compiling anyway: the player script was
+    rendered from the top-down template regardless of kind, so a platformer produced a
+    game with no gravity and no jump and reported success. Refusing is the honest
+    outcome, and it names what IS available so the author can act."""
+    kind = archetype.get("kind")
+    if kind not in CONTROLLERS:
+        raise CompileError(
+            f"mechanics archetype {archetype.get('id')!r} has kind {kind!r}, which this "
+            f"compiler cannot emit yet — implemented: {sorted(CONTROLLERS)}. The manifest "
+            f"itself is valid; this is a compiler gap, not a spec error. Compiling anyway "
+            f"would silently produce a {sorted(CONTROLLERS)[0]!r} game and discard this "
+            f"archetype's params.")
+    return kind
 
 
 def compile_project(manifest_path: str | Path, out_dir: str | Path) -> dict:
@@ -41,6 +61,12 @@ def compile_project(manifest_path: str | Path, out_dir: str | Path) -> dict:
 
     project = domains["project"]
     contract = StyleContract.from_dict(domains["style_contract"])
+
+    # Resolve the control scheme BEFORE doing any work. A kind the compiler cannot emit
+    # is a dead end, so it should not first generate every asset and write the level.
+    archetype = _archetype_for(domains, project["control_scheme"])
+    controller_kind = _controller_kind(archetype)
+
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
 
@@ -65,7 +91,6 @@ def compile_project(manifest_path: str | Path, out_dir: str | Path) -> dict:
     ldtk_info = write_ldtk(grid, out / "assets", out / "levels", name=level_name)
 
     # 4. scripts + scenes: one enemy type per distinct spawned enemy, items placed
-    archetype = _archetype_for(domains, project["control_scheme"])
     params = archetype.get("params", {})
     player = domains["entities"]["characters"][0]
     enemies_by_id = {e["id"]: e for e in domains["entities"].get("enemies", [])}
@@ -74,10 +99,7 @@ def compile_project(manifest_path: str | Path, out_dir: str | Path) -> dict:
                     "hp": enemies_by_id[eid]["stats"].get("hp", 1),
                     "atk": enemies_by_id[eid]["stats"].get("atk", 1)}
                    for eid in spawned_enemy_ids]
-    write_scripts(out,
-                  move_speed=params.get("move_speed", 80),
-                  accel=params.get("accel", 600),
-                  friction=params.get("friction", 400),
+    write_scripts(out, kind=controller_kind, params=params,
                   enemies=enemy_types, level_name=level_name,
                   player_hp=int(player["stats"].get("hp", 20)))
 
