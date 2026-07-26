@@ -30,7 +30,8 @@ actually looks good, not just one that passes the gate.
 ## Archetypes, not one-offs (parameters over a fixed library)
 
 A new creature/item is **config on an archetype**, never new hand-drawing. The library is a
-**registry** (`packages/generators/meristem_generators/archetypes.py`) — 13 archetypes today:
+**registry** (`packages/generators/meristem_generators/archetypes.py`) — 15 archetypes today
+(the live list is always `list_sprite_archetypes`; this table is a reading aid):
 
 | archetype | class | build/kind/shape options | animated |
 |-----------|-------|--------------------------|----------|
@@ -41,6 +42,8 @@ A new creature/item is **config on an archetype**, never new hand-drawing. The l
 | `flyer` | enemy | bat · bird · moth | flap |
 | `serpent` | enemy | cobra · snake · viper | tongue/sway |
 | `spider` | enemy | spider · tarantula · widow | leg-twitch |
+| `raptor` | enemy | raptor · drake · roc | idle |
+| `beetle` | enemy | beetle · mite · scorpion | idle |
 | `weapon` | item_icon | sword·dagger·greatsword·axe·spear·staff·bow·mace·wand | — |
 | `consumable` | item_icon | flask·bottle·vial·scroll·pouch | — |
 | `pickup` | item_icon | coin·heart·key·gem·ring·skull·star | coin spin |
@@ -101,8 +104,7 @@ palette-safe — a transform that invents a colour or soft alpha fails the gate.
   `02-character-sprites.md`, `03-quadruped.md` (the two-biped depth trick + the ≥3px leg-gap rule),
   and the Vanguard `sprite_style_guide.md` principles (hue-shift, 3 shades, top-left light, sel-out).
 - `docs/reference/vanguard-comparison.md` — how the standard maps onto a real GBA-style RPG, and the
-  known Meristem gaps it surfaced (per-material sel-out has a colour-budget tradeoff; no raptor/beetle
-  archetype yet).
+  known Meristem gaps it surfaced (the raptor/beetle gap it named has since been filled).
 - **Study** (never ship) the LPC Universal Spritesheet Generator's layer/z-index/animation schema for
   layered animated humanoids.
 - Ground shippable art on **CC0 only (Kenney.nl)**. Spriters Resource / LPC / RPG-Maker pixels are

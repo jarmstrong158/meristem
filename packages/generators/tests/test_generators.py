@@ -232,9 +232,10 @@ def test_chest_builds_vary(contract):
 
 def test_new_tiles_build_and_gate(contract):
     from PIL import Image
-    from meristem_generators.procedural import build_tile, ProceduralGenerator
+    from meristem_generators.procedural import build_tile, known_tiles, tile_options
+    assert {"sand", "snow", "lava", "brick"} <= set(known_tiles())
     for name in ("sand", "snow", "lava", "brick"):
-        arr = build_tile(contract, name, **ProceduralGenerator._TILES[name])
+        arr = build_tile(contract, name, **tile_options(name))
         res = validate(Image.fromarray(arr, "RGBA"), "terrain_tile", contract)
         assert res.accepted, f"{name}: {res.reasons}"
 
@@ -348,6 +349,56 @@ def test_sprite_catalog_covers_registry_and_builds_are_real():
                 im = build_archetype(contract, name, cfg)
                 from asset_gate import validate
                 assert validate(im, entry["class"], contract).accepted, (name, key, opt)
+
+
+def test_color_keys_advertise_every_colour_knob_a_builder_actually_reads(contract):
+    """The colour vocabulary must not drift from the builders.
+
+    `_COLOR_KEYS` used to be a hand-maintained table and it rotted: `raptor` and
+    `beetle` were added to the registry, both builders read cfg["color"], and neither
+    was ever added to the table — so `list_sprite_archetypes` told authors those two
+    archetypes had no colour knob at all. This test is behavioural, not declarative:
+    it overrides each candidate knob and checks the RENDER changes. Any key that
+    changes pixels is a real colour knob and MUST be advertised.
+    """
+    import numpy as np
+    from meristem_generators import (archetype_defaults, build_archetype, color_keys,
+                                     known_archetypes)
+
+    loud = (255, 0, 255)                        # nothing defaults to magenta
+    for name in known_archetypes():
+        defaults = archetype_defaults(name)
+        base = np.asarray(build_archetype(contract, name, {}))
+        effective = set()
+        for key, value in defaults.items():
+            if not (isinstance(value, (tuple, list)) and len(value) in (3, 4)
+                    and all(isinstance(c, int) and not isinstance(c, bool) for c in value)):
+                continue                        # not a colour-shaped default
+            if np.array_equal(np.asarray(build_archetype(contract, name, {key: loud})), base):
+                continue                        # inert for the default variant (e.g. hat=none)
+            effective.add(key)
+        assert effective <= set(color_keys(name)), (
+            f"{name}: colour knob(s) {sorted(effective - set(color_keys(name)))} change the "
+            f"sprite but are not advertised in color_keys()")
+
+
+def test_color_keys_regression_raptor_and_beetle(contract):
+    """The exact drift that shipped: both read cfg["color"] but advertised nothing."""
+    from meristem_generators import color_keys, sprite_catalog
+    catalog = {e["archetype"]: e for e in sprite_catalog()}
+    for name in ("raptor", "beetle"):
+        assert "color" in color_keys(name), name
+        assert "color" in catalog[name]["color_keys"], name   # and it reaches the MCP surface
+
+
+def test_advertised_color_keys_build_and_gate(contract):
+    """Every advertised knob must be accepted by the builder and still gate."""
+    from meristem_generators import archetype_class, build_archetype, sprite_catalog
+    for entry in sprite_catalog():
+        name = entry["archetype"]
+        for key in entry["color_keys"]:
+            im = build_archetype(contract, name, {key: (120, 90, 200)})
+            assert validate(im, archetype_class(name), contract).accepted, (name, key)
 
 
 def test_validate_sprite_catches_bogus_variant():

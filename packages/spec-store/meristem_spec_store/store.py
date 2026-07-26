@@ -13,10 +13,18 @@ from pathlib import Path
 from typing import Optional
 
 from . import schemas
-from .crossref import cross_reference_errors
+from .crossref import cross_reference
 from .diff import diff
 
 MANIFEST_VERSION = 1
+
+# Domains the manifest cannot be considered complete without: every downstream
+# consumer dereferences these unconditionally (the compiler does domains["project"],
+# domains["style_contract"], domains["entities"], and resolves the control scheme in
+# domains["mechanics"]). validate_all used to iterate only the domains that were
+# PRESENT, so an empty manifest validated ok=True and then blew up in the compiler
+# with a bare KeyError: 'project'. Missing structure is a validation failure.
+REQUIRED_DOMAINS = ("project", "style_contract", "entities", "mechanics")
 
 
 class SpecValidationError(ValueError):
@@ -30,14 +38,40 @@ class SpecValidationError(ValueError):
 class ValidationReport:
     schema_errors: dict[str, list[str]] = field(default_factory=dict)
     crossref_errors: list[str] = field(default_factory=list)
+    missing_domains: list[str] = field(default_factory=list)
+    # Checks that could NOT run (e.g. an optional cross-check whose package is not
+    # importable). These are not errors, but they are not passes either: a report is
+    # only "fully green" when this is empty. Every surface that prints `ok` must also
+    # print this, or a skipped check masquerades as a passed one.
+    checks_skipped: list[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
-        return not self.schema_errors and not self.crossref_errors
+        return not (self.schema_errors or self.crossref_errors or self.missing_domains)
+
+    @property
+    def complete(self) -> bool:
+        """ok AND every check actually ran."""
+        return self.ok and not self.checks_skipped
+
+    def summary(self) -> str:
+        if self.missing_domains:
+            return ("manifest is incomplete: missing required domain(s) "
+                    f"{', '.join(self.missing_domains)} "
+                    f"(required: {', '.join(REQUIRED_DOMAINS)})")
+        n = sum(len(v) for v in self.schema_errors.values()) + len(self.crossref_errors)
+        head = "valid" if self.ok else f"invalid ({n} error{'s' if n != 1 else ''})"
+        if self.checks_skipped:
+            head += f" — {len(self.checks_skipped)} check(s) SKIPPED: " + "; ".join(self.checks_skipped)
+        return head
 
     def to_dict(self) -> dict:
-        return {"ok": self.ok, "schema_errors": self.schema_errors,
-                "crossref_errors": self.crossref_errors}
+        return {"ok": self.ok, "complete": self.complete,
+                "schema_errors": self.schema_errors,
+                "crossref_errors": self.crossref_errors,
+                "missing_domains": self.missing_domains,
+                "checks_skipped": self.checks_skipped,
+                "summary": self.summary()}
 
 
 def _now() -> str:
@@ -93,7 +127,10 @@ class SpecStore:
             errs = validate_domain(domain, value)
             if errs:
                 report.schema_errors[domain] = errs
-        report.crossref_errors = cross_reference_errors(self.domains)
+        # completeness: absent domains are never "validated" by iterating what's present
+        report.missing_domains = [d for d in REQUIRED_DOMAINS
+                                  if not self.domains.get(d)]
+        report.crossref_errors, report.checks_skipped = cross_reference(self.domains)
         return report
 
     # ---- diff two arbitrary states ----

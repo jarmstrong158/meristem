@@ -72,25 +72,46 @@ def build_tile(contract, name: str, *, speckle: float = 0.22, wave: bool = False
     return img
 
 
+# The terrain-tile vocabulary: tile name -> build_tile kwargs. PUBLIC, because
+# cross-reference validation in the spec store resolves level legends against it.
+# It used to be read as ProceduralGenerator._TILES; a private attribute reached
+# across a package boundary means a rename silently degrades that check to a no-op
+# (the caller's `except Exception` swallows it). Use TILES / known_tiles() /
+# tile_options() instead, so a rename is an AttributeError somebody has to fix.
+TILES: dict[str, dict] = {
+    "grass": dict(speckle=0.30),
+    "dirt": dict(speckle=0.22, cracks=True),
+    "water": dict(speckle=0.0, wave=True),
+    "stone": dict(speckle=0.14, cracks=True),
+    "sand": dict(speckle=0.16),
+    "snow": dict(speckle=0.08),
+    "lava": dict(speckle=0.10, wave=True),
+    "brick": dict(speckle=0.0, brick=True),
+}
+
+TILE_DEFAULT = {"name": "grass"}
+
+
+def known_tiles() -> list[str]:
+    """Every terrain-tile name the generator can build, sorted."""
+    return sorted(TILES)
+
+
+def tile_options(name: str) -> dict:
+    """The build_tile kwargs for one tile name ({} if unknown)."""
+    return dict(TILES.get(name, {}))
+
+
 class ProceduralGenerator(Generator):
     name = "procedural"
 
-    _TILES = {
-        "grass": dict(speckle=0.30),
-        "dirt": dict(speckle=0.22, cracks=True),
-        "water": dict(speckle=0.0, wave=True),
-        "stone": dict(speckle=0.14, cracks=True),
-        "sand": dict(speckle=0.16),
-        "snow": dict(speckle=0.08),
-        "lava": dict(speckle=0.10, wave=True),
-        "brick": dict(speckle=0.0, brick=True),
-    }
+    _TILES = TILES                       # back-compat alias; prefer the module-level TILES
 
     def supports(self, spec: AssetSpec) -> bool:
-        return spec.name in self._TILES
+        return spec.name in TILES
 
     def generate(self, spec: AssetSpec, contract) -> Image.Image:
-        if spec.name not in self._TILES:
+        if spec.name not in TILES:
             raise NotImplementedError(
                 f"procedural backend makes terrain tiles, not {spec.name!r}")
-        return Image.fromarray(build_tile(contract, spec.name, **self._TILES[spec.name]), "RGBA")
+        return Image.fromarray(build_tile(contract, spec.name, **TILES[spec.name]), "RGBA")

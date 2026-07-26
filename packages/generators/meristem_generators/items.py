@@ -132,10 +132,12 @@ _WEAPONS = {
 }
 
 
+WEAPON_DEFAULT = {"kind": "sword", "blade": _STEEL, "hilt": _GOLD, "grip": _LEATHER,
+                  "wood": _WOOD, "orb": (90, 200, 230)}
+
+
 def weapon(contract, config=None) -> np.ndarray:
-    cfg = {"kind": "sword", "blade": _STEEL, "hilt": _GOLD, "grip": _LEATHER,
-           "wood": _WOOD, "orb": (90, 200, 230)}
-    cfg.update(config or {})
+    cfg = {**WEAPON_DEFAULT, **(config or {})}
     cv = _icon(contract)
     blade, gold, grip, wood = Ramp(cfg["blade"]), Ramp(cfg["hilt"]), Ramp(cfg["grip"]), Ramp(cfg["wood"])
     _WEAPONS.get(cfg["kind"], _WEAPONS["sword"])(cv, blade, gold, grip, wood, cfg["orb"])
@@ -196,9 +198,12 @@ _CONS = {"flask": _cons_flask, "bottle": _cons_bottle, "vial": _cons_vial,
          "scroll": _cons_scroll, "pouch": _cons_pouch}
 
 
+CONSUMABLE_DEFAULT = {"shape": "flask", "liquid": (214, 64, 78),
+                      "glass": (198, 214, 226), "cork": (132, 92, 56)}
+
+
 def consumable(contract, config=None) -> np.ndarray:
-    cfg = {"shape": "flask", "liquid": (214, 64, 78), "glass": (198, 214, 226), "cork": (132, 92, 56)}
-    cfg.update(config or {})
+    cfg = {**CONSUMABLE_DEFAULT, **(config or {})}
     cv = _icon(contract)
     _CONS.get(cfg["shape"], _cons_flask)(cv, Ramp(cfg["liquid"]), Ramp(cfg["glass"]), Ramp(cfg["cork"]))
     cv.outline(outline_dark((70, 80, 96)))
@@ -294,9 +299,11 @@ _PICKUPS = {"coin": _pickup_coin, "heart": _pickup_heart, "key": _pickup_key,
             "gem": _pickup_gem, "ring": _pickup_ring, "skull": _pickup_skull, "star": _pickup_star}
 
 
+PICKUP_DEFAULT = {"shape": "coin", "color": (240, 206, 84)}
+
+
 def pickup(contract, config=None) -> np.ndarray:
-    cfg = {"shape": "coin", "color": (240, 206, 84)}
-    cfg.update(config or {})
+    cfg = {**PICKUP_DEFAULT, **(config or {})}
     cls = "ui_element" if cfg["shape"] in ("coin", "heart") else "item_icon"
     cv = _icon(contract, cls)
     _PICKUPS.get(cfg["shape"], _pickup_coin)(cv, cfg["color"])
@@ -329,13 +336,19 @@ _CHEST_BUILDS = {
 }
 
 
+# The declared default carries the "wood" build's materials so `wood`/`metal` are
+# discoverable colour knobs (the catalog derives colour keys from these defaults);
+# at build time the SELECTED build's materials are the fallback, as before.
+CHEST_DEFAULT = {"build": "wood", "open": False, **_CHEST_BUILDS["wood"]}
+
+
 def chest(contract, config=None) -> np.ndarray:
-    cfg = {"build": "wood", "open": False}
-    cfg.update(config or {})
-    mat = _CHEST_BUILDS.get(cfg["build"], _CHEST_BUILDS["wood"])
-    wood = Ramp(cfg.get("wood", mat["wood"]))
-    metal = Ramp(cfg.get("metal", mat["metal"]))
-    dark = outline_dark(cfg.get("wood", mat["wood"]))
+    config = config or {}
+    mat = _CHEST_BUILDS.get(config.get("build", CHEST_DEFAULT["build"]), _CHEST_BUILDS["wood"])
+    cfg = {**CHEST_DEFAULT, **mat, **config}
+    wood = Ramp(cfg["wood"])
+    metal = Ramp(cfg["metal"])
+    dark = outline_dark(cfg["wood"])
     cv = _icon(contract)
     cv.rect(8, 14, 3, 12, wood.base)                        # box body
     cv.rect(8, 14, 12, 12, wood.shadow); cv.rect(8, 9, 4, 6, wood.highlight)
@@ -406,9 +419,11 @@ _PROJECTILES = {"arrow": _pj_arrow, "fireball": _pj_fireball, "bolt": _pj_bolt,
                 "knife": _pj_knife, "shuriken": _pj_shuriken}
 
 
+PROJECTILE_DEFAULT = {"kind": "arrow", "color": (232, 120, 44)}
+
+
 def projectile(contract, config=None) -> np.ndarray:
-    cfg = {"kind": "arrow", "color": (232, 120, 44)}
-    cfg.update(config or {})
+    cfg = {**PROJECTILE_DEFAULT, **(config or {})}
     cv = _icon(contract)
     _PROJECTILES.get(cfg["kind"], _pj_arrow)(cv, cfg["color"])
     cv.outline(outline_dark(cfg["color"] if cfg["kind"] != "arrow" else (80, 80, 90)))

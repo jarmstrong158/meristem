@@ -18,7 +18,7 @@ from .creatures import (BLOB_BUILDS, _FLYER_BUILDS, _GHOSTS, _QUAD_BUILDS,
 from .humanoid import (_ACCENTS, _ARMS, _BEARDS, _FEET, _GARMENTS, _HAIR,
                        _HATS, _HELD)
 from .items import _CHEST_BUILDS, _CONS, _PICKUPS, _PROJECTILES, _WEAPONS
-from .procedural import ProceduralGenerator
+from .procedural import known_tiles
 
 # variant axes per archetype: {archetype: {config_key: [allowed options]}}
 _VARIANTS: dict[str, dict[str, list[str]]] = {
@@ -38,20 +38,33 @@ _VARIANTS: dict[str, dict[str, list[str]]] = {
     "pickup":     {"shape": sorted(_PICKUPS)},
     "projectile": {"kind": sorted(_PROJECTILES)},
     "chest":      {"build": sorted(_CHEST_BUILDS)},
-    "tile":       {"name": sorted(ProceduralGenerator._TILES)},
+    "tile":       {"name": known_tiles()},
 }
 
+
+def _is_rgb(value) -> bool:
+    """A config default that is an RGB(A) triple/quad of 0-255 ints — i.e. a colour knob."""
+    return (isinstance(value, (tuple, list)) and len(value) in (3, 4)
+            and all(isinstance(c, int) and not isinstance(c, bool) and 0 <= c <= 255
+                    for c in value))
+
+
+def color_keys(archetype: str) -> list[str]:
+    """The freeform colour knobs an archetype accepts, DERIVED from the default config
+    its builder merges (every default that is an RGB triple is a colour knob).
+
+    This used to be a hand-maintained table, and it drifted: `raptor` and `beetle`
+    were added to the registry but never to the table, so `list_sprite_archetypes`
+    told authors they had no colour knob even though both builders read cfg["color"].
+    Deriving it means adding a builder cannot silently under-report its vocabulary."""
+    a = ARCHETYPES.get(archetype)
+    if a is None:
+        return []
+    return sorted(k for k, v in a.defaults.items() if _is_rgb(v))
+
+
 # freeform RGB/material knobs per archetype (for discoverability; not enumerable)
-_COLOR_KEYS: dict[str, list[str]] = {
-    "humanoid":   ["skin", "hair", "shirt", "pants", "hat_color",
-                   "held_color", "garment_color", "arm_color"],
-    "blob":       ["color"], "ghost": ["color"], "quadruped": ["color"],
-    "flyer":      ["color"], "serpent": ["color"], "spider": ["color"],
-    "weapon":     ["blade", "hilt", "grip", "wood", "orb"],
-    "consumable": ["liquid", "glass", "cork"],
-    "pickup":     ["color"], "projectile": ["color"],
-    "chest":      ["wood", "metal"], "tile": [],
-}
+_COLOR_KEYS: dict[str, list[str]] = {name: color_keys(name) for name in ARCHETYPES}
 
 _ANIMATED = {name for name, a in ARCHETYPES.items() if a.frames is not None}
 
@@ -66,7 +79,7 @@ def sprite_catalog() -> list[dict]:
             "class": archetype_class(name),
             "animated": name in _ANIMATED,
             "variants": _VARIANTS.get(name, {}),
-            "color_keys": _COLOR_KEYS.get(name, []),
+            "color_keys": color_keys(name),
         })
     return out
 

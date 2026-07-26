@@ -9,7 +9,11 @@ description = "Versioned, schema-enforced project manifest with an MCP server."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
-dependencies = ["jsonschema>=4.20"]
+# meristem-generators is NOT optional: cross-reference validation resolves every
+# entity/item sprite descriptor and every level legend tile against the live
+# generator catalog. Without it those checks cannot run, and a validation report
+# that silently skips checks is worse than one that fails.
+dependencies = ["jsonschema>=4.20", "meristem-generators"]
 
 [project.optional-dependencies]
 mcp = ["mcp>=1.0"]

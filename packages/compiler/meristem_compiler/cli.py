@@ -29,6 +29,10 @@ def main(argv=None) -> int:
         print(f"compile error: {e}", file=sys.stderr)
         return 2
 
+    for skipped in summary.get("checks_skipped", []):
+        # never let a skipped check pass for a passed one, even on the happy path
+        print(f"WARNING: validation check SKIPPED (not verified): {skipped}", file=sys.stderr)
+
     if args.json:
         print(json.dumps(summary, indent=2))
     else:
