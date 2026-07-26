@@ -65,6 +65,8 @@ const ITEMS: Dictionary = {{items}}
 ## Only these slots are WORN. A consumable or key_item is carried and grants nothing,
 ## which is why equipping is slot-driven rather than "anything with stats".
 const EQUIP_SLOTS: Array = ["weapon", "armor", "accessory"]
+## enemy_id -> {"drops": [{item, weight}], "nothing": weight}, baked from drop_tables.
+const DROPS: Dictionary = {{drops}}
 
 var max_hp: int = {{max_hp}}
 var hp: int = {{max_hp}}
@@ -130,6 +132,45 @@ var _pending_spawn: Variant = null
 func register_kill() -> void:
 	kills += 1
 	enemy_killed.emit(kills)
+
+## Roll a dead enemy's drop table and spawn the winning item where it fell.
+##
+## `nothing` sits in the same weighted pool as the drops rather than being a separate
+## pre-roll, so one number describes the whole distribution and an author can read the
+## odds straight off the table.
+func drop_loot(enemy_id: String, at: Vector2) -> String:
+	var table: Dictionary = DROPS.get(enemy_id, {})
+	var drops: Array = table.get("drops", [])
+	if drops.is_empty():
+		return ""
+	var total: float = float(table.get("nothing", 0))
+	for d in drops:
+		total += float(d.get("weight", 0))
+	if total <= 0.0:
+		return ""
+	var roll: float = randf() * total
+	for d in drops:
+		roll -= float(d.get("weight", 0))
+		if roll < 0.0:
+			return _spawn_pickup(str(d.get("item", "")), at)
+	return ""                                  # the roll landed in the `nothing` slice
+
+func _spawn_pickup(item_id: String, at: Vector2) -> String:
+	if item_id == "":
+		return ""
+	var packed: PackedScene = load("res://scenes/pickup_%s.tscn" % item_id)
+	if packed == null:
+		push_warning("no pickup scene for dropped item %s" % item_id)
+		return ""
+	var pickup: Node2D = packed.instantiate()
+	# parented to the CURRENT SCENE, not to the dying enemy -- the enemy is about to be
+	# freed and would take its own loot with it
+	var host: Node = get_tree().current_scene
+	if host == null:
+		return ""
+	host.add_child(pickup)
+	pickup.global_position = at
+	return item_id
 
 func set_pending_spawn(spawn: Vector2) -> void:
 	_pending_spawn = spawn
@@ -479,7 +520,7 @@ def write_scripts(project_dir: Path, *, kind: str, params: dict,
                   enemies: list[dict], player_hp: int = 20,
                   player_atk: int = 1, player_def: int = 0,
                   player_mp: int = 0, player_mp_regen: float = 0.0,
-                  items: dict | None = None,
+                  items: dict | None = None, drops: dict | None = None,
                   abilities: list[dict] | None = None) -> None:
     """player.gd + world.gd + game_state.gd/pickup.gd/hud.gd/door.gd + one enemy_<id>.gd
     per enemy type (stats and ai baked in), plus the ability runner and projectile
@@ -507,7 +548,8 @@ def write_scripts(project_dir: Path, *, kind: str, params: dict,
         ai_template, ai_defaults = ENEMY_AI[e.get("ai", DEFAULT_ENEMY_AI)]
         stats = e.get("stats", {}) or {}
         (sd / f"enemy_{e['id']}.gd").write_text(
-            render_template(ai_template, name=e["name"], hp=int(e["hp"]), atk=int(e["atk"]),
+            render_template(ai_template, id=e["id"], name=e["name"],
+                            hp=int(e["hp"]), atk=int(e["atk"]),
                             **{key: float(stats.get(key, fallback))
                                for key, fallback in ai_defaults.items()}),
             encoding="utf-8")
@@ -519,7 +561,8 @@ def write_scripts(project_dir: Path, *, kind: str, params: dict,
         .replace("{{base_def}}", str(max(0, int(player_def))))
         .replace("{{max_mp}}", str(max(0, int(player_mp))))
         .replace("{{mp_regen}}", f"{float(player_mp_regen):.3f}")
-        .replace("{{items}}", _gd_literal(items or {})),
+        .replace("{{items}}", _gd_literal(items or {}))
+        .replace("{{drops}}", _gd_literal(drops or {})),
         encoding="utf-8")
     (sd / "pickup.gd").write_text(PICKUP_GD, encoding="utf-8")
     (sd / "hud.gd").write_text(HUD_GD, encoding="utf-8")
@@ -799,7 +842,8 @@ theme_override_font_sizes/font_size = 8
 
 def write_scenes(project_dir: Path, *, player_idle: str, player_walk: list[str],
                  enemies: list[dict], heart_sprite: str, coin_frames: list[str],
-                 rooms: list[dict], abilities: list[dict] | None = None) -> None:
+                 rooms: list[dict], abilities: list[dict] | None = None,
+                 droppable: dict | None = None) -> None:
     """`enemies`: [{id, frames: [asset files]}] — one scene per enemy type.
     `rooms`: one entry per level, the FIRST being the start (written as main.tscn):
         {scene: "main.tscn", level_name: "grove_01", placements: {...}}
@@ -852,12 +896,16 @@ def write_scenes(project_dir: Path, *, player_idle: str, player_walk: list[str],
                                  int(ab.get("power", 1)), float(ab.get("range", 120.0))),
                 encoding="utf-8")
 
-    # pickup scenes: one per item TYPE, shared by every room that places it
+    # pickup scenes: one per item TYPE, shared by every room that places it. Items that
+    # only ever arrive as LOOT need one too -- Game.drop_loot loads the scene by name at
+    # runtime, so an item that no level places would otherwise have nothing to spawn.
+    wanted: dict[str, str] = dict(droppable or {})
     for room in rooms:
         for it in room["placements"].get("items", []):
-            path = sc / f"pickup_{it['id']}.tscn"
-            if not path.exists():
-                path.write_text(_pickup_tscn(it["id"], it["file"]), encoding="utf-8")
+            wanted[it["id"]] = it["file"]
+    for item_id, texture in sorted(wanted.items()):
+        (sc / f"pickup_{item_id}.tscn").write_text(
+            _pickup_tscn(item_id, texture), encoding="utf-8")
 
     for room in rooms:
         (sc / room["scene"]).write_text(

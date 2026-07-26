@@ -22,6 +22,8 @@ func _ready() -> void:
 			results.append(await _check_ability_damage(a))
 		elif kind == "gear_bonus":
 			results.append(await _check_gear_bonus(a))
+		elif kind == "loot_drop":
+			results.append(await _check_loot_drop(a))
 		elif kind == "ability_cost":
 			results.append(await _check_ability_cost(a))
 		elif kind == "room_transition":
@@ -124,6 +126,41 @@ func _check_ability_damage(a: Dictionary) -> Dictionary:
 		"kind": "ability_damage", "ability": a.get("ability", ""), "slot": slot,
 		"expected": expected, "measured": measured, "before": before,
 		"ok": measured == expected,
+	}
+
+## Kill an enemy and check its loot actually appears in the scene. Goes through
+## take_damage rather than calling drop_loot directly, so the death path itself is what
+## is proven -- including that the roll happens BEFORE the enemy is freed, since a freed
+## node has no position to drop at.
+func _check_loot_drop(a: Dictionary) -> Dictionary:
+	var enemy_id: String = str(a.get("entity", ""))
+	var expected: String = str(a.get("expected", ""))
+	var enemy_scene: PackedScene = load("res://scenes/enemy_%s.tscn" % enemy_id)
+	if enemy_scene == null:
+		return {"kind": "loot_drop", "ok": false, "error": "enemy scene missing"}
+	var enemy: CharacterBody2D = enemy_scene.instantiate()
+	add_child(enemy)
+	enemy.set_physics_process(false)
+	enemy.global_position = Vector2(48, 48)
+	var host: Node = get_tree().current_scene
+	var before: int = host.get_child_count()
+	enemy.take_damage(9999)                   # overkill: one hit, no ambiguity
+	await get_tree().physics_frame
+	# find what landed: a new Area2D child of the scene carrying the expected item_id
+	var found: String = ""
+	var at: Vector2 = Vector2.ZERO
+	for child in host.get_children():
+		if child is Area2D and str(child.get("item_id")) == expected:
+			found = expected
+			at = (child as Node2D).global_position
+			child.queue_free()
+			break
+	if is_instance_valid(enemy):
+		enemy.queue_free()
+	return {
+		"kind": "loot_drop", "entity": enemy_id, "expected": expected,
+		"measured": found, "children_before": before, "dropped_at": at,
+		"ok": found == expected and at == Vector2(48, 48),
 	}
 
 ## Equip the item through the real collect path and check the swing gets harder by

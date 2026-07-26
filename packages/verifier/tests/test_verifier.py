@@ -73,6 +73,22 @@ def test_derive_ability_cost_only_when_there_is_a_pool_to_spend():
     assert [x for x in derive_assertions(d) if x["kind"] == "ability_cost"] == []
 
 
+def test_derive_loot_drop_only_for_a_guaranteed_single_drop():
+    """A weighted roll is not deterministic, and an assertion that passes most of the
+    time is worse than none — so only a table with one certain drop is asserted on."""
+    got = [x for x in derive_assertions(_domains()) if x["kind"] == "loot_drop"]
+    assert len(got) == 1
+    assert got[0]["entity"] == "slime" and got[0]["expected"] == "sword"
+
+    chancy = _domains()
+    chancy["items"]["drop_tables"][0]["nothing_weight"] = 3
+    assert [x for x in derive_assertions(chancy) if x["kind"] == "loot_drop"] == []
+
+    multi = _domains()
+    multi["items"]["drop_tables"][0]["drops"].append({"item_id": "sword", "weight": 1})
+    assert [x for x in derive_assertions(multi) if x["kind"] == "loot_drop"] == []
+
+
 def test_derive_room_transition_only_when_a_level_has_exits():
     d = _domains()
     assert [x for x in derive_assertions(d) if x["kind"] == "room_transition"] == []

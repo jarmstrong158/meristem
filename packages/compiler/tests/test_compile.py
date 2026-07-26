@@ -225,6 +225,83 @@ def test_player_without_abilities_still_compiles(tmp_path):
     assert not (tmp_path / "scripts" / "projectile.gd").exists()   # nothing fires
 
 
+def test_drop_tables_reach_the_runtime(project):
+    """`drop_tables` were authorable from the start and nothing dropped on kill."""
+    gs = (project / "scripts" / "game_state.gd").read_text(encoding="utf-8")
+    assert "const DROPS: Dictionary" in gs
+    assert '"slime"' in gs and '"item": "sword"' in gs
+    assert "func drop_loot(enemy_id: String, at: Vector2)" in gs
+    # the winning item is parented to the scene, not to the dying enemy
+    assert "get_tree().current_scene" in gs
+    # every AI archetype knows its own id and rolls before it is freed
+    enemy = (project / "scripts" / "enemy_slime.gd").read_text(encoding="utf-8")
+    assert 'ENEMY_ID: String = "slime"' in enemy
+    assert "Game.drop_loot(ENEMY_ID, global_position)" in enemy
+    assert enemy.index("Game.drop_loot") < enemy.index("queue_free()")
+
+
+def test_every_ai_archetype_drops_loot():
+    """The death block is repeated per template, so it is exactly the kind of thing that
+    gets updated in one and forgotten in the others."""
+    from meristem_compiler.scenes import ENEMY_AI, TEMPLATES
+    for ai, (template, _) in ENEMY_AI.items():
+        text = (TEMPLATES / template).read_text(encoding="utf-8")
+        assert "Game.drop_loot(ENEMY_ID, global_position)" in text, ai
+        assert 'ENEMY_ID: String = "{{id}}"' in text, ai
+
+
+def test_loot_only_items_still_get_a_pickup_scene(tmp_path):
+    """`drop_loot` loads pickup_<id>.tscn by name at runtime. Only PLACED items used to
+    get a scene, so an item that exists purely as loot had nothing to spawn."""
+    store = SpecStore.load(MANIFEST)
+    items = store.get("items")
+    items["items"].append({
+        "id": "relic", "name": "Odd Relic", "slot": "accessory", "rarity": "common",
+        "stats": {"def": 1},
+        "sprite": {"archetype": "pickup", "config": {"shape": "gem"}}})
+    items["drop_tables"].append({"enemy_id": "slime", "drops": [{"item_id": "relic", "weight": 1}]})
+    store.set_domain("items", items, {"actor": "test"})
+    out = tmp_path / "m.json"
+    store.save(out)
+    build = tmp_path / "build"
+    compile_project(out, build)
+    # never placed in any level, but droppable -> must have a scene to instantiate
+    assert (build / "scenes" / "pickup_relic.tscn").exists()
+    assert '"item": "relic"' in (build / "scripts" / "game_state.gd").read_text(encoding="utf-8")
+
+
+def test_droppable_item_without_a_sprite_is_refused(tmp_path):
+    """There would be nothing to spawn, and the failure would only appear on a kill."""
+    store = SpecStore.load(MANIFEST)
+    items = store.get("items")
+    items["items"].append({"id": "ghostly", "name": "Ghostly Thing", "slot": "accessory",
+                           "rarity": "common"})
+    items["drop_tables"].append({"enemy_id": "slime",
+                                 "drops": [{"item_id": "ghostly", "weight": 1}]})
+    store.set_domain("items", items, {"actor": "test"})
+    out = tmp_path / "m.json"
+    store.save(out)
+    with pytest.raises(CompileError) as exc:
+        compile_project(out, tmp_path / "build")
+    assert "ghostly" in str(exc.value) and "sprite" in str(exc.value)
+
+
+def test_nothing_weight_is_carried_into_the_pool(tmp_path):
+    """Without it every kill drops something, which is rarely what a game wants."""
+    from meristem_compiler.compile import _drop_tables
+    domains = {"items": {"drop_tables": [
+        {"enemy_id": "slime", "nothing_weight": 3,
+         "drops": [{"item_id": "sword", "weight": 1}]}]}}
+    tables, droppable = _drop_tables(domains, {"sword": "icon_sword.png"})
+    assert tables["slime"]["nothing"] == 3
+    assert tables["slime"]["drops"] == [{"item": "sword", "weight": 1}]
+    assert droppable == {"sword": "icon_sword.png"}
+    # absent -> 0, i.e. a guaranteed drop
+    plain = {"items": {"drop_tables": [
+        {"enemy_id": "slime", "drops": [{"item_id": "sword", "weight": 1}]}]}}
+    assert _drop_tables(plain, {"sword": "icon_sword.png"})[0]["slime"]["nothing"] == 0
+
+
 def test_gear_stats_reach_the_runtime(project):
     """Item `slot` and `stats` were authorable from the beginning and compiled to
     nothing but a sprite and a placement. Now the item table is baked into Game, and
@@ -508,12 +585,12 @@ def test_invalid_manifest_refused(tmp_path):
 @pytest.mark.skipif(not os.environ.get("MERISTEM_GODOT"),
                     reason="set MERISTEM_GODOT to a Godot 4.x binary to run the engine smoke test")
 def test_gear_and_cost_verified_in_engine(project):
-    """The two claims that string checks cannot make: equipping actually raises the
-    swing, and an ability actually charges its resource. The cost check is what caught
-    `cost` never being baked into the slot table."""
+    """The claims string checks cannot make: equipping actually raises the swing, an
+    ability actually charges its resource, and a kill actually produces loot. The cost
+    check is what caught `cost` never being baked into the slot table."""
     from meristem_verifier.assertions import derive_assertions
     from meristem_verifier.runner import run_assertions
-    wanted = {"gear_bonus", "ability_cost"}
+    wanted = {"gear_bonus", "ability_cost", "loot_drop"}
     asserts = [a for a in derive_assertions(SpecStore.load(MANIFEST).get_all())
                if a["kind"] in wanted]
     assert {a["kind"] for a in asserts} == wanted, asserts

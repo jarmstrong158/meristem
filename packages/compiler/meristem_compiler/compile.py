@@ -91,6 +91,32 @@ def _player_abilities(domains: dict, player: dict, item_files: dict) -> list[dic
     return slots
 
 
+def _drop_tables(domains: dict, item_files: dict) -> tuple[dict, dict]:
+    """(baked drop tables, droppable item -> texture).
+
+    Returns the textures too, because an item that only ever arrives as LOOT still
+    needs a pickup scene: `drop_loot` loads `pickup_<id>.tscn` by name at runtime, and
+    only placed items used to get one."""
+    tables: dict[str, dict] = {}
+    droppable: dict[str, str] = {}
+    for dt in (domains.get("items", {}) or {}).get("drop_tables", []):
+        rolls = []
+        for drop in dt.get("drops", []):
+            iid = drop["item_id"]
+            texture = item_files.get(iid)
+            if texture is None:
+                raise CompileError(
+                    f"enemy {dt.get('enemy_id')!r} can drop item {iid!r}, but it has no "
+                    f"sprite, so there would be nothing to spawn (give it a sprite "
+                    f"descriptor)")
+            droppable[iid] = texture
+            rolls.append({"item": iid, "weight": drop["weight"]})
+        if rolls:
+            tables[dt["enemy_id"]] = {"drops": rolls,
+                                      "nothing": dt.get("nothing_weight", 0) or 0}
+    return tables, droppable
+
+
 def _enemy_ai(entity: dict) -> str:
     """The enemy's ai archetype, refused loudly if there is no template for it.
 
@@ -174,6 +200,7 @@ def compile_project(manifest_path: str | Path, out_dir: str | Path) -> dict:
     # gear the runtime needs to apply a bonus: what slot it fills and what it grants
     gear = {it["id"]: {"slot": it["slot"], "stats": it.get("stats", {})}
             for it in (domains.get("items", {}) or {}).get("items", [])}
+    drops, droppable = _drop_tables(domains, item_files)
     pstats = player["stats"]
     write_scripts(out, kind=controller_kind, params=params, enemies=enemy_types,
                   player_hp=int(pstats.get("hp", 20)),
@@ -181,7 +208,7 @@ def compile_project(manifest_path: str | Path, out_dir: str | Path) -> dict:
                   player_def=int(pstats.get("def", 0)),
                   player_mp=int(pstats.get("mp", 0)),
                   player_mp_regen=float(pstats.get("mp_regen", 0.0)),
-                  items=gear, abilities=ability_slots)
+                  items=gear, drops=drops, abilities=ability_slots)
 
     def frame_files(entity_id: str, prefix: str) -> list[str]:
         return [w["file"] for w in sorted(written, key=lambda w: w.get("frame", 0))
@@ -235,7 +262,7 @@ def compile_project(manifest_path: str | Path, out_dir: str | Path) -> dict:
                  player_walk=player_walk,
                  enemies=enemy_scene_data,
                  heart_sprite="ui_heart.png", coin_frames=coin_frames,
-                 rooms=rooms, abilities=ability_slots)
+                 rooms=rooms, abilities=ability_slots, droppable=droppable)
 
     # 4. project.godot
     write_project_godot(out, name=project["title"], main_scene="res://scenes/main.tscn",

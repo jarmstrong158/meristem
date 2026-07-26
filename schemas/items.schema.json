@@ -42,6 +42,11 @@
         "required": ["enemy_id", "drops"],
         "properties": {
           "enemy_id": { "type": "string", "description": "references entities.enemies id" },
+          "nothing_weight": {
+            "description": "Relative weight of dropping NOTHING, rolled alongside the drops. Omitted or 0 means every kill drops something, which is rarely what a game wants.",
+            "type": "number",
+            "minimum": 0
+          },
           "drops": {
             "type": "array",
             "items": {
