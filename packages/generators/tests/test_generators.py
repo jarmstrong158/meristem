@@ -565,3 +565,39 @@ def test_periodic_tile_features_divide_the_tile(contract):
     _, h = contract.canvas_of("terrain_tile")
     assert h % WAVE_PERIOD == 0, (h, WAVE_PERIOD)
     assert h % RIPPLE_PERIOD == 0, (h, RIPPLE_PERIOD)
+
+
+def _apex_ratio(arr):
+    """How pointed the top is: mean width of the top three rows over the widest row.
+    A dome and a hood both taper, but a hood tapers to a POINT and keeps widening."""
+    import numpy as np
+    widths = (arr[..., 3] > 0).sum(axis=1)
+    rows = np.flatnonzero(widths)
+    return float(widths[rows[0]:rows[0] + 3].mean() / widths.max())
+
+
+def test_specter_hood_tapers_to_a_point(contract):
+    """A specter is a hooded figure; a `ghost` is a draped sheet. The specter was
+    built as a dome on a straight rectangle, giving it the same blunt top as the
+    sheet ghost (apex ratio 0.378 vs the ghost's 0.368) — on screen it read as a grey
+    pillar with two red dots, not a cowl. Note this is NOT expressible as a silhouette
+    XOR threshold: the fix moved ghost/specter from 96px apart to 74px while making
+    them far easier to tell apart, because the useful difference is WHERE the shape
+    narrows, not how many pixels disagree."""
+    from meristem_generators.creatures import build_ghost
+    specter = _apex_ratio(build_ghost(contract, {"build": "specter", "color": (150, 150, 180)}))
+    sheet = _apex_ratio(build_ghost(contract, {"build": "ghost", "color": (224, 228, 244)}))
+    assert specter <= 0.25, f"specter hood is blunt, not pointed (apex ratio {specter:.3f})"
+    assert sheet >= 0.30, f"the sheet ghost should stay domed (apex ratio {sheet:.3f})"
+
+
+def test_projectile_kinds_differ_in_silhouette(contract):
+    """`bolt` was a 4-pointed star, which is exactly what `shuriken` is (37px apart),
+    and `arrow` and `knife` were the same 2px diagonal with a block on one end (16px
+    apart — the closest pair in the library). Bolt is now a lightning zigzag, and the
+    arrow/knife pair is separated by length and by what is on each end."""
+    from meristem_generators.items import projectile
+    renders = {k: projectile(contract, {"kind": k})
+               for k in ("arrow", "fireball", "bolt", "knife", "shuriken")}
+    gap = _worst_silhouette_gap(renders)
+    assert gap >= 26, f"closest projectile pair differs by only {gap}px of silhouette"
