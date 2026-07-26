@@ -81,17 +81,84 @@ class SpecService:
 
     def check_sprite(self, archetype: str, config: dict | None = None) -> dict:
         """Validate a single sprite descriptor before writing it — same check the
-        cross-ref runs, but for one pick, so the author gets immediate feedback."""
+        cross-ref runs, but for one pick, so the author gets immediate feedback.
+
+        `problems` are errors (an unknown archetype, or a variant value that is not a
+        real build). `warnings` are config KEYS the archetype does not read: those
+        cannot fail a build, but they silently do nothing, which is worse to debug."""
         try:
-            from meristem_generators import validate_sprite
+            from meristem_generators import sprite_warnings, validate_sprite
         except ImportError as e:
             # NOT ok: the check did not run. Reporting ok=True here would be the same
             # bug as a validation report that greens a check it skipped.
             return {"available": False, "reason": str(e), "ok": False, "problems": [],
-                    "checks_skipped": [f"sprite_archetypes: {e}"]}
+                    "warnings": [], "checks_skipped": [f"sprite_archetypes: {e}"]}
         problems = validate_sprite(archetype, config or {})
         return {"available": True, "ok": not problems, "problems": problems,
+                "warnings": sprite_warnings(archetype, config or {}),
                 "checks_skipped": []}
+
+    # ---- render, so the author can actually LOOK at the pick ----
+    def _contract(self):
+        """(contract, None) or (None, reason).
+
+        The style contract is read from the MANIFEST — the compiler builds assets from
+        `domains["style_contract"]`, so a preview must render against that same
+        contract or it is previewing a different game than the one that will compile.
+        No env var, no invented default path."""
+        raw = self.store.get("style_contract")
+        if not raw:
+            return None, ("the manifest has no style_contract domain yet, so there is no "
+                          "canvas or palette to render against — run scaffold_project, "
+                          "or set the style_contract domain first")
+        try:
+            from asset_gate.contract import StyleContract
+        except ImportError as e:                     # a declared dependency: broken install
+            return None, (f"asset_gate is not importable ({e}), so the style contract "
+                          "cannot be loaded and nothing can be rendered")
+        try:
+            return StyleContract.from_dict(raw), None
+        except Exception as e:
+            return None, f"the manifest's style_contract could not be loaded: {e}"
+
+    def _render(self, fn, archetype: str, config: dict | None, **kw) -> dict:
+        contract, reason = self._contract()
+        if contract is None:
+            return {"ok": False, "reason": reason}
+        try:
+            import meristem_generators as gen
+        except ImportError as e:
+            return {"ok": False, "reason": f"meristem_generators is not importable ({e})"}
+        # Refuse to render an invalid descriptor rather than show the fallback. A
+        # typo'd build renders the archetype's DEFAULT, so previewing it would put a
+        # picture of a dog under the label "dragon" and read as confirmation.
+        problems = gen.validate_sprite(archetype, config or {})
+        if problems:
+            return {"ok": False, "reason": "invalid sprite descriptor", "problems": problems}
+        try:
+            png, meta = getattr(gen, fn)(contract, archetype, config, **kw)
+        except (KeyError, ValueError) as e:
+            return {"ok": False, "reason": str(e)}
+        out = {"ok": True, "png": png, "warnings": gen.sprite_warnings(archetype, config or {}),
+               **meta}
+        try:                                          # conformance, alongside the picture
+            from asset_gate import validate
+            res = validate(gen.build_archetype(contract, archetype, config or {}),
+                           gen.archetype_class(archetype), contract)
+            out["gate"] = {"accepted": res.accepted, "reasons": res.reasons}
+        except ImportError:
+            out["gate"] = {"accepted": None, "reasons": ["asset_gate not importable"]}
+        return out
+
+    def preview_sprite(self, archetype: str, config: dict | None = None, scale: int = 6,
+                       frame: int = 0, silhouette: bool = False) -> dict:
+        return self._render("render_sprite", archetype, config, scale=scale, frame=frame,
+                            silhouette=silhouette)
+
+    def compare_builds(self, archetype: str, config: dict | None = None, scale: int = 5,
+                       silhouette: bool = True) -> dict:
+        return self._render("render_builds", archetype, config, scale=scale,
+                            silhouette=silhouette)
 
     # ---- diff + whole-manifest validation ----
     def diff_domain(self, domain: str, candidate: dict) -> dict:
@@ -158,7 +225,8 @@ def _inspector_payload(store: SpecStore) -> dict:
 
 
 def build_server(service: Optional[SpecService] = None):
-    from mcp.server.fastmcp import FastMCP  # imported lazily so the lib works without mcp
+    # imported lazily so the library still works without the optional `mcp` extra
+    from mcp.server.fastmcp import FastMCP, Image
 
     svc = service or SpecService(default_manifest_path())
     mcp = FastMCP("meristem-spec-store")
@@ -198,9 +266,42 @@ def build_server(service: Optional[SpecService] = None):
 
     @mcp.tool(description="Validate one sprite descriptor {archetype, config} before writing it: checks "
                           "the archetype exists and each build/kind/shape is a known option. Returns "
-                          "{ok, problems}. Use after list_sprite_archetypes to confirm a pick.")
+                          "{ok, problems, warnings} — `problems` are errors, `warnings` are config KEYS "
+                          "this archetype does not read (a typo like 'shpae' or 'hat_colour' cannot fail "
+                          "a build, it just silently does nothing). Use after list_sprite_archetypes.")
     def check_sprite(archetype: str, config: dict = None) -> dict:
         return svc.check_sprite(archetype, config)
+
+    def _image_result(res: dict):
+        """A render result as [image, metadata], so the caller SEES the sprite and also
+        gets the structured facts. On failure there is no image — just the reason."""
+        if not res.get("ok"):
+            return res
+        png = res.pop("png")
+        return [Image(data=png, format="png"), res]
+
+    @mcp.tool(description="RENDER one sprite to a PNG you can look at, from {archetype, config}. "
+                          "The asset gate only checks conformance (canvas, hard alpha, palette) — it "
+                          "cannot tell you whether a sprite reads as the thing it is named, so LOOK at "
+                          "the result before writing the descriptor. `scale` magnifies with "
+                          "nearest-neighbour (default 6); `frame` picks an animation frame (0 is always "
+                          "the static build); `silhouette` renders the alpha mask alone, which is how "
+                          "you check the shape reads before any interior detail. Renders against the "
+                          "manifest's own style_contract, and refuses a descriptor that would silently "
+                          "fall back to the default build.")
+    def preview_sprite(archetype: str, config: dict = None, scale: int = 6,
+                       frame: int = 0, silhouette: bool = False):
+        return _image_result(svc.preview_sprite(archetype, config, scale, frame, silhouette))
+
+    @mcp.tool(description="RENDER every variant of one archetype side by side, labelled, as a "
+                          "distinctness review. Defaults to SILHOUETTES because that is the question "
+                          "this answers: variants that share an outline read as the same thing on "
+                          "screen no matter how different their interior detail or palette is. Pass "
+                          "silhouette=false to compare the finished art instead. Use this whenever you "
+                          "add or change a build.")
+    def compare_builds(archetype: str, config: dict = None, scale: int = 5,
+                       silhouette: bool = True):
+        return _image_result(svc.compare_builds(archetype, config, scale, silhouette))
 
     @mcp.tool(description="Diff a candidate value for a domain against the stored value.")
     def diff_domain(domain: str, candidate: dict) -> dict:

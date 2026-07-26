@@ -567,6 +567,86 @@ def test_periodic_tile_features_divide_the_tile(contract):
     assert h % RIPPLE_PERIOD == 0, (h, RIPPLE_PERIOD)
 
 
+def test_declared_anim_params_actually_drive_their_builder(contract):
+    """`_ANIM_PARAMS` is the one hand-maintained part of the legal-key derivation, so
+    keep it honest behaviourally rather than by inspection — the same reason
+    `color_keys` was moved off a hand-written table after it rotted."""
+    import numpy as np
+    from meristem_generators import build_archetype
+    from meristem_generators.catalog import _ANIM_PARAMS
+    for archetype, params in _ANIM_PARAMS.items():
+        base = np.asarray(build_archetype(contract, archetype, {}))
+        for param in params:
+            alt = np.asarray(build_archetype(contract, archetype, {param: 1}))
+            assert not np.array_equal(base, alt), (
+                f"{archetype}.{param} is declared an animation knob but changes nothing")
+
+
+def test_config_keys_accepts_real_knobs_and_flags_typos():
+    """A typo'd config KEY used to validate completely clean and then render the
+    default — the same silent fallback that a typo'd build VALUE is an error for."""
+    from meristem_generators import config_keys, sprite_warnings
+    assert {"shape", "color"} <= set(config_keys("pickup"))
+    assert "head_dy" in config_keys("quadruped")          # per-frame knob is legal
+    assert config_keys("nonexistent") == []
+
+    assert sprite_warnings("pickup", {"shape": "heart", "color": (1, 2, 3)}) == []
+    assert sprite_warnings("blob", {"squash": 1, "eyes": 3}) == []
+    assert any("shpae" in w for w in sprite_warnings("pickup", {"shpae": "gem"}))
+    assert any("hat_colour" in w for w in sprite_warnings("humanoid", {"hat_colour": (1, 2, 3)}))
+    # an unknown archetype is validate_sprite's error to report, not a pile of key noise
+    assert sprite_warnings("nonexistent", {"whatever": 1}) == []
+
+
+def test_every_advertised_knob_is_a_legal_config_key():
+    """config_keys must be a superset of everything the catalog advertises, or the MCP
+    would warn about a knob it told the author to use."""
+    from meristem_generators import config_keys, sprite_catalog
+    for entry in sprite_catalog():
+        legal = set(config_keys(entry["archetype"]))
+        assert set(entry["color_keys"]) <= legal, entry["archetype"]
+        assert set(entry["variants"]) <= legal, entry["archetype"]
+
+
+def test_preview_renders_png_and_addresses_frames(contract):
+    """The standard's loop is 'render, then judge by eye'; nothing in the authoring
+    path could produce a picture until this existed."""
+    from meristem_generators import render_sprite
+    png, meta = render_sprite(contract, "blob", {"build": "king"}, scale=4)
+    assert png[:8] == b"\x89PNG\r\n\x1a\n"
+    assert meta["native_size"] == [32, 32] and meta["frames"] == 4
+    assert meta["scale"] == 4 and meta["archetype"] == "blob"
+    # frame 0 is the static build, and the index wraps rather than raising
+    assert render_sprite(contract, "blob", {}, frame=0)[0] == \
+           render_sprite(contract, "blob", {}, frame=4)[0]
+    # the silhouette view is a different picture, and says so
+    sil, smeta = render_sprite(contract, "blob", {}, silhouette=True)
+    assert smeta["silhouette"] and sil != render_sprite(contract, "blob", {})[0]
+    # scale is clamped, not trusted -- a huge scale would be a huge payload
+    from meristem_generators.preview import MAX_SCALE
+    assert render_sprite(contract, "blob", {}, scale=999)[1]["scale"] == MAX_SCALE
+    assert render_sprite(contract, "blob", {}, scale=0)[1]["scale"] == 1
+    with pytest.raises(KeyError):                       # not a silent default render
+        render_sprite(contract, "dragon", {})
+
+
+def test_render_builds_uses_each_archetypes_own_variant_key(contract):
+    """Assuming `build` would render one default nine times for weapons (`kind`),
+    pickups (`shape`) and tiles (`name`)."""
+    from meristem_generators import render_builds, variant_key
+    assert variant_key("weapon") == "kind"
+    assert variant_key("pickup") == "shape"
+    assert variant_key("tile") == "name"
+    assert variant_key("humanoid") is None              # no single variant axis
+    png, meta = render_builds(contract, "weapon", scale=2)
+    assert png[:8] == b"\x89PNG\r\n\x1a\n"
+    assert meta["variant_key"] == "kind" and len(meta["builds"]) == 9
+    assert meta["silhouette"] is True                   # the distinctness question
+    # an archetype with no variant axis must still render, not crash
+    _, hmeta = render_builds(contract, "humanoid", scale=2)
+    assert hmeta["variant_key"] is None and hmeta["builds"] == []
+
+
 def _apex_ratio(arr):
     """How pointed the top is: mean width of the top three rows over the widest row.
     A dome and a hood both taper, but a hood tapers to a POINT and keeps widening."""

@@ -69,6 +69,68 @@ _COLOR_KEYS: dict[str, list[str]] = {name: color_keys(name) for name in ARCHETYP
 _ANIMATED = {name for name, a in ARCHETYPES.items() if a.frames is not None}
 
 
+# Config parameters the registry's FRAME functions inject per frame. They are real,
+# accepted knobs, but they deliberately do not appear in any archetype's default dict
+# (the frame function supplies them), so a legal-key check derived from the defaults
+# alone would report them as typos. Kept honest by
+# test_declared_anim_params_actually_drive_their_builder, which asserts each one
+# really does change that archetype's render.
+_ANIM_PARAMS: dict[str, list[str]] = {
+    "blob":      ["squash"],
+    "quadruped": ["head_dy"],
+    "flyer":     ["wing_dy"],
+    "serpent":   ["head_dx", "tongue"],
+    "spider":    ["leg_dy"],
+    "raptor":    ["head_dy"],
+    "beetle":    ["leg_dy"],
+}
+
+
+def variant_options(archetype: str) -> dict[str, list[str]]:
+    """The variant axes and their options for one archetype ({} if it has none).
+
+    PUBLIC on purpose. `_VARIANTS` used to be the only way to ask this, and the same
+    mistake elsewhere in the package — reading `ProceduralGenerator._TILES` across a
+    boundary — silently degraded a validation check to a no-op when it was renamed.
+    A rename should break an import, not a feature."""
+    return {key: list(options) for key, options in _VARIANTS.get(archetype, {}).items()}
+
+
+def config_keys(archetype: str) -> list[str]:
+    """Every config key an archetype's builder actually reads.
+
+    Union of three derived sources — the default config the builder merges, the
+    catalog's variant axes, and the per-frame animation parameters — so adding a knob
+    to a builder cannot leave this under-reporting it."""
+    a = ARCHETYPES.get(archetype)
+    if a is None:
+        return []
+    return sorted(set(a.defaults)
+                  | set(_VARIANTS.get(archetype, {}))
+                  | set(_ANIM_PARAMS.get(archetype, [])))
+
+
+def sprite_warnings(archetype: str, config: dict | None = None) -> list[str]:
+    """Config keys that do NOTHING — advisory, never errors.
+
+    `validate_sprite` polices variant VALUES: a typo'd build is a hard error rather
+    than a silent fallback to the default (dec-0029). Config KEYS were never covered,
+    so `{"shpae": "heart"}` or a British `{"hat_colour": ...}` validated completely
+    clean and then rendered the default — the same silent-fallback failure one level
+    up, and harder to spot because nothing at all appears wrong.
+
+    These stay warnings and not errors on purpose. The legal-key set is DERIVED, and a
+    derivation that missed a knob must not be able to fail a manifest whose sprites
+    render correctly. A wrong key costs a wrong-looking sprite; a wrong rejection costs
+    a build."""
+    if archetype not in ARCHETYPES:
+        return []
+    legal = set(config_keys(archetype))
+    return [f"{archetype}.{key!r} is not a config knob this archetype reads, so it is "
+            f"ignored. Known knobs: {config_keys(archetype)}"
+            for key in sorted(config or {}) if key not in legal]
+
+
 def sprite_catalog() -> list[dict]:
     """The full pickable vocabulary: one entry per archetype with its class, whether
     it animates, its variant axes + options, and its colour knobs."""
