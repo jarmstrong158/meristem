@@ -427,14 +427,23 @@ def chest(contract, config=None) -> np.ndarray:
 
 
 # ----------------------------- projectile ---------------------------------
+# arrow and knife are both "a diagonal thing flying up-right", so they need different
+# ENDS to tell apart: an arrow is a hairline shaft with a triangular point and splayed
+# fletching, a knife is a broad blade with a crossguard. They used to be the same
+# 2px-thick diagonal with a 3x3 block on one end (which read as a hammer) and their
+# silhouettes differed by 16px — the closest pair in the whole projectile set.
 def _pj_arrow(cv, color):
-    wood, metal = Ramp((150, 110, 62)), Ramp(_STEEL)
-    for i in range(8):                                       # shaft, low-left -> high-right
-        r, c = 12 - i, 3 + i
-        cv.px(r, c, wood.base); cv.px(r + 1, c, wood.shadow)
-    cv.rect(2, 4, 11, 13, metal.base); cv.px(2, 11, metal.highlight); cv.px(4, 13, metal.shadow)  # head
-    cv.rect(11, 13, 2, 4, Ramp(color).base)                 # fletching
-    cv.px(13, 2, Ramp(color).shadow)
+    fletch, wood, metal = Ramp(color), Ramp((150, 110, 62)), Ramp(_STEEL)
+    for i in range(8):                                       # hairline shaft, low-left -> high-right
+        cv.px(11 - i, 4 + i, wood.base)
+    head = {2: (12, 13), 3: (11, 13), 4: (10, 12), 5: (11, 11)}   # triangular point
+    for r, (c0, c1) in head.items():
+        cv.rect(r, r, c0, c1, metal.base)
+    cv.px(2, 13, metal.highlight); cv.px(4, 10, metal.shadow)
+    for k in range(3):                                       # two barbs splaying off the nock
+        cv.px(10 - k, 2 + k, fletch.base)
+        cv.px(13 - k, 3 + k, fletch.base)
+    cv.px(13, 3, fletch.shadow); cv.px(10, 2, fletch.highlight)
 
 
 def _pj_fireball(cv, color):
@@ -445,24 +454,38 @@ def _pj_fireball(cv, color):
     cv.px(12, 4, fire.base); cv.px(13, 3, fire.shadow); cv.px(11, 5, fire.highlight)  # trail
 
 
+# A lightning zigzag. `bolt` used to be a 4-pointed star, which is exactly what
+# `shuriken` is — their silhouettes differed by 37px and both read as "spiky orange
+# thing". A zigzag shares its outline with nothing else in the set.
+_BOLT_ROWS = {1: (9, 11), 2: (8, 11), 3: (7, 10), 4: (6, 9), 5: (5, 9),
+              6: (4, 11), 7: (7, 10), 8: (6, 9), 9: (5, 8),
+              10: (4, 7), 11: (3, 6), 12: (4, 5)}
+
+
 def _pj_bolt(cv, color):
     b = Ramp(color)
-    spans = {4: (7, 8), 5: (6, 9), 6: (5, 10), 7: (5, 10), 8: (6, 9), 9: (7, 8)}
-    for r, (c0, c1) in spans.items():
+    for r, (c0, c1) in _BOLT_ROWS.items():
         cv.rect(r, r, c0, c1, b.base)
-    cv.rect(4, 6, 6, 7, b.highlight)
-    cv.px(2, 7, b.base); cv.px(11, 8, b.base); cv.px(7, 3, b.base); cv.px(7, 12, b.base)  # points
-    cv.px(4, 7, (255, 255, 255))
+        cv.px(r, c0, b.highlight)                            # lit leading edge
+        cv.px(r, c1, b.shadow)                               # trailing edge
+    cv.px(1, 10, (255, 255, 220)); cv.px(6, 7, (255, 255, 220))   # hot core along the kink
 
 
 def _pj_knife(cv, color):
-    blade, grip = Ramp(_STEEL), Ramp((110, 74, 48))
-    for i in range(7):                                       # blade: low-left -> high-right
-        r, c = 11 - i, 4 + i
-        cv.px(r, c, blade.base); cv.px(r + 1, c, blade.shadow); cv.px(r, c + 1, blade.highlight)
-    cv.px(4, 11, blade.highlight)                            # tip
-    cv.rect(11, 13, 2, 4, grip.base); cv.px(13, 2, grip.shadow)   # handle (low-left)
-    cv.px(10, 4, Ramp(color).base)                           # guard fleck
+    """Short and thick, against the arrow's long and thin — the two share a diagonal
+    axis, so length and weight are what separate them once the ends are different."""
+    blade, grip, guard = Ramp(_STEEL), Ramp((110, 74, 48)), Ramp(color)
+    for i in range(5):                                       # broad blade, low-left -> high-right
+        r, c = 9 - i, 6 + i
+        cv.px(r - 1, c, blade.highlight)                     # lit spine
+        cv.px(r, c, blade.base)
+        cv.px(r + 1, c, blade.shadow)                        # shaded edge
+    cv.px(4, 11, blade.highlight); cv.px(5, 11, blade.base)  # tip
+    for r, c in ((11, 4), (10, 5), (9, 6), (8, 7)):          # crossguard, across the blade
+        cv.px(r, c, guard.base)
+    cv.px(12, 5, guard.shadow); cv.px(8, 8, guard.highlight)
+    cv.rect(11, 13, 2, 4, grip.base)                         # stubby handle, low-left
+    cv.px(13, 2, grip.shadow); cv.px(11, 4, grip.highlight)
 
 
 def _pj_shuriken(cv, color):

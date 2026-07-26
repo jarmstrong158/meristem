@@ -113,16 +113,43 @@ def _ghost_wisp(cv, body, dark, cx):
     cv.px(19, cx - 2, dark); cv.px(19, cx + 2, dark) # tiny eyes
 
 
+# A hooded phantom, as (row -> half-width) about the centre column. The shape is the
+# whole point: a POINTED hood tapering to a narrow neck, then shoulders flaring wider
+# than the hood, then a robe falling to a ragged hem. Built from a dome on a straight
+# rectangle, as this was, a specter is just a grey pillar — the old one had no hood
+# peak and no shoulder line, so it read as a domino with two red dots.
+_SPECTER_HALF = {
+    2: 0, 3: 1, 4: 2, 5: 3, 6: 4, 7: 5,               # hood: a sharp point opening out
+    8: 6, 9: 6, 10: 7, 11: 7, 12: 7,                  # widening MONOTONICALLY -- a pinched
+    13: 8, 14: 8, 15: 8, 16: 8, 17: 8,                # neck with a shoulder flare above it
+    18: 8, 19: 8, 20: 8, 21: 8, 22: 8,                # reads as blocky arms bolted on
+    23: 9, 24: 9, 25: 9, 26: 9, 27: 9,                # robe spreading to the hem
+}
+
+
 def _ghost_specter(cv, body, dark, cx):
-    """A tall hooded phantom with glowing eyes — more menacing than the sheet ghost."""
-    cv.disc(9, cx, 5, 6, body.base)                  # hood dome
-    cv.rect(9, 27, cx - 6, cx + 5, body.base)        # long robe
-    for nx in (cx - 4, cx, cx + 4):                  # ragged hem
-        cv.clear_disc(28, nx, 3, 2.2)
-    cv.rect(6, 8, cx - 4, cx + 3, body.highlight)    # lit hood crown
-    cv.rect(9, 22, cx + 4, cx + 5, body.shadow)      # shade side
-    cv.rect(11, 16, cx - 3, cx + 2, body.shadow)     # recessed face (cowl)
-    cv.px(12, cx - 2, (240, 96, 96)); cv.px(12, cx + 1, (240, 96, 96))   # glowing eyes
+    """A tall hooded phantom: a sharp cowl point, a robe widening to a ragged hem, and
+    two lights burning inside the dark of the hood."""
+    for r, half in _SPECTER_HALF.items():
+        cv.rect(r, r, cx - half, cx + half, body.base)
+    for r, half in _SPECTER_HALF.items():             # light down the left, shade right
+        cv.px(r, cx - half, body.highlight)
+        cv.rect(r, r, cx + half - 1, cx + half, body.shadow)
+    cv.rect(4, 7, cx - 2, cx + 1, body.highlight)     # lit crown of the hood
+
+    # The cowl is an OPENING IN the hood, so hood material has to show either side of
+    # it. Spanning the full width (as it first did) reads as a visor, not a hood.
+    cv.rect(8, 13, cx - 3, cx + 3, dark)
+    cv.px(7, cx - 2, dark); cv.px(7, cx + 2, dark)    # its upper lip
+    for ex in (cx - 2, cx + 2):                       # eyes burning inside it
+        cv.px(10, ex, (255, 128, 96))
+        cv.px(11, ex, (240, 72, 72))
+    for r in (16, 17, 18):                            # sleeve folds: interior shading only
+        cv.px(r, cx - 6, body.shadow); cv.px(r, cx + 6, body.shadow)
+
+    for k in (-6, -2, 2, 6):                          # ragged, dissolving hem
+        cv.clear_disc(28, cx + k, 3.2, 1.9)
+    cv.clear_disc(26, cx - 9, 2.2, 1.6); cv.clear_disc(26, cx + 9, 2.2, 1.6)
 
 
 _GHOSTS = {"ghost": _ghost_classic, "wisp": _ghost_wisp, "specter": _ghost_specter}
