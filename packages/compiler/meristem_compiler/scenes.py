@@ -11,11 +11,19 @@ WORLD_GD = '''extends Node2D
 ## Builds the ground from the compiler-emitted level grid. The .ldtk file
 ## (levels/) is the canonical, LDtk-editable level; this runtime builder lets the
 ## vertical slice run without the godot-ldtk-importer addon.
+##
+## `level_name` is set per scene rather than baked into this script, so one shared
+## world.gd serves every room instead of a near-identical copy per level.
 
 const TILE: int = 16
 
+@export var level_name: String = ""
+
 func _ready() -> void:
-	var f: FileAccess = FileAccess.open("res://levels/{{level}}.grid.json", FileAccess.READ)
+	if level_name == "":
+		push_warning("Ground.level_name is empty; no ground to build")
+		return
+	var f: FileAccess = FileAccess.open("res://levels/%s.grid.json" % level_name, FileAccess.READ)
 	if f == null:
 		push_warning("level grid not found")
 		return
@@ -51,9 +59,29 @@ var hp: int = {{max_hp}}
 var items: Dictionary = {}
 var kills: int = 0
 
+## Where the player should appear in the room it is walking INTO. change_scene_to_file
+## cannot carry arguments, and this autoload is the only thing that survives the swap,
+## so a door leaves the arrival cell here and the player picks it up in _ready. Null
+## means "use wherever the scene already placed the player".
+var _pending_spawn: Variant = null
+
 func register_kill() -> void:
 	kills += 1
 	enemy_killed.emit(kills)
+
+func set_pending_spawn(spawn: Vector2) -> void:
+	_pending_spawn = spawn
+
+func go_to_room(scene_path: String, spawn: Vector2) -> void:
+	set_pending_spawn(spawn)
+	get_tree().change_scene_to_file(scene_path)
+
+## Read-once: a stale arrival cell must not teleport the player again on the next
+## reload after a death.
+func take_pending_spawn() -> Variant:
+	var p: Variant = _pending_spawn
+	_pending_spawn = null
+	return p
 
 func take_damage(amount: int) -> void:
 	hp = clampi(hp - amount, 0, max_hp)
@@ -72,7 +100,29 @@ func _restart() -> void:
 	hp = max_hp
 	items = {}
 	kills = 0
+	_pending_spawn = null
 	get_tree().call_deferred("reload_current_scene")
+'''
+
+DOOR_GD = '''extends Area2D
+## A doorway between rooms. `to_scene` and `to_spawn` are baked per door by the
+## compiler from the level's `exits`.
+
+@export var to_scene: String = ""
+@export var to_spawn: Vector2 = Vector2.ZERO
+
+var _used: bool = false
+
+func _ready() -> void:
+	body_entered.connect(_on_body_entered)
+
+func _on_body_entered(body: Node2D) -> void:
+	# one-shot: overlapping bodies can fire twice in a frame, and a second
+	# change_scene_to_file during the same transition throws the swap away
+	if _used or to_scene == "" or not body.is_in_group("player"):
+		return
+	_used = true
+	Game.go_to_room(to_scene, to_spawn)
 '''
 
 PICKUP_GD = '''extends Area2D
@@ -164,8 +214,8 @@ DEFAULT_ENEMY_AI = "idle"
 
 
 def write_scripts(project_dir: Path, *, kind: str, params: dict,
-                  enemies: list[dict], level_name: str = "grove_01",
-                  player_hp: int = 20, player_atk: int = 1) -> None:
+                  enemies: list[dict], player_hp: int = 20,
+                  player_atk: int = 1) -> None:
     """player.gd + world.gd + game_state.gd/pickup.gd/hud.gd + one enemy_<id>.gd
     per enemy type (stats and ai baked in).
 
@@ -189,11 +239,12 @@ def write_scripts(project_dir: Path, *, kind: str, params: dict,
                             **{key: float(stats.get(key, fallback))
                                for key, fallback in ai_defaults.items()}),
             encoding="utf-8")
-    (sd / "world.gd").write_text(WORLD_GD.replace("{{level}}", level_name), encoding="utf-8")
+    (sd / "world.gd").write_text(WORLD_GD, encoding="utf-8")
     (sd / "game_state.gd").write_text(
         GAME_STATE_GD.replace("{{max_hp}}", str(int(player_hp))), encoding="utf-8")
     (sd / "pickup.gd").write_text(PICKUP_GD, encoding="utf-8")
     (sd / "hud.gd").write_text(HUD_GD, encoding="utf-8")
+    (sd / "door.gd").write_text(DOOR_GD, encoding="utf-8")
 
 
 def _actor_tscn(node_name: str, sprite_path: str, script_path: str,
@@ -313,12 +364,118 @@ shape = SubResource("RectangleShape2D_player")
 '''
 
 
+def _room_tscn(room: dict, heart_sprite: str, coin_ext: str, coin_node: str) -> str:
+    """One room's scene. Every room is the same shape — ground, player, actors, camera,
+    HUD — differing only in its grid name and placements, so they come off one builder
+    instead of `main.tscn` being special."""
+    p = room["placements"]
+    px, py = p["player"]
+    cx, cy = p["camera"]
+    doors = p.get("doors", [])
+
+    ext = ['[ext_resource type="PackedScene" path="res://scenes/player.tscn" id="1_player"]']
+    enemy_rid: dict[str, str] = {}
+    for sp in p.get("enemies", []):
+        if sp["id"] not in enemy_rid:
+            rid = f"e{len(enemy_rid)}_enemy"
+            enemy_rid[sp["id"]] = rid
+            ext.append(f'[ext_resource type="PackedScene" '
+                       f'path="res://scenes/enemy_{sp["id"]}.tscn" id="{rid}"]')
+    item_rid: dict[str, str] = {}
+    for it in p.get("items", []):
+        if it["id"] not in item_rid:
+            rid = f"i{len(item_rid)}_item"
+            item_rid[it["id"]] = rid
+            ext.append(f'[ext_resource type="PackedScene" '
+                       f'path="res://scenes/pickup_{it["id"]}.tscn" id="{rid}"]')
+    ext.append('[ext_resource type="Script" path="res://scripts/world.gd" id="3_world"]')
+    ext.append(f'[ext_resource type="Texture2D" path="res://assets/{heart_sprite}" id="4_heart"]')
+    ext.append('[ext_resource type="Script" path="res://scripts/hud.gd" id="6_hud"]')
+    ext.append(coin_ext)
+    if doors:
+        ext.append('[ext_resource type="Script" path="res://scripts/door.gd" id="7_door"]')
+
+    sub = ('[sub_resource type="RectangleShape2D" id="RectangleShape2D_door"]\n'
+           'size = Vector2(14, 14)\n') if doors else ""
+
+    enemy_nodes = [f'[node name="Enemy{i}" parent="." instance=ExtResource("{enemy_rid[sp["id"]]}")]\n'
+                   f'position = Vector2({sp["px"]}, {sp["py"]})\n'
+                   for i, sp in enumerate(p.get("enemies", []))]
+    item_nodes = [f'[node name="Item{i}" parent="." instance=ExtResource("{item_rid[it["id"]]}")]\n'
+                  f'position = Vector2({it["px"]}, {it["py"]})\n'
+                  for i, it in enumerate(p.get("items", []))]
+    door_nodes = []
+    for i, d in enumerate(doors):
+        door_nodes.append(
+            f'[node name="Door{i}" type="Area2D" parent="."]\n'
+            f'position = Vector2({d["px"]}, {d["py"]})\n'
+            f'script = ExtResource("7_door")\n'
+            f'to_scene = "{d["to_scene"]}"\n'
+            f'to_spawn = Vector2({d["sx"]}, {d["sy"]})\n\n'
+            f'[node name="Shape" type="CollisionShape2D" parent="Door{i}"]\n'
+            f'shape = SubResource("RectangleShape2D_door")\n')
+
+    return f'''[gd_scene load_steps={len(ext) + (2 if doors else 1)} format=3]
+
+{chr(10).join(ext)}
+
+{sub}
+[node name="Main" type="Node2D"]
+
+[node name="Ground" type="Node2D" parent="."]
+script = ExtResource("3_world")
+level_name = "{room["level_name"]}"
+
+[node name="Player" parent="." instance=ExtResource("1_player")]
+position = Vector2({px}, {py})
+
+{chr(10).join(enemy_nodes)}
+{chr(10).join(item_nodes)}
+{chr(10).join(door_nodes)}
+[node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2({cx}, {cy})
+
+[node name="HUD" type="CanvasLayer" parent="."]
+script = ExtResource("6_hud")
+
+[node name="Heart" type="Sprite2D" parent="HUD"]
+position = Vector2(12, 12)
+texture = ExtResource("4_heart")
+
+[node name="HpLabel" type="Label" parent="HUD"]
+offset_left = 22.0
+offset_top = 4.0
+offset_right = 80.0
+offset_bottom = 20.0
+theme_override_font_sizes/font_size = 8
+
+{coin_node}
+
+[node name="ItemLabel" type="Label" parent="HUD"]
+offset_left = 22.0
+offset_top = 22.0
+offset_right = 80.0
+offset_bottom = 38.0
+theme_override_font_sizes/font_size = 8
+
+[node name="KillLabel" type="Label" parent="HUD"]
+offset_left = 22.0
+offset_top = 40.0
+offset_right = 100.0
+offset_bottom = 56.0
+theme_override_font_sizes/font_size = 8
+'''
+
+
 def write_scenes(project_dir: Path, *, player_idle: str, player_walk: list[str],
                  enemies: list[dict], heart_sprite: str, coin_frames: list[str],
-                 placements: dict) -> None:
+                 rooms: list[dict]) -> None:
     """`enemies`: [{id, frames: [asset files]}] — one scene per enemy type.
-    `placements`: {player: (px,py), enemies: [{id,px,py}], items: [{file,px,py}],
-                   camera: (px,py)} — all in pixels, from the level's spawn markers."""
+    `rooms`: one entry per level, the FIRST being the start (written as main.tscn):
+        {scene: "main.tscn", level_name: "grove_01", placements: {...}}
+    `placements`: {player:(px,py), camera:(px,py), enemies:[{id,px,py}],
+                   items:[{id,file,px,py}], doors:[{px,py,to_scene,sx,sy}]} — all in
+    pixels, from that level's spawn and exit markers."""
     sc = project_dir / "scenes"
     sc.mkdir(parents=True, exist_ok=True)
     (sc / "player_frames.tres").write_text(
@@ -356,84 +513,13 @@ def write_scenes(project_dir: Path, *, player_idle: str, player_walk: list[str],
                      'position = Vector2(12, 30)\n'
                      'texture = ExtResource("5_coin")')
 
-    # ext resources: one PackedScene per enemy type, one Texture2D per item file
-    enemy_ext, item_ext = [], []
-    enemy_scene_id = {}
-    for i, e in enumerate(enemies):
-        rid = f"e{i}_enemy"
-        enemy_scene_id[e["id"]] = rid
-        enemy_ext.append(f'[ext_resource type="PackedScene" path="res://scenes/enemy_{e["id"]}.tscn" id="{rid}"]')
-    item_scene_id = {}
-    for i, it in enumerate(placements.get("items", [])):
-        if it["id"] not in item_scene_id:
-            (sc / f"pickup_{it['id']}.tscn").write_text(
-                _pickup_tscn(it["id"], it["file"]), encoding="utf-8")
-            rid = f"i{i}_item"
-            item_scene_id[it["id"]] = rid
-            item_ext.append(f'[ext_resource type="PackedScene" path="res://scenes/pickup_{it["id"]}.tscn" id="{rid}"]')
+    # pickup scenes: one per item TYPE, shared by every room that places it
+    for room in rooms:
+        for it in room["placements"].get("items", []):
+            path = sc / f"pickup_{it['id']}.tscn"
+            if not path.exists():
+                path.write_text(_pickup_tscn(it["id"], it["file"]), encoding="utf-8")
 
-    px, py = placements["player"]
-    cx, cy = placements["camera"]
-    enemy_nodes = []
-    for i, sp in enumerate(placements.get("enemies", [])):
-        enemy_nodes.append(f'[node name="Enemy{i}" parent="." instance=ExtResource("{enemy_scene_id[sp["id"]]}")]\n'
-                           f'position = Vector2({sp["px"]}, {sp["py"]})\n')
-    item_nodes = []
-    for i, it in enumerate(placements.get("items", [])):
-        item_nodes.append(f'[node name="Item{i}" parent="." instance=ExtResource("{item_scene_id[it["id"]]}")]\n'
-                          f'position = Vector2({it["px"]}, {it["py"]})\n')
-
-    load_steps = 5 + len(enemy_ext) + len(item_ext)
-    (sc / "main.tscn").write_text(f'''[gd_scene load_steps={load_steps} format=3]
-
-[ext_resource type="PackedScene" path="res://scenes/player.tscn" id="1_player"]
-{chr(10).join(enemy_ext)}
-[ext_resource type="Script" path="res://scripts/world.gd" id="3_world"]
-[ext_resource type="Texture2D" path="res://assets/{heart_sprite}" id="4_heart"]
-[ext_resource type="Script" path="res://scripts/hud.gd" id="6_hud"]
-{coin_ext}
-{chr(10).join(item_ext)}
-
-[node name="Main" type="Node2D"]
-
-[node name="Ground" type="Node2D" parent="."]
-script = ExtResource("3_world")
-
-[node name="Player" parent="." instance=ExtResource("1_player")]
-position = Vector2({px}, {py})
-
-{chr(10).join(enemy_nodes)}
-{chr(10).join(item_nodes)}
-[node name="Camera2D" type="Camera2D" parent="."]
-position = Vector2({cx}, {cy})
-
-[node name="HUD" type="CanvasLayer" parent="."]
-script = ExtResource("6_hud")
-
-[node name="Heart" type="Sprite2D" parent="HUD"]
-position = Vector2(12, 12)
-texture = ExtResource("4_heart")
-
-[node name="HpLabel" type="Label" parent="HUD"]
-offset_left = 22.0
-offset_top = 4.0
-offset_right = 80.0
-offset_bottom = 20.0
-theme_override_font_sizes/font_size = 8
-
-{coin_node}
-
-[node name="ItemLabel" type="Label" parent="HUD"]
-offset_left = 22.0
-offset_top = 22.0
-offset_right = 80.0
-offset_bottom = 38.0
-theme_override_font_sizes/font_size = 8
-
-[node name="KillLabel" type="Label" parent="HUD"]
-offset_left = 22.0
-offset_top = 40.0
-offset_right = 100.0
-offset_bottom = 56.0
-theme_override_font_sizes/font_size = 8
-''', encoding="utf-8")
+    for room in rooms:
+        (sc / room["scene"]).write_text(
+            _room_tscn(room, heart_sprite, coin_ext, coin_node), encoding="utf-8")

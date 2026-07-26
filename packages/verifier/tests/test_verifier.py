@@ -36,6 +36,16 @@ def test_derive_melee_damage_assertion():
     assert melee[0]["expected"] == 4                    # 8 hp - 4 atk
 
 
+def test_derive_room_transition_only_when_a_level_has_exits():
+    d = _domains()
+    assert [x for x in derive_assertions(d) if x["kind"] == "room_transition"] == []
+    d["levels"]["levels"][0]["exits"] = [{"x": 1, "y": 1, "to": "elsewhere"}]
+    got = [x for x in derive_assertions(d) if x["kind"] == "room_transition"]
+    assert len(got) == 1
+    assert got[0]["from_scene"] == "res://scenes/main.tscn"   # the start room
+    assert got[0]["doors"] == 1
+
+
 def test_no_melee_assertion_without_the_stats_to_check():
     d = _domains()
     d["entities"]["characters"][0]["stats"].pop("atk")
