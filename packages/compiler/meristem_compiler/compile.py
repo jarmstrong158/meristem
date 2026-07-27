@@ -78,8 +78,21 @@ def _player_abilities(domains: dict, player: dict, item_files: dict) -> list[dic
         # `cost` must be carried even when absent: the runner reads it to charge the
         # resource, so omitting the key here silently made every ability free -- the
         # schema said 2 mp and the game charged nothing.
+        # A scaling stat the caster does not have would add a silent +0 forever: the
+        # ability would fire, do its base damage, and nothing anywhere would say the
+        # spec asked for more. Same refusal as an unimplemented kind, except this one
+        # IS a spec error -- the manifest names a stat that is not there.
+        scaling = ab.get("scaling")
+        if scaling is not None and scaling not in (player.get("stats", {}) or {}):
+            raise CompileError(
+                f"ability {ref!r} scales off stat {scaling!r}, which character "
+                f"{player.get('id')!r} does not have — it would add nothing, every "
+                f"cast, silently. Declared stats: "
+                f"{sorted((player.get('stats', {}) or {}))}")
         slot = {"id": ab["id"], "kind": ab["kind"], "power": ab["power"],
                 "cooldown": ab.get("cooldown", 0.0), "cost": ab.get("cost", 0) or 0}
+        if scaling is not None:
+            slot["scaling"] = scaling
         if ab.get("range") is not None:
             slot["range"] = ab["range"]
         if ab["kind"] == "projectile":
@@ -210,6 +223,7 @@ def compile_project(manifest_path: str | Path, out_dir: str | Path) -> dict:
                   player_def=int(pstats.get("def", 0)),
                   player_mp=int(pstats.get("mp", 0)),
                   player_mp_regen=float(pstats.get("mp_regen", 0.0)),
+                  player_stats=pstats,
                   items=gear, drops=drops, abilities=ability_slots)
 
     def frame_files(entity_id: str, prefix: str) -> list[str]:

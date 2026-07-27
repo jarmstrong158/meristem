@@ -85,10 +85,14 @@ const EQUIP_SLOTS: Array = ["weapon", "armor", "accessory"]
 ## enemy_id -> {"drops": [{item, weight}], "nothing": weight}, baked from drop_tables.
 const DROPS: Dictionary = {{drops}}
 
+## Every stat the manifest declared for the player, not a hand-picked two. `stats` is
+## an open map in the schema, so an author could always write `mag: 6` -- and only
+## atk/def were ever read, which made any third stat decoration. A stat nothing scales
+## off is still inert, but that is now the AUTHOR's choice rather than the compiler's.
+const BASE_STATS: Dictionary = {{base_stats}}
+
 var max_hp: int = {{max_hp}}
 var hp: int = {{max_hp}}
-var base_atk: int = {{base_atk}}
-var base_def: int = {{base_def}}
 var max_mp: int = {{max_mp}}
 ## float so a fractional regen can accumulate across frames; readers see int(mp)
 var mp: float = float({{max_mp}})
@@ -126,11 +130,19 @@ func stat_bonus(stat: String) -> int:
 		total += int(stats.get(stat, 0))
 	return total
 
+## Effective value of ANY stat: what the manifest declared, plus what gear adds.
+## `stat_bonus` was already generic over the name; this is the other half, and without
+## it an item granting +4 mag accumulated a bonus that nothing could ever read.
+func stat(name: String) -> int:
+	return int(BASE_STATS.get(name, 0)) + stat_bonus(name)
+
+## atk and def keep named accessors because they have FLOORS -- an attack must land for
+## at least 1, defense must not go negative. Every other stat is unclamped.
 func atk() -> int:
-	return maxi(base_atk + stat_bonus("atk"), 1)
+	return maxi(stat("atk"), 1)
 
 func defense() -> int:
-	return maxi(base_def + stat_bonus("def"), 0)
+	return maxi(stat("def"), 0)
 
 func _try_equip(item_id: String) -> void:
 	var entry: Dictionary = ITEMS.get(item_id, {})
@@ -303,6 +315,13 @@ func slot_status() -> Array:
 					"cost": int(ABILITIES[i].get("cost", 0))})
 	return out
 
+## What a slot would hit for right now, gear included. Public so a HUD or a check can
+## ask without firing the ability and without knowing how scaling is composed.
+func effective_power(slot: int) -> int:
+	if slot < 0 or slot >= ABILITIES.size():
+		return 0
+	return _effective_power(ABILITIES[slot])
+
 ## Returns true if the ability fired, so the caller can tell "not ready" from "no such
 ## slot" without reaching into the cooldown array.
 func use(slot: int, facing: Vector2) -> bool:
@@ -324,11 +343,25 @@ func use(slot: int, facing: Vector2) -> bool:
 func _owner_body() -> Node2D:
 	return get_parent() as Node2D
 
+## An ability's effect magnitude: its authored `power`, plus the caster's current value
+## of the stat it scales off.
+##
+## Read at CAST time, never baked. Gear moves stats mid-run, so a power resolved when
+## the project was compiled would ignore the staff the player is holding -- which is
+## the entire point of scaling off a stat in the first place.
+func _effective_power(a: Dictionary) -> int:
+	var scaling: String = str(a.get("scaling", ""))
+	if scaling == "":
+		return int(a.get("power", 1))
+	return int(a.get("power", 1)) + Game.stat(scaling)
+
 func _fire(a: Dictionary, facing: Vector2) -> void:
 	var packed: PackedScene = load(str(a.get("scene", "")))
 	if packed == null:
 		return
 	var shot: Area2D = packed.instantiate()
+	# the scene bakes the authored power; override it with the scaled value
+	shot.power = _effective_power(a)
 	# added to the SCENE, not to this node: a shot must outlive the caster's transform
 	# and keep flying if the player moves or dies
 	_owner_body().get_parent().add_child(shot)
@@ -338,7 +371,7 @@ func _fire(a: Dictionary, facing: Vector2) -> void:
 ## it does not care which way you are facing.
 func _arc(a: Dictionary) -> void:
 	var reach: float = float(a.get("range", 30.0))
-	var power: int = int(a.get("power", 1))
+	var power: int = _effective_power(a)
 	var here: Vector2 = _owner_body().global_position
 	for node in get_tree().get_nodes_in_group("enemies"):
 		var enemy: Node2D = node as Node2D
@@ -348,16 +381,17 @@ func _arc(a: Dictionary) -> void:
 			enemy.take_damage(power)
 
 func _heal(a: Dictionary) -> void:
-	Game.heal(int(a.get("power", 1)))
+	Game.heal(_effective_power(a))
 
 func _dash(a: Dictionary, facing: Vector2) -> void:
 	var body: Node2D = _owner_body()
 	var dir: Vector2 = facing.normalized() if facing.length() > 0.0 else Vector2.RIGHT
+	var distance: float = float(_effective_power(a))
 	if body is CharacterBody2D:
 		# move_and_collide so a dash cannot post the player through a wall
-		(body as CharacterBody2D).move_and_collide(dir * float(a.get("power", 16.0)))
+		(body as CharacterBody2D).move_and_collide(dir * distance)
 	else:
-		body.global_position += dir * float(a.get("power", 16.0))
+		body.global_position += dir * distance
 '''
 
 DOOR_GD = '''extends Area2D
@@ -398,6 +432,10 @@ func _on_body_entered(body: Node2D) -> void:
 HUD_GD = '''extends CanvasLayer
 ## HUD: hp next to the heart, the ability resource, collected count next to the coin,
 ## kills, equipped gear, and per-slot ability state.
+
+## Stats some ability scales off, baked by the compiler. Empty for a game whose
+## abilities are all flat-power, which is why the readout does not grow for free.
+const SCALING_STATS: Array = {{scaling_stats}}
 
 @onready var _hp_label: Label = $HpLabel
 @onready var _mp_label: Label = $MpLabel
@@ -444,7 +482,13 @@ func _ability_runner() -> Node:
 	return (players[0] as Node).get_node_or_null("Abilities")
 
 func _on_hp_changed(hp: int, max_hp: int) -> void:
-	_hp_label.text = "%d/%d  atk %d  def %d" % [hp, max_hp, Game.atk(), Game.defense()]
+	# Stats an ability scales off are shown alongside atk/def, because a stat the player
+	# cannot see is indistinguishable from one that does nothing -- which is what every
+	# stat past atk/def used to be.
+	var line: String = "%d/%d  atk %d  def %d" % [hp, max_hp, Game.atk(), Game.defense()]
+	for name in SCALING_STATS:
+		line += "  %s %d" % [name, Game.stat(str(name))]
+	_hp_label.text = line
 
 func _on_mp_changed(mp: int, max_mp: int) -> void:
 	_mp_label.text = "mp %d/%d" % [mp, max_mp]
@@ -533,12 +577,31 @@ def _gd_literal(value) -> str:
     return json.dumps(value)
 
 
+# Stats the Game autoload owns as its own fields, so baking them into BASE_STATS too
+# would give each one two homes that could disagree.
+_STATS_HELD_ELSEWHERE = ("hp", "mp", "mp_regen")
+
+
+def _base_stats(player_stats: dict | None, player_atk: int, player_def: int) -> dict:
+    """Every declared stat, floored where the runtime requires it.
+
+    The atk/def floors are applied HERE rather than in GDScript because they are the
+    same clamps `write_scripts` has always applied to the two baked constants; moving
+    the values into a dict should not quietly change what a manifest compiles to."""
+    out = {k: v for k, v in (player_stats or {}).items()
+           if k not in _STATS_HELD_ELSEWHERE}
+    out["atk"] = max(1, int(player_atk))
+    out["def"] = max(0, int(player_def))
+    return out
+
+
 def write_scripts(project_dir: Path, *, kind: str, params: dict,
                   enemies: list[dict], player_hp: int = 20,
                   player_atk: int = 1, player_def: int = 0,
                   player_mp: int = 0, player_mp_regen: float = 0.0,
                   items: dict | None = None, drops: dict | None = None,
-                  abilities: list[dict] | None = None) -> None:
+                  abilities: list[dict] | None = None,
+                  player_stats: dict | None = None) -> None:
     """player.gd + world.gd + game_state.gd/pickup.gd/hud.gd/door.gd + one enemy_<id>.gd
     per enemy type (stats and ai baked in), plus the ability runner and projectile
     script when the player has abilities.
@@ -576,15 +639,18 @@ def write_scripts(project_dir: Path, *, kind: str, params: dict,
     (sd / "game_state.gd").write_text(
         GAME_STATE_GD
         .replace("{{max_hp}}", str(int(player_hp)))
-        .replace("{{base_atk}}", str(max(1, int(player_atk))))
-        .replace("{{base_def}}", str(max(0, int(player_def))))
+        .replace("{{base_stats}}", _gd_literal(_base_stats(player_stats, player_atk, player_def)))
         .replace("{{max_mp}}", str(max(0, int(player_mp))))
         .replace("{{mp_regen}}", f"{float(player_mp_regen):.3f}")
         .replace("{{items}}", _gd_literal(items or {}))
         .replace("{{drops}}", _gd_literal(drops or {})),
         encoding="utf-8")
     (sd / "pickup.gd").write_text(PICKUP_GD, encoding="utf-8")
-    (sd / "hud.gd").write_text(HUD_GD, encoding="utf-8")
+    # only stats an ability actually scales off reach the readout: every OTHER stat is
+    # still just a number the author wrote, and listing them all would bury atk/def
+    scaling_stats = sorted({a["scaling"] for a in slots if a.get("scaling")})
+    (sd / "hud.gd").write_text(
+        HUD_GD.replace("{{scaling_stats}}", _gd_literal(scaling_stats)), encoding="utf-8")
     (sd / "door.gd").write_text(DOOR_GD, encoding="utf-8")
 
 

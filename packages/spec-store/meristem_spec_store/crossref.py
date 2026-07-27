@@ -83,6 +83,16 @@ def _ability_errors(domains: dict, skipped: list[str]) -> list[str]:
                 if cost > pool:
                     errs.append(f"entity {e.get('id')!r} can never cast {ref!r}: it costs "
                                 f"{cost} but the entity's mp stat is {pool}")
+                # A scaling stat the caster does not have adds a silent +0 on every
+                # cast. The spec asks for more damage; nothing anywhere says it did
+                # not get it. Same failure shape as a typo'd sprite build (dec-0029).
+                scaling = by_id[ref].get("scaling")
+                if scaling is not None and scaling not in (e.get("stats", {}) or {}):
+                    errs.append(
+                        f"entity {e.get('id')!r} casts {ref!r}, which scales off stat "
+                        f"{scaling!r}, but the entity has no such stat — it would add "
+                        f"nothing on every cast. Declared: "
+                        f"{sorted((e.get('stats', {}) or {}))}")
     return errs
 
 

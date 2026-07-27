@@ -240,6 +240,7 @@
             "hp": 34,
             "atk": 4,
             "def": 3,
+            "mag": 5,
             "spd": 6,
             "mp": 18,
             "mp_regen": 1.5
@@ -430,6 +431,7 @@
           "name": "Conduit Pulse",
           "kind": "projectile",
           "power": 5,
+          "scaling": "mag",
           "cooldown": 0.7,
           "cost": 3,
           "speed": 150,
@@ -451,6 +453,7 @@
           "name": "Mend",
           "kind": "heal",
           "power": 8,
+          "scaling": "mag",
           "cooldown": 6,
           "cost": 6
         },
@@ -484,7 +487,7 @@
           "slot": "weapon",
           "rarity": "uncommon",
           "stats": {
-            "atk": 4
+            "mag": 4
           },
           "sprite": {
             "archetype": "weapon",

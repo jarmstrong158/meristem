@@ -54,7 +54,8 @@ def test_derive_ability_damage_for_a_projectile_slot():
     got = [x for x in derive_assertions(_domains()) if x["kind"] == "ability_damage"]
     assert len(got) == 1
     assert got[0]["ability"] == "firebolt" and got[0]["slot"] == 0
-    assert got[0]["power"] == 4 and got[0]["expected"] == 4      # 8 hp - 4 power
+    # firebolt is power 4 scaling off mag, and the hero's mag is 3
+    assert got[0]["power"] == 7 and got[0]["expected"] == 1       # 8 hp - 7
 
 
 def test_no_ability_assertion_for_a_player_with_none():
@@ -177,3 +178,26 @@ def test_visual_capture_produces_png(compiled):
     cap = capture_frame(compiled, GODOT)
     assert cap is not None and cap.exists()
     assert cap.stat().st_size > 200          # a real, non-empty PNG
+
+
+def test_derive_stat_scaling_covers_base_and_gear():
+    """The chain this proves is manifest stat -> gear bonus -> cast-time read. Every
+    link is invisible from outside the engine: a shot that lands for its BASE power
+    looks identical on screen to one that scaled correctly."""
+    got = [x for x in derive_assertions(_domains()) if x["kind"] == "stat_scaling"]
+    assert len(got) == 1
+    a = got[0]
+    assert a["ability"] == "firebolt" and a["stat"] == "mag"
+    assert a["power"] == 4 and a["base"] == 3
+    assert a["expected"] == 7                       # power 4 + the hero's mag 3
+    assert a["item"] == "focus_charm" and a["bonus"] == 2
+    assert a["expected_equipped"] == 9              # ...and +2 more wearing the charm
+
+
+def test_no_stat_scaling_assertion_when_nothing_scales():
+    """An assertion derived for a game that does not use the feature would be noise,
+    and one that silently passed on an empty check would be worse."""
+    domains = _domains()
+    for ab in domains["abilities"]["abilities"]:
+        ab.pop("scaling", None)
+    assert not [x for x in derive_assertions(domains) if x["kind"] == "stat_scaling"]
