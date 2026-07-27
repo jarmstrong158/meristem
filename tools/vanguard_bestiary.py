@@ -349,6 +349,40 @@ def build_sheet(archetype, config):
     return sheet, idle
 
 
+# ---- overworld sheets --------------------------------------------------------
+# Vanguard's own four-direction layout, which `create_custom_overworld_frames_from_
+# texture` already reads: 96x192, cells 32x48, cols idle/walk1/walk2, rows S/N/E/W.
+# It plays idle -> walk1 -> idle -> walk2, which is exactly Meristem's WALK order
+# ([STEP_A, IDLE, STEP_B, IDLE]) rotated, so the cycle transfers without resampling.
+OW_COLS = {0: 1, 1: 0, 2: 2}                # sheet col -> index into humanoid WALK
+OW_ROWS = ("south", "north", "east", "west")
+OW_FEET_DY = 16                             # 32px sprite, feet-aligned in a 48px cell
+
+
+def build_overworld_sheet(config):
+    """A 96x192 four-direction overworld sheet for one humanoid config."""
+    from meristem_generators.humanoid import humanoid_facings
+    facings = humanoid_facings(C, config)
+    sheet = Image.new("RGBA", (96, 192), (0, 0, 0, 0))
+    for row, facing in enumerate(OW_ROWS):
+        frames = facings[facing]
+        for col, idx in OW_COLS.items():
+            f = Image.fromarray(frames[idx % len(frames)], "RGBA")
+            sheet.paste(f, (col * 32, row * 48 + OW_FEET_DY), f)
+    return sheet
+
+
+def _render_overworld(group: dict, out_dir: Path):
+    """Overworld sheets for every HUMANOID in a group (non-humanoids have no facings)."""
+    written = []
+    for name, (arch, cfg) in group.items():
+        if arch != "humanoid":
+            continue
+        build_overworld_sheet(cfg).save(out_dir / f"{name}_overworld.png")
+        written.append(name)
+    return written
+
+
 def _contact_sheet(tiles, title, path, cols=7, cell=64):
     GAP, LH, M = 6, 22, 12
     rows = (len(tiles) + cols - 1) // cols
@@ -392,6 +426,8 @@ def main(out_dir: Path) -> None:
     beasts, beast_fails = _render_group(BESTIARY, enemies_dir)
     cast, cast_fails = _render_group(PARTY, cast_dir)
     npcs, npc_fails = _render_group(NPCS, npc_dir)
+    ow_cast = _render_overworld(PARTY, cast_dir)
+    ow_npcs = _render_overworld(NPCS, npc_dir)
 
     _contact_sheet(beasts,
                    f"Vanguard bestiary via Meristem  ({len(beasts)} creatures, "
@@ -409,6 +445,7 @@ def main(out_dir: Path) -> None:
     print(f"wrote {len(beasts)} creature sheets -> {enemies_dir}")
     print(f"wrote {len(cast)} party sheets     -> {cast_dir}")
     print(f"wrote {len(npcs)} npc sheets       -> {npc_dir}")
+    print(f"wrote {len(ow_cast) + len(ow_npcs)} overworld sheets (4-direction, 96x192)")
     print("contact sheets -> docs/reference/{vanguard-bestiary,vanguard-cast,vanguard-npcs}.png")
     fails = beast_fails + cast_fails + npc_fails
     if fails:

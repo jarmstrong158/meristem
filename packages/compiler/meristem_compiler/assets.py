@@ -12,7 +12,8 @@ from asset_gate import validate
 from asset_gate.contract import StyleContract
 from asset_gate.naming import asset_filename
 from asset_gate.provenance import Provenance
-from meristem_generators import archetype_class, archetype_frames, build_archetype
+from meristem_generators import (archetype_class, archetype_facings, archetype_frames,
+                                 build_archetype)
 
 _HUD = [("heart", {"shape": "heart", "color": [226, 62, 84]}),
         ("coin", {"shape": "coin", "color": [240, 206, 84]})]
@@ -59,6 +60,15 @@ def compile_assets(domains: dict, assets_dir: str | Path,
         cfg = sp.get("config", {})
         emit(sp["archetype"], cfg, "character", c["id"], "idle", entity=c["id"])
         emit_frames(sp["archetype"], cfg, "character", c["id"], c["id"], "walk", skip0=False)
+        # A top-down game moves in four directions. If the archetype can draw them,
+        # emit all four -- otherwise the compiled game walks north showing you its face.
+        # The undirected `walk_*` set above stays, so a manifest that pins a facing (or
+        # an archetype with none) still compiles exactly as it did.
+        # `dirwalk_` and not `walk_<facing>`: the undirected set is looked up by the
+        # prefix "walk_", which "walk_south_0" would also match.
+        for facing in archetype_facings(sp["archetype"]):
+            emit_frames(sp["archetype"], {**cfg, "facing": facing}, "character",
+                        c["id"], c["id"], f"dirwalk_{facing}", skip0=False)
 
     for e in ents.get("enemies", []):
         sp = e.get("sprite") or {"archetype": "blob"}

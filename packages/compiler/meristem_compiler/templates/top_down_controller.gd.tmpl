@@ -34,6 +34,29 @@ func _ready() -> void:
 	if arrival != null:
 		global_position = arrival as Vector2
 
+func _anim_name(base: String) -> String:
+	## "walk_east" when the sprite has four views, plain "walk" when it has one.
+	##
+	## Sprites used to be drawn front-on only, and the controller mirrored them with
+	## flip_h -- so walking north showed you the character's face. Directional art makes
+	## flip_h wrong as well as unnecessary: `west` is already the mirror of `east`, and
+	## flipping it again would turn the character back around.
+	if _facing == Vector2.ZERO:
+		return base
+	var suffix: String = ""
+	if absf(_facing.x) > absf(_facing.y):
+		suffix = "east" if _facing.x > 0.0 else "west"
+	else:
+		suffix = "south" if _facing.y > 0.0 else "north"
+	var directional: String = base + "_" + suffix
+	if _anim.sprite_frames != null and _anim.sprite_frames.has_animation(directional):
+		_anim.flip_h = false
+		return directional
+	if absf(_facing.x) > 0.0:
+		_anim.flip_h = _facing.x < 0.0
+	return base
+
+
 func _physics_process(delta: float) -> void:
 	var dir: Vector2 = Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	if dir != Vector2.ZERO:
@@ -43,13 +66,11 @@ func _physics_process(delta: float) -> void:
 		velocity = velocity.move_toward(Vector2.ZERO, FRICTION * delta)
 	if _anim != null:
 		if velocity.length() > 5.0:
-			_anim.play("walk")
+			_anim.play(_anim_name("walk"))
 			# cadence tracks actual speed so the feet don't skate
 			_anim.speed_scale = clampf(velocity.length() / MOVE_SPEED, 0.4, 1.6)
-			if absf(dir.x) > 0.0:
-				_anim.flip_h = dir.x < 0.0
 		else:
-			_anim.play("idle")
+			_anim.play(_anim_name("idle"))
 			_anim.speed_scale = 1.0
 	move_and_slide()
 	_attack_cd = maxf(_attack_cd - delta, 0.0)

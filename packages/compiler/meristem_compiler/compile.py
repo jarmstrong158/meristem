@@ -9,6 +9,8 @@ from asset_gate.contract import StyleContract
 from asset_gate.naming import asset_filename
 from meristem_spec_store import SpecStore
 
+from meristem_generators import archetype_facings
+
 from .assets import compile_assets
 from .godot_project import write_project_godot
 from .ldtk import write_ldtk
@@ -215,6 +217,13 @@ def compile_project(manifest_path: str | Path, out_dir: str | Path) -> dict:
                 if w["entity"] == entity_id and (w.get("variant") or "").startswith(prefix)]
 
     player_walk = frame_files(player["id"], "walk_")
+    # {facing: [frames]} when the player's archetype draws more than one view. Empty
+    # for archetypes that do not, which is what keeps the single-view path unchanged.
+    player_facings = {
+        f: files
+        for f in archetype_facings((player.get("sprite") or {}).get("archetype", "humanoid"))
+        for files in [frame_files(player["id"], f"dirwalk_{f}_")]
+        if files}
     coin_frames = [asset_filename(contract, "ui_element", "coin", None)] + frame_files("coin", "spin_")
     enemy_scene_data = [
         {"id": eid,
@@ -260,6 +269,7 @@ def compile_project(manifest_path: str | Path, out_dir: str | Path) -> dict:
     write_scenes(out,
                  player_idle=asset_filename(contract, "character", player["id"], "idle"),
                  player_walk=player_walk,
+                 player_facings=player_facings,
                  enemies=enemy_scene_data,
                  heart_sprite="ui_heart.png", coin_frames=coin_frames,
                  rooms=rooms, abilities=ability_slots, droppable=droppable)

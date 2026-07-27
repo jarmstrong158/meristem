@@ -15,8 +15,8 @@ from __future__ import annotations
 from .archetypes import ARCHETYPES, archetype_class, known_archetypes
 from .creatures import (BLOB_BUILDS, _FLYER_BUILDS, _GHOSTS, _QUAD_BUILDS,
                         _SERPENT_BUILDS, _SPIDER_BUILDS, _RAPTOR_BUILDS, _BEETLE_BUILDS)
-from .humanoid import (_ACCENTS, _ARMS, _BEARDS, _FEET, _GARMENTS, _HAIR,
-                       _HATS, _HELD)
+from .humanoid import (_ACCENTS, _ARMS, _BEARDS, FACINGS, _FEET, _GARMENTS,
+                       _HAIR, _HATS, _HELD)
 from .items import _CHEST_BUILDS, _CONS, _PICKUPS, _PROJECTILES, _WEAPONS
 from .procedural import known_tiles
 
@@ -24,7 +24,8 @@ from .procedural import known_tiles
 _VARIANTS: dict[str, dict[str, list[str]]] = {
     "humanoid":   {"hair_style": sorted(_HAIR), "hat": sorted(_HATS), "beard": sorted(_BEARDS),
                    "held": sorted(_HELD), "garment": sorted(_GARMENTS), "feet": sorted(_FEET),
-                   "arms": sorted(_ARMS), "hair_accent": sorted(_ACCENTS)},
+                   "arms": sorted(_ARMS), "hair_accent": sorted(_ACCENTS),
+                   "facing": list(FACINGS)},
     "blob":       {"build": list(BLOB_BUILDS), "size": ["s", "m", "l"]},
     "ghost":      {"build": sorted(_GHOSTS)},
     "quadruped":  {"build": sorted(_QUAD_BUILDS)},
@@ -94,6 +95,14 @@ def variant_options(archetype: str) -> dict[str, list[str]]:
     boundary — silently degraded a validation check to a no-op when it was renamed.
     A rename should break an import, not a feature."""
     return {key: list(options) for key, options in _VARIANTS.get(archetype, {}).items()}
+
+
+def archetype_facings(archetype: str) -> list[str]:
+    """The directions this archetype can be drawn from ([] if it only has one view).
+
+    Derived from the catalog rather than hardcoded to `humanoid`, so an archetype that
+    grows facings later is picked up by the compiler without touching it."""
+    return list(_VARIANTS.get(archetype, {}).get("facing", []))
 
 
 def config_keys(archetype: str) -> list[str]:
