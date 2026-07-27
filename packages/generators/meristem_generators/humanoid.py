@@ -18,7 +18,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from .shading import Ramp, shadow as _sh
-from .sprite import Canvas
+from .sprite import Canvas, translate as _translate
 
 
 @dataclass
@@ -29,6 +29,17 @@ class Pose:
     rarm_dy: int = 0        # right arm swing
     lleg_dy: int = 0        # left leg / foot lift
     rleg_dy: int = 0        # right leg / foot lift
+
+
+# Which way the character is looking. A top-down game moves in four directions and
+# until now every archetype drew ONE front view, so a character walking north showed
+# you its face -- true of Meristem's own compiled games as much as of anything built
+# on them.
+#
+# `west` is never drawn: it is `east` mirrored, which is both half the work and a
+# guarantee the two profiles cannot drift apart.
+FACINGS = ("south", "north", "east", "west")
+DEFAULT_FACING = "south"
 
 
 IDLE = Pose()
@@ -59,6 +70,7 @@ DEFAULT_CONFIG = {
     "arms": "normal",            # normal · stone (reinforced forearms)
     "arm_color": (132, 136, 142),
     "hair_accent": "none",       # flora (sprigs tucked in the hair)
+    "facing": DEFAULT_FACING,    # south · north · east · west (west = mirrored east)
 }
 
 
@@ -70,9 +82,44 @@ def _p(cv: Canvas, r, c, rgb, dy=0):
     cv.px(r + dy, c, rgb)
 
 
+def _blit(cv: Canvas, arr) -> None:
+    """Composite an opaque scratch layer onto the canvas."""
+    op = arr[..., 3] == 255
+    cv.img[op] = arr[op]
+
+
+def _shifted(cv: Canvas, dx: int, draw) -> None:
+    """Run `draw` on a scratch layer, then slide it in.
+
+    The profile view moves the head and hands to columns the south-authored prop
+    layers know nothing about. Re-authoring every hat and weapon in profile would be
+    a lot of pixels for a 1x view; shifting the layer they already draw is not.
+    """
+    layer = Canvas(cv.w, cv.h)
+    draw(layer)
+    _blit(cv, _translate(layer.array(), dx=dx))
+
+
 # ---- layers (drawn low z -> high z); each reads the shared pose ----
-def _base_body(cv, pose, skin):
+def _base_body(cv, pose, skin, facing="south"):
     u = pose.body_dy
+    if facing == "east":
+        # Profile. What sells a side view is the SILHOUETTE, not the shading: the head
+        # overhangs the torso forward and ends in a nose, the hair mass overhangs it
+        # backward (drawn by _hair), and the near arm stands clear of the trunk while
+        # the far one is a sliver behind it. A narrowed front view reads as a smudge.
+        _r(cv, 7, 12, 14, 20, skin.base, u)                  # skull
+        _r(cv, 13, 13, 14, 19, skin.base, u)                 # jaw, pulled back off the nose
+        _r(cv, 10, 11, 21, 21, skin.base, u)                 # nose
+        _p(cv, 11, 21, skin.shadow, u)                       # under the tip
+        _r(cv, 14, 14, 16, 18, skin.base, u)                 # neck
+        _r(cv, 15, 22, 14, 19, skin.base, u)                 # torso
+        _r(cv, 15, 19, 13, 13, skin.shadow, u + pose.larm_dy)   # far shoulder, behind
+        _r(cv, 15, 21, 20, 21, skin.base, u + pose.rarm_dy)     # near arm, clear of the trunk
+        _r(cv, 20, 21, 20, 21, skin.shadow, u + pose.rarm_dy)   # hand
+        _r(cv, 23, 29, 14, 16, skin.shadow, pose.lleg_dy)    # far leg
+        _r(cv, 23, 29, 17, 19, skin.base, pose.rleg_dy)      # near leg
+        return
     _r(cv, 7, 13, 12, 19, skin.base, u)                      # face
     _r(cv, 14, 14, 14, 17, skin.base, u)                     # neck
     _r(cv, 15, 22, 12, 19, skin.base, u)                     # torso (under shirt)
@@ -84,8 +131,18 @@ def _base_body(cv, pose, skin):
     _r(cv, 23, 29, 17, 19, skin.base, pose.rleg_dy)
 
 
-def _pants(cv, pose, pants, dark):
-    for cols, dy in (((12, 14), pose.lleg_dy), ((17, 19), pose.rleg_dy)):
+def _pants(cv, pose, pants, dark, facing="south"):
+    legs = (((14, 16), pose.lleg_dy), ((17, 19), pose.rleg_dy)) if facing == "east" \
+        else (((12, 14), pose.lleg_dy), ((17, 19), pose.rleg_dy))
+    if facing == "east":
+        for (c0, c1), dy in legs:
+            # the far leg is wholly in shade, which is what keeps the two from
+            # merging into one slab when they overlap at rest
+            _r(cv, 23, 28, c0, c1, pants.base if c0 == 17 else pants.shadow, dy)
+            _r(cv, 29, 29, c0, c1, pants.shadow, dy)         # boot
+            _p(cv, 29, c1, dark, dy)                         # sole
+        return
+    for cols, dy in legs:
         c0, c1 = cols
         _r(cv, 23, 28, c0, c1, pants.base, dy)
         _r(cv, 23, 28, c1 if c0 == 12 else c0, c1 if c0 == 12 else c0, pants.shadow, dy)  # inner/outer shade
@@ -94,8 +151,18 @@ def _pants(cv, pose, pants, dark):
     _p(cv, 23, 12, pants.highlight, pose.lleg_dy)
 
 
-def _shirt(cv, pose, shirt):
+def _shirt(cv, pose, shirt, facing="south"):
     u = pose.body_dy
+    if facing == "east":
+        _r(cv, 15, 21, 14, 19, shirt.base, u)                # narrower torso
+        _r(cv, 16, 17, 13, 20, shirt.base, u)                # shoulders
+        _r(cv, 15, 16, 14, 16, shirt.highlight, u)           # lit top-left
+        _r(cv, 15, 21, 19, 19, shirt.shadow, u)              # leading edge falls away
+        _r(cv, 21, 21, 14, 19, shirt.shadow, u)              # waist
+        _r(cv, 15, 19, 13, 13, shirt.shadow, u + pose.larm_dy)   # far sleeve
+        _r(cv, 15, 19, 20, 21, shirt.base, u + pose.rarm_dy)     # near sleeve
+        _r(cv, 15, 19, 21, 21, shirt.shadow, u + pose.rarm_dy)
+        return
     _r(cv, 15, 21, 12, 19, shirt.base, u)                    # torso
     _r(cv, 16, 17, 11, 20, shirt.base, u)                    # shoulders
     _r(cv, 15, 16, 12, 14, shirt.highlight, u)               # lit shoulder (top-left)
@@ -118,16 +185,28 @@ def _hair_short(cv, u, hair):
     _r(cv, 6, 6, 13, 18, hair.shadow, u)                                      # hairline cast shadow
 
 
-def _hair_long(cv, u, hair):
+# Long hair and a ponytail are the two styles with a SIDE FALL, and a side fall is
+# the one hair feature that cannot survive the profile view unchanged: drawn at its
+# front-view column it hangs straight across the face. In profile it goes behind.
+def _hair_long(cv, u, hair, facing="south"):
     _hair_short(cv, u, hair)                                                   # same cap on top
+    if facing == "east":
+        _r(cv, 7, 18, 9, 11, hair.base, u)                                     # one fall, behind
+        _r(cv, 8, 18, 9, 9, hair.highlight, u)                                 # lit trailing edge
+        _r(cv, 18, 18, 9, 11, hair.shadow, u)                                  # tip
+        return
     _r(cv, 7, 18, 10, 11, hair.base, u); _r(cv, 7, 18, 20, 21, hair.base, u)  # falls past shoulders
     _r(cv, 8, 18, 10, 10, hair.highlight, u)                                   # lit left fall
     _r(cv, 8, 18, 21, 21, hair.shadow, u)                                      # shaded right fall
     _r(cv, 18, 18, 10, 11, hair.shadow, u); _r(cv, 18, 18, 20, 21, hair.shadow, u)   # tips
 
 
-def _hair_ponytail(cv, u, hair):
+def _hair_ponytail(cv, u, hair, facing="south"):
     _hair_short(cv, u, hair)
+    if facing == "east":
+        _r(cv, 5, 6, 9, 11, hair.base, u); _r(cv, 7, 14, 9, 10, hair.base, u)  # tail off the back
+        _r(cv, 7, 14, 9, 9, hair.highlight, u); _p(cv, 6, 11, hair.shadow, u)
+        return
     _r(cv, 5, 6, 20, 22, hair.base, u); _r(cv, 7, 14, 21, 22, hair.base, u)   # tail down the right
     _r(cv, 7, 14, 22, 22, hair.shadow, u); _p(cv, 6, 21, hair.highlight, u)
 
@@ -141,12 +220,31 @@ def _hair_spiky(cv, u, hair):
     _r(cv, 4, 6, 19, 20, hair.shadow, u); _r(cv, 6, 6, 13, 18, hair.shadow, u)
 
 
-_HAIR = {"short": _hair_short, "long": _hair_long, "ponytail": _hair_ponytail,
-         "spiky": _hair_spiky, "bald": lambda cv, u, hair: None}
+_HAIR = {"short": lambda cv, u, hair, f: _hair_short(cv, u, hair),
+         "long": _hair_long, "ponytail": _hair_ponytail,
+         "spiky": lambda cv, u, hair, f: _hair_spiky(cv, u, hair),
+         "bald": lambda cv, u, hair, f: None}
 
 
-def _hair(cv, pose, hair, style):
-    _HAIR.get(style, _hair_short)(cv, pose.body_dy, hair)
+def _hair(cv, pose, hair, style, facing="south"):
+    u = pose.body_dy
+    _HAIR.get(style, _HAIR["short"])(cv, u, hair, facing)
+    if style == "bald":
+        return
+    if facing == "north":
+        # From behind, hair covers the whole skull down to the neck -- there is no
+        # face for it to stop at. This is the other half of what sells `north`.
+        _r(cv, 7, 12, 12, 19, hair.base, u)
+        _r(cv, 7, 12, 19, 19, hair.shadow, u)                # cool shade side
+        _r(cv, 7, 8, 12, 14, hair.highlight, u)              # lit crown (top-left)
+    elif facing == "east":
+        # The mass swings to the trailing side and overhangs the back of the torso.
+        # _face clears the leading temple afterwards, so the brow and nose have
+        # somewhere to sit -- that pair of overhangs is the whole profile read.
+        _r(cv, 6, 13, 11, 14, hair.base, u)                  # back of the head
+        _r(cv, 6, 13, 11, 11, hair.highlight, u)             # lit trailing edge (top-left)
+        _r(cv, 6, 7, 15, 19, hair.base, u)                   # crown over the skull
+        _r(cv, 13, 13, 12, 14, hair.shadow, u)               # nape
 
 
 # ---- beard layer (drawn over the face; `full` covers the mouth) ----
@@ -212,12 +310,28 @@ _HATS = {"none": lambda cv, u, hat: None, "cap": _hat_cap, "wizard": _hat_wizard
          "helmet": _hat_helmet, "crown": _hat_crown, "hood": _hat_hood}
 
 
-def _hat(cv, pose, hat, style):
-    _HATS.get(style, _HATS["none"])(cv, pose.body_dy, hat)
+def _hat(cv, pose, hat, style, facing="south"):
+    fn = _HATS.get(style, _HATS["none"])
+    if facing == "east":
+        # every hat is centred on the front-view head (col 15.5); the profile skull
+        # sits two columns forward
+        _shifted(cv, 2, lambda layer: fn(layer, pose.body_dy, hat))
+        return
+    fn(cv, pose.body_dy, hat)
 
 
-def _face(cv, pose, eye, skin):
+def _face(cv, pose, eye, skin, facing="south"):
     u = pose.body_dy
+    # Facing away, you see the back of a head: no eyes, no mouth. This single
+    # omission is most of what makes `north` read as north.
+    if facing == "north":
+        return
+    if facing == "east":
+        _r(cv, 7, 12, 19, 20, skin.base, u)                                   # clear the leading
+        _p(cv, 8, 20, skin.shadow, u)                                         # temple: brow ridge
+        _r(cv, 9, 10, 18, 18, eye, u)                                         # one eye
+        _p(cv, 12, 20, skin.shadow, u)                                        # mouth at the edge
+        return
     _r(cv, 9, 10, 13, 13, eye, u); _r(cv, 9, 10, 18, 18, eye, u)              # eyes
     _p(cv, 12, 15, skin.shadow, u); _p(cv, 12, 16, skin.shadow, u)            # mouth
 
@@ -354,10 +468,34 @@ _HELD_FNS = {
 }
 
 
-def _held(cv, pose, mats):
-    fn = _HELD_FNS.get(mats.get("held", "none"))
-    if fn is not None:
-        fn(cv, pose, Ramp(mats["held_color"]))
+# Every prop above is authored against the SOUTH pose, where the two hands sit at
+# col 8 and col 22. The profile body is narrower and both hands collapse onto the
+# leading side, so a prop drawn at its south column would float clear of the figure.
+# Rather than re-author thirteen weapons in profile, each declares how far to slide.
+# A shaft at the profile hand column would run straight down the face, so the long
+# poles clear the nose entirely; a shield still covers the trunk, which is what a
+# shield does. Everything else already rides col 22, just past the near hand.
+_HELD_EAST_DX = {"staff": 14, "flamestaff": 14, "shield": 12, "daggers": 12}
+_HELD_EAST_DROP = {"daggers": 16}     # profile hides the far hand: drop its twin
+
+
+def _held(cv, pose, mats, facing="south"):
+    kind = mats.get("held", "none")
+    fn = _HELD_FNS.get(kind)
+    if fn is None:
+        return
+    m = Ramp(mats["held_color"])
+    if facing != "east":
+        fn(cv, pose, m)
+        return
+    layer = Canvas(cv.w, cv.h)                               # scratch, so the shift is local
+    fn(layer, pose, m)
+    arr = layer.array()
+    drop = _HELD_EAST_DROP.get(kind)
+    if drop is not None:
+        arr[:, drop:] = 0
+    arr = _translate(arr, dx=_HELD_EAST_DX.get(kind, 0))     # default: already at col 22
+    _blit(cv, arr)
 
 
 # ---- garment: over-clothing drawn on top of the shirt (before hair) ----
@@ -377,8 +515,16 @@ def _garment_scarf(cv, pose, m):
     _p(cv, 21, 12, m.shadow, u)
 
 
-def _garment_cloak(cv, pose, m):
+def _garment_cloak(cv, pose, m, facing="south"):
     u = pose.body_dy
+    if facing == "east":
+        # In profile a cloak reads as ONE mass behind the figure, not two side falls.
+        _r(cv, 15, 17, 13, 20, m.base, u)                                    # mantle
+        _r(cv, 15, 16, 13, 15, m.highlight, u); _r(cv, 15, 17, 20, 20, m.shadow, u)
+        _r(cv, 18, 26, 12, 14, m.base, u)                                    # hangs off the back
+        _r(cv, 18, 26, 12, 12, m.highlight, u); _r(cv, 18, 26, 14, 14, m.shadow, u)
+        _r(cv, 27, 28, 12, 15, m.base); _r(cv, 27, 28, 14, 15, m.shadow)     # pools at the hem
+        return
     _r(cv, 15, 17, 11, 20, m.base, u)                                        # mantle over the shoulders
     _r(cv, 15, 16, 11, 14, m.highlight, u); _r(cv, 15, 17, 19, 20, m.shadow, u)
     _r(cv, 18, 26, 10, 11, m.base, u); _r(cv, 18, 26, 20, 21, m.base, u)      # cloak hangs down both sides (2px)
@@ -387,33 +533,52 @@ def _garment_cloak(cv, pose, m):
     _r(cv, 27, 28, 20, 21, m.shadow)
 
 
-def _garment(cv, pose, mats):
+def _garment(cv, pose, mats, facing="south"):
     kind = mats.get("garment", "none")
-    fn = {"apron": _garment_apron, "scarf": _garment_scarf, "cloak": _garment_cloak}.get(kind)
-    if fn is not None:
-        fn(cv, pose, Ramp(mats["garment_color"]))
+    if kind not in ("cloak", "apron", "scarf"):
+        return
+    m = Ramp(mats["garment_color"])
+    if kind == "cloak":
+        _garment_cloak(cv, pose, m, facing)
+        return
+    fn = _garment_apron if kind == "apron" else _garment_scarf
+    if facing == "east":
+        # both are authored on the front-view torso, which sits two columns back
+        _shifted(cv, 2, lambda layer: fn(layer, pose, m))
+        return
+    fn(cv, pose, m)
 
 
 # ---- feet: bare overrides the baked boots with skin (rides the legs) ----
-def _feet_bare(cv, pose, skin):
-    _r(cv, 28, 29, 12, 14, skin.base, pose.lleg_dy)
-    _r(cv, 28, 29, 17, 19, skin.base, pose.rleg_dy)
-    _p(cv, 29, 14, skin.shadow, pose.lleg_dy); _p(cv, 29, 17, skin.shadow, pose.rleg_dy)
-    _p(cv, 29, 11, skin.base, pose.lleg_dy); _p(cv, 29, 20, skin.base, pose.rleg_dy)  # toes splay out
+def _feet_bare(cv, pose, skin, facing="south"):
+    lc, rc = ((14, 17) if facing == "east" else (12, 17))
+    _r(cv, 28, 29, lc, lc + 2, skin.base, pose.lleg_dy)
+    _r(cv, 28, 29, rc, rc + 2, skin.base, pose.rleg_dy)
+    _p(cv, 29, lc + 2, skin.shadow, pose.lleg_dy); _p(cv, 29, rc, skin.shadow, pose.rleg_dy)
+    if facing == "east":
+        _p(cv, 29, rc + 3, skin.base, pose.rleg_dy)          # toes point the way we walk
+        return
+    _p(cv, 29, lc - 1, skin.base, pose.lleg_dy); _p(cv, 29, rc + 3, skin.base, pose.rleg_dy)
 
 
 # ---- arms: stone reinforcement over the exposed forearms/knuckles ----
-def _arms_stone(cv, pose, m):
-    _r(cv, 18, 21, 10, 10, m.base, pose.larm_dy); _p(cv, 18, 10, m.highlight, pose.larm_dy)
-    _r(cv, 18, 21, 21, 21, m.base, pose.rarm_dy); _p(cv, 21, 21, m.shadow, pose.rarm_dy)
+def _arms_stone(cv, pose, m, facing="south"):
+    lc, rc = ((13, 21) if facing == "east" else (10, 21))
+    _r(cv, 18, 21, lc, lc, m.base, pose.larm_dy); _p(cv, 18, lc, m.highlight, pose.larm_dy)
+    _r(cv, 18, 21, rc, rc, m.base, pose.rarm_dy); _p(cv, 21, rc, m.shadow, pose.rarm_dy)
 
 
 # ---- hair accent: sprigs/flowers tucked into the hair (over the hair layer) ----
-def _accents(cv, pose, mats):
+def _accents(cv, pose, mats, facing="south"):
     if mats.get("hair_accent", "none") != "flora":
         return
     u = pose.body_dy
     herb = Ramp((112, 154, 72))
+    if facing == "east":
+        # in profile both sprigs are on the side of the head you can see
+        _p(cv, 2, 12, herb.base, u); _p(cv, 1, 12, herb.highlight, u)
+        _p(cv, 3, 15, herb.base, u); _p(cv, 2, 16, herb.highlight, u)
+        return
     _p(cv, 2, 12, herb.base, u); _p(cv, 1, 12, herb.highlight, u)
     _p(cv, 2, 19, herb.base, u); _p(cv, 3, 20, herb.highlight, u)
 
@@ -430,26 +595,34 @@ _ACCENTS = ("none", "flora")
 def build_frame(contract, config, pose) -> np.ndarray:
     w, h = contract.canvas_of("character")
     mats = {**DEFAULT_CONFIG, **(config or {})}
+    facing = mats.get("facing", DEFAULT_FACING)
+    if facing not in FACINGS:
+        facing = DEFAULT_FACING
+    # west is east, mirrored. Drawing it separately would let the two profiles drift.
+    draw_facing = "east" if facing == "west" else facing
     skin, hair = Ramp(mats["skin"]), Ramp(mats["hair"])
     shirt, pants = Ramp(mats["shirt"]), Ramp(mats["pants"])
     dark = _sh(mats["hair"], 0.68)                            # shared eye + outline + sole
     cv = Canvas(w, h)
-    _base_body(cv, pose, skin)
-    _pants(cv, pose, pants, dark)
+    _base_body(cv, pose, skin, draw_facing)
+    _pants(cv, pose, pants, dark, draw_facing)
     if mats.get("feet", "boots") == "bare":
-        _feet_bare(cv, pose, skin)                           # over the boots
-    _shirt(cv, pose, shirt)
+        _feet_bare(cv, pose, skin, draw_facing)              # over the boots
+    _shirt(cv, pose, shirt, draw_facing)
     if mats.get("arms", "normal") == "stone":
-        _arms_stone(cv, pose, Ramp(mats["arm_color"]))       # over the forearms
-    _garment(cv, pose, mats)                                 # apron/scarf/cloak over the shirt
-    _hair(cv, pose, hair, mats.get("hair_style", "short"))
-    _accents(cv, pose, mats)                                 # flora over the hair
-    _face(cv, pose, dark, skin)
-    _beard(cv, pose, hair, mats.get("beard", "none"))        # over the face
-    _hat(cv, pose, Ramp(mats["hat_color"]), mats.get("hat", "none"))   # over the crown
-    _held(cv, pose, mats)                                    # front-most: staff/shield/etc
+        _arms_stone(cv, pose, Ramp(mats["arm_color"]), draw_facing)   # over the forearms
+    _garment(cv, pose, mats, draw_facing)                    # apron/scarf/cloak over the shirt
+    _hair(cv, pose, hair, mats.get("hair_style", "short"), draw_facing)
+    _accents(cv, pose, mats, draw_facing)                    # flora over the hair
+    _face(cv, pose, dark, skin, draw_facing)
+    # a beard is a front-of-face feature; from behind there is nothing to draw
+    if draw_facing != "north":
+        _beard(cv, pose, hair, mats.get("beard", "none"))
+    _hat(cv, pose, Ramp(mats["hat_color"]), mats.get("hat", "none"), draw_facing)
+    _held(cv, pose, mats, draw_facing)                       # front-most: staff/shield/etc
     cv.outline(dark)                                         # one shared pass outlines props too
-    return cv.array()
+    out = cv.array()
+    return out[:, ::-1].copy() if facing == "west" else out
 
 
 def build_humanoid(contract, config=None) -> np.ndarray:
@@ -458,3 +631,13 @@ def build_humanoid(contract, config=None) -> np.ndarray:
 
 def humanoid_walk(contract, config=None) -> list[np.ndarray]:
     return [build_frame(contract, config, p) for p in WALK]
+
+
+def humanoid_facings(contract, config=None) -> dict[str, list[np.ndarray]]:
+    """The walk cycle in every facing: {facing: [frames]}.
+
+    What a top-down game actually needs -- one call gives a full directional sheet
+    instead of the caller re-deriving which config key to flip."""
+    cfg = dict(config or {})
+    return {f: [build_frame(contract, {**cfg, "facing": f}, p) for p in WALK]
+            for f in FACINGS}

@@ -10,8 +10,8 @@ from .procedural import (ProceduralGenerator, SOLID_TILES, TILES, known_tiles,
 from .agent_drawn import AgentDrawnGenerator
 from .archetypes import (ARCHETYPES, archetype_class, archetype_defaults, archetype_frames,
                          build_archetype, known_archetypes)
-from .catalog import (color_keys, config_keys, sprite_catalog, sprite_warnings,
-                      validate_sprite)
+from .catalog import (archetype_facings, color_keys, config_keys, sprite_catalog,
+                      sprite_warnings, validate_sprite)
 from .preview import render_builds, render_sprite, variant_key
 
 register(ProceduralGenerator())
@@ -23,6 +23,7 @@ __all__ = ["AssetSpec", "Generator", "ProceduralGenerator", "AgentDrawnGenerator
            "tile_options",
            "ARCHETYPES", "archetype_class", "archetype_defaults", "archetype_frames",
            "build_archetype", "known_archetypes",
-           "color_keys", "config_keys", "sprite_catalog", "sprite_warnings",
+           "archetype_facings", "color_keys", "config_keys", "sprite_catalog",
+           "sprite_warnings",
            "validate_sprite",
            "render_builds", "render_sprite", "variant_key"]

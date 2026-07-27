@@ -695,3 +695,85 @@ def test_projectile_kinds_differ_in_silhouette(contract):
                for k in ("arrow", "fireball", "bolt", "knife", "shuriken")}
     gap = _worst_silhouette_gap(renders)
     assert gap >= 26, f"closest projectile pair differs by only {gap}px of silhouette"
+
+
+# ---- directional facings -------------------------------------------------------
+_CAST = {"skin": (198, 146, 104), "hair": (54, 44, 38), "hair_style": "ponytail",
+         "shirt": (98, 116, 86), "pants": (96, 78, 58),
+         "garment": "scarf", "garment_color": (122, 86, 54),
+         "held": "staff", "held_color": (168, 142, 102)}
+
+
+def test_south_is_unchanged_by_the_facing_knob(contract):
+    """The hard constraint on adding facings: every sprite that already existed is a
+    SOUTH sprite, so south must render byte-identical whether the config names it or
+    not. Without this, adding a direction silently redraws the whole cast."""
+    import numpy as np
+    from meristem_generators.humanoid import build_humanoid
+    assert np.array_equal(build_humanoid(contract, _CAST),
+                          build_humanoid(contract, {**_CAST, "facing": "south"}))
+
+
+def test_west_is_exactly_east_mirrored(contract):
+    """`west` is never drawn -- it is `east` flipped. Asserting the identity is what
+    stops the two profiles drifting apart when one of them is next edited."""
+    import numpy as np
+    from meristem_generators.humanoid import build_humanoid
+    east = build_humanoid(contract, {**_CAST, "facing": "east"})
+    west = build_humanoid(contract, {**_CAST, "facing": "west"})
+    assert np.array_equal(west, east[:, ::-1])
+
+
+def test_profile_differs_from_front_in_silhouette(contract):
+    """A profile that is just a narrowed front view reads as a smudge at 32px. What
+    makes east legible is the OUTLINE changing -- nose out front, hair mass behind --
+    not the shading. The first cut only narrowed the torso and scored 76px; front-facing
+    sideburns and a square head were doing all the talking.
+
+    Deliberately NOT the worst pair over all four: south and north share a silhouette
+    by construction (same body, different face), so that number is always 0."""
+    import itertools
+    import numpy as np
+    from meristem_generators.humanoid import build_humanoid
+    sil = {f: _silhouette(build_humanoid(contract, {**_CAST, "facing": f}))
+           for f in ("south", "north", "east", "west")}
+    gap = min(int(np.logical_xor(sil[a], sil[b]).sum())
+              for a, b in itertools.product(("south", "north"), ("east", "west")))
+    assert gap >= 85, f"closest front/profile pair differs by only {gap}px of silhouette"
+
+
+def test_north_shows_no_face(contract):
+    """Facing away you see the back of a head. This single omission is most of what
+    makes north read as north, so assert the eyes are actually gone rather than
+    trusting the branch exists."""
+    import numpy as np
+    from meristem_generators.humanoid import build_humanoid
+    eyes = np.s_[9:11, 12:20]                      # the band both eyes sit in
+    south = build_humanoid(contract, {**_CAST, "facing": "south"})[eyes]
+    north = build_humanoid(contract, {**_CAST, "facing": "north"})[eyes]
+    assert not np.array_equal(south, north)
+    skin = np.array((198, 146, 104, 255), dtype=np.uint8)
+    assert not (north == skin).all(axis=-1).any(), "north still shows bare face skin"
+
+
+def test_every_facing_builds_gates_and_animates(contract):
+    """All four directions, static and walking, through the same gate as everything
+    else -- a facing that renders off-canvas or with soft alpha is not a facing."""
+    from PIL import Image
+    from asset_gate import validate
+    from meristem_generators.humanoid import FACINGS, build_humanoid, humanoid_facings
+    sheets = humanoid_facings(contract, _CAST)
+    assert sorted(sheets) == sorted(FACINGS)
+    assert len({len(frames) for frames in sheets.values()}) == 1, "facings disagree on frame count"
+    for facing in FACINGS:
+        for arr in (build_humanoid(contract, {**_CAST, "facing": facing}), *sheets[facing]):
+            assert validate(Image.fromarray(arr, "RGBA"), "character", contract).accepted
+
+
+def test_facing_is_a_validated_variant_not_a_silent_fallback(contract):
+    """Same rule as every other variant axis (dec-0029): a typo must be a validation
+    error, not a quiet render of the default direction."""
+    from meristem_generators.catalog import validate_sprite, variant_options
+    assert set(variant_options("humanoid")["facing"]) == {"south", "north", "east", "west"}
+    assert validate_sprite("humanoid", {"facing": "east"}) == []
+    assert validate_sprite("humanoid", {"facing": "left"})

@@ -862,7 +862,8 @@ theme_override_font_sizes/font_size = 8
 def write_scenes(project_dir: Path, *, player_idle: str, player_walk: list[str],
                  enemies: list[dict], heart_sprite: str, coin_frames: list[str],
                  rooms: list[dict], abilities: list[dict] | None = None,
-                 droppable: dict | None = None) -> None:
+                 droppable: dict | None = None,
+                 player_facings: dict[str, list[str]] | None = None) -> None:
     """`enemies`: [{id, frames: [asset files]}] — one scene per enemy type.
     `rooms`: one entry per level, the FIRST being the start (written as main.tscn):
         {scene: "main.tscn", level_name: "grove_01", placements: {...}}
@@ -871,8 +872,15 @@ def write_scenes(project_dir: Path, *, player_idle: str, player_walk: list[str],
     pixels, from that level's spawn and exit markers."""
     sc = project_dir / "scenes"
     sc.mkdir(parents=True, exist_ok=True)
-    (sc / "player_frames.tres").write_text(
-        _frames_tres([("idle", [player_idle], 5.0), ("walk", player_walk, 8.0)]), encoding="utf-8")
+    # `idle`/`walk` are always present -- they are what a single-view archetype has and
+    # what the controller falls back to. When the archetype draws four directions, the
+    # per-direction pairs are added alongside and the controller prefers them.
+    anims: list[tuple[str, list[str], float]] = [
+        ("idle", [player_idle], 5.0), ("walk", player_walk, 8.0)]
+    for facing, frs in (player_facings or {}).items():
+        anims.append((f"idle_{facing}", [frs[0]], 5.0))
+        anims.append((f"walk_{facing}", frs, 8.0))
+    (sc / "player_frames.tres").write_text(_frames_tres(anims), encoding="utf-8")
     (sc / "player.tscn").write_text(_player_tscn(), encoding="utf-8")
 
     # One scene per enemy TYPE: AnimatedSprite2D when the archetype animates, else static.

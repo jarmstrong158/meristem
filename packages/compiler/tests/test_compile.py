@@ -532,8 +532,9 @@ def test_all_assets_and_sidecars(project):
     a = project / "assets"
     pngs = sorted(p.name for p in a.glob("*.png"))
     # 9 base + 4 player-walk + 3 enemy idle-anim + 3 coin spin + the level's sand tile
-    # + 1 ability sprite (the firebolt's shot)
-    assert len(pngs) == 21
+    # + 1 ability sprite (the firebolt's shot) + 16 directional player-walk frames
+    # (4 facings x 4 frames -- the player is a humanoid, which draws all four)
+    assert len(pngs) == 37
     for png in pngs:
         assert (a / f"{png}.prov.json").exists()
     # provenance backend is now the archetype the sprite was built from (dec-0022)
@@ -734,3 +735,28 @@ def test_godot_imports_and_runs(project):
                          capture_output=True, text=True, timeout=120)
     assert run.returncode == 0, run.stderr
     assert "SCRIPT ERROR" not in (run.stdout + run.stderr)
+
+
+def test_player_walks_in_four_directions(project):
+    """A top-down game moves in four directions, and until now every character was
+    drawn front-on and mirrored with flip_h -- so walking north showed you its face.
+    The compiled SpriteFrames must carry a real animation per direction, and the
+    controller must ask for it by name rather than flipping."""
+    frames = (project / "scenes" / "player_frames.tres").read_text(encoding="utf-8")
+    for facing in ("south", "north", "east", "west"):
+        assert f'&"idle_{facing}"' in frames, f"no idle_{facing} animation"
+        assert f'&"walk_{facing}"' in frames, f"no walk_{facing} animation"
+    # the undirected pair stays for archetypes that only have one view
+    assert '&"idle"' in frames and '&"walk"' in frames
+
+    script = (project / "scripts" / "player.gd").read_text(encoding="utf-8")
+    assert "_anim_name(" in script, "controller still plays a fixed animation name"
+
+
+def test_directional_frames_are_actually_different_art(project):
+    """The four directions must be four DRAWINGS. Emitting the same south frame under
+    four names would satisfy every name-based check above and change nothing on screen."""
+    a = project / "assets"
+    first = {f: (a / f"char_player_dirwalk_{f}_0.png").read_bytes()
+             for f in ("south", "north", "east", "west")}
+    assert len(set(first.values())) == 4, "some facings emitted identical pixels"
