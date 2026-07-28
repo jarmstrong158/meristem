@@ -777,3 +777,39 @@ def test_facing_is_a_validated_variant_not_a_silent_fallback(contract):
     assert set(variant_options("humanoid")["facing"]) == {"south", "north", "east", "west"}
     assert validate_sprite("humanoid", {"facing": "east"}) == []
     assert validate_sprite("humanoid", {"facing": "left"})
+
+
+def test_headband_and_wide_brim_do_what_their_names_say(contract):
+    """Added for Vanguard's placed NPCs, which wear both. They are the two hats whose
+    correctness IS a silhouette claim: a headband must NOT reshape the head (it is a
+    band of colour with hair still above it), and a wide brim must overhang enough to
+    be a farmer's hat rather than another cap."""
+    import numpy as np
+    from meristem_generators.humanoid import build_humanoid
+    base = {"skin": (199, 166, 128), "hair": (89, 56, 31), "hair_style": "short",
+            "shirt": (153, 140, 102), "pants": (90, 78, 58)}
+
+    def sil_of(hat):
+        return _silhouette(build_humanoid(contract, {**base, "hat": hat,
+                                                     "hat_color": (176, 96, 84)}))
+
+    bare = sil_of("none")
+    band = int(np.logical_xor(bare, sil_of("headband")).sum())
+    brim = int(np.logical_xor(bare, sil_of("wide_brim")).sum())
+    cap = int(np.logical_xor(bare, sil_of("cap")).sum())
+    assert band <= 8, f"a headband reshaped the head by {band}px; it should be colour, not form"
+    assert brim >= 10, f"the brim only overhangs by {brim}px, which reads as a cap"
+    assert brim > cap, "wide_brim must overhang further than cap or it is just a recolour"
+    # and the band must actually be drawn -- a no-op would pass the silhouette bound above
+    assert not np.array_equal(build_humanoid(contract, {**base, "hat": "headband",
+                                                        "hat_color": (176, 96, 84)}),
+                              build_humanoid(contract, {**base, "hat": "none"}))
+
+
+def test_new_hats_are_in_the_catalog(contract):
+    """A hat the builder draws but the catalog does not list is unpickable by an author
+    and a validation error if they guess it (dec-0029)."""
+    from meristem_generators.catalog import validate_sprite, variant_options
+    hats = variant_options("humanoid")["hat"]
+    assert "headband" in hats and "wide_brim" in hats
+    assert validate_sprite("humanoid", {"hat": "wide_brim"}) == []
