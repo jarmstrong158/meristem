@@ -21,8 +21,10 @@ license = { text = "MIT" }
 dependencies = ["jsonschema>=4.20", "meristem-generators", "meristem-asset-gate"]
 
 [project.optional-dependencies]
-mcp = ["mcp>=1.0"]
-dev = ["pytest>=7", "mcp>=1.0"]
+# `mcp` 2.0 moved FastMCP out to the standalone `fastmcp` distribution and
+# dropped mcp.server.fastmcp, so `mcp` alone no longer provides a server.
+mcp = ["mcp>=1.0", "fastmcp>=2.0"]
+dev = ["pytest>=7", "mcp>=1.0", "fastmcp>=2.0"]
 
 [project.scripts]
 meristem-spec-store = "meristem_spec_store.server:main"

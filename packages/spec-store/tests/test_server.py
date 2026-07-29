@@ -1,20 +1,6 @@
 import pytest
 
-import pytest
-
-from meristem_spec_store.server import (McpUnavailable, SpecService,
-                                        build_server)
-
-
-def _server(svc):
-    """build_server, skipped rather than failed when the optional MCP extra is
-    absent or is a version whose FastMCP this cannot find. An OPTIONAL extra
-    must not be able to fail the suite -- an upstream release that moved
-    FastMCP turned every one of these red on a commit that touched no Python."""
-    try:
-        return build_server(svc)
-    except McpUnavailable as exc:
-        pytest.skip(str(exc))
+from meristem_spec_store.server import SpecService, build_server
 from tests._data import consistent_domains
 
 
@@ -53,7 +39,7 @@ def test_unknown_domain_read(svc):
 
 def test_build_server_registers_tools(tmp_path):
     svc = SpecService(tmp_path / "m.json")
-    mcp = _server(svc)
+    mcp = build_server(svc)
     # FastMCP exposes registered tools; names should include our set
     import asyncio
     tools = asyncio.run(mcp.list_tools())
@@ -68,7 +54,7 @@ def test_mcp_apps_ui_resource_registered(tmp_path):
     import asyncio
     from meristem_spec_store.server import SPEC_INSPECTOR_URI
     svc = SpecService(tmp_path / "m.json")
-    mcp = _server(svc)
+    mcp = build_server(svc)
     resources = asyncio.run(mcp.list_resources())
     match = [r for r in resources if str(r.uri) == SPEC_INSPECTOR_URI]
     assert match, [str(r.uri) for r in resources]
@@ -197,7 +183,7 @@ def test_preview_tools_emit_real_image_content(tmp_path):
     from mcp.types import ImageContent
     svc = SpecService(tmp_path / "m.json")
     assert svc.scaffold_project(title="Image Test")["accepted"]
-    mcp = _server(svc)
+    mcp = build_server(svc)
     assert {"preview_sprite", "compare_builds"} <= {t.name for t in asyncio.run(mcp.list_tools())}
     for tool, args in (("preview_sprite", {"archetype": "blob", "scale": 3}),
                        ("compare_builds", {"archetype": "flyer", "scale": 3})):
