@@ -45,7 +45,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install "pytest>=7" "Pillow>=10" "numpy>=1.24" "jsonschema>=4.20" "mcp>=1.0"
+          python -m pip install "pytest>=7" "Pillow>=10" "numpy>=1.24" "jsonschema>=4.20" "mcp>=1.0" "fastmcp>=2.0"
 
       # Godot, on Linux only. The engine assertions are the only checks that prove the
       # generated game BEHAVES: three real bugs were found by them while every string

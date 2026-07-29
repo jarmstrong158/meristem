@@ -224,9 +224,37 @@ def _inspector_payload(store: SpecStore) -> dict:
             "validation": store.validate_all().to_dict()}
 
 
+class McpUnavailable(ImportError):
+    """FastMCP could not be imported, with the reason kept for the caller."""
+
+
+def _import_fastmcp():
+    """FastMCP, from wherever the installed SDK keeps it.
+
+    `mcp.server.fastmcp` was the home for SDK 1.x. Newer releases moved FastMCP out to
+    the standalone `fastmcp` distribution and dropped the old path, so an unpinned
+    `mcp>=1.0` silently started resolving to a version this import could not use --
+    which turned CI red on a commit that touched no Python at all.
+    """
+    try:
+        from mcp.server.fastmcp import FastMCP, Image
+        return FastMCP, Image
+    except ImportError:
+        pass
+    try:
+        from fastmcp import FastMCP
+        from fastmcp.utilities.types import Image
+        return FastMCP, Image
+    except ImportError as exc:
+        raise McpUnavailable(
+            "FastMCP is not installed. Install the optional extra: "
+            "pip install 'meristem-spec-store[mcp]'"
+        ) from exc
+
+
 def build_server(service: Optional[SpecService] = None):
     # imported lazily so the library still works without the optional `mcp` extra
-    from mcp.server.fastmcp import FastMCP, Image
+    FastMCP, Image = _import_fastmcp()
 
     svc = service or SpecService(default_manifest_path())
     mcp = FastMCP("meristem-spec-store")
