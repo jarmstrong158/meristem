@@ -306,7 +306,29 @@ def _hat_hood(cv, u, hat):
     _r(cv, 6, 6, 12, 19, hat.shadow, u)                                      # inner brim cast over brow
 
 
+def _hat_headband(cv, u, hat):
+    # The one head covering that does NOT change the silhouette: it reads purely as a
+    # band of colour across the brow, with the hair still above it.
+    _r(cv, 6, 7, 11, 20, hat.base, u)
+    _r(cv, 6, 6, 11, 14, hat.highlight, u)                                    # lit top-left
+    _r(cv, 7, 7, 15, 20, hat.shadow, u)                                       # underside
+    _p(cv, 6, 20, hat.shadow, u)
+    _r(cv, 5, 8, 10, 10, hat.base, u); _p(cv, 8, 10, hat.shadow, u)           # knot tail, off the side
+
+
+def _hat_wide_brim(cv, u, hat):
+    # A farmer's straw hat: a low crown and a brim that overhangs the shoulders. The
+    # brim IS the silhouette, which is what separates it from `cap` at 1x.
+    _r(cv, 5, 5, 9, 22, hat.base, u)                                          # brim
+    _r(cv, 6, 6, 10, 21, hat.shadow, u)                                       # brim underside
+    _r(cv, 5, 5, 9, 14, hat.highlight, u)                                     # lit near edge
+    _r(cv, 2, 4, 12, 19, hat.base, u)                                         # crown
+    _r(cv, 2, 3, 12, 15, hat.highlight, u); _r(cv, 2, 4, 18, 19, hat.shadow, u)
+    _r(cv, 4, 4, 12, 19, hat.shadow, u)                                       # band under the crown
+
+
 _HATS = {"none": lambda cv, u, hat: None, "cap": _hat_cap, "wizard": _hat_wizard,
+         "headband": _hat_headband, "wide_brim": _hat_wide_brim,
          "helmet": _hat_helmet, "crown": _hat_crown, "hood": _hat_hood}
 
 
