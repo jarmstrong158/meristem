@@ -313,6 +313,7 @@
             "hp": 20,
             "atk": 4,
             "def": 2,
+            "mag": 3,
             "spd": 6,
             "mp": 10,
             "mp_regen": 1.0
@@ -376,6 +377,21 @@
             "archetype": "weapon",
             "config": {
               "kind": "sword"
+            }
+          }
+        },
+        {
+          "id": "focus_charm",
+          "name": "Focus Charm",
+          "slot": "accessory",
+          "rarity": "common",
+          "stats": {
+            "mag": 2
+          },
+          "sprite": {
+            "archetype": "pickup",
+            "config": {
+              "shape": "gem"
             }
           }
         }
@@ -474,6 +490,7 @@
           "name": "Firebolt",
           "kind": "projectile",
           "power": 4,
+          "scaling": "mag",
           "cooldown": 0.6,
           "cost": 2,
           "speed": 140,

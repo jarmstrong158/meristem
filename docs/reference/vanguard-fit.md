@@ -25,7 +25,8 @@ The result is [`examples/vanguard-greenweald/`](../../examples/vanguard-greenwea
 | Thornwall Kestrel (16/5/2) | `flyer` / `bird` | |
 | Mud Puddle (28/3/5) | `blob` / `ooze` | |
 | Thornbug (25/5/6) | `beetle` / `beetle` | |
-| Carved Rod, Militia Sword, Linen Tunic, Power Band | items with `slot` + `stats` | the rod is the documented 1-7 reward |
+| Carved Rod, Militia Sword, Linen Tunic, Power Band | items with `slot` + `stats` | the rod is the documented 1-7 reward, and grants +4 MAG |
+| Maren as a MAG-based support | `mag` stat + abilities that `scaling: "mag"` | Conduit Pulse and Mend scale off it |
 | Medicinal herbs as the marsh reward | `drop_tables` with `nothing_weight` | herbs drop from vipers and toads |
 | Conduit Pulse / Mend | `projectile` / `heal` abilities with `mp` cost | |
 | The marsh itself | `water` tiles, which are solid | ponds became real barriers |
@@ -35,15 +36,16 @@ The result is [`examples/vanguard-greenweald/`](../../examples/vanguard-greenwea
 **44 assets generated, gated and provenance-tagged with no hand-drawing**, and all six enemy
 families mapped onto archetypes that already existed. `validate_all` passed on the first run.
 
-The compiled project imports and runs in Godot 4.6 with no script errors, and all **seven engine
+The compiled project imports and runs in Godot 4.6 with no script errors, and all **eight engine
 assertions pass** against Vanguard's own numbers:
 
 ```
 move_speed       72.0 measured 72.0
 melee_damage     marsh_viper 18 -> 14   (Maren's atk 4)
-ability_damage   conduit_pulse 18 -> 13 (power 5)
-gear_bonus       carved_rod   atk 4 -> 8
+ability_damage   conduit_pulse 18 -> 8  (power 5 + mag 5)
+gear_bonus       militia_sword atk 4 -> 8
 ability_cost     mp 18 -> 15            (cost 3)
+stat_scaling     conduit_pulse 10 -> 14 (mag 5, +4 from the rod)
 tile_collision   stopped at 298.99 against a wall at 304
 room_transition  door -> level_tova_cottage.tscn, arrival applied
 ```
@@ -55,9 +57,11 @@ Ordered by how much it matters for Vanguard specifically.
 1. **Turn-based combat.** Vanguard's core. The compiler emits `top_down_controller` only and
    explicitly refuses `turn_based_combat`, so the scene had to be reinterpreted as real-time
    action. Everything below is downstream of this being a different game.
-2. **The `mag` stat.** Vanguard entities are hp/atk/def/**mag**/spd, and Maren is a MAG-based
-   support whose rod grants +MAG. Meristem consumes hp/atk/def only, so the rod's +4 MAG had to
-   be authored as +4 atk — which changes what the item *means*.
+2. ~~**The `mag` stat.**~~ **Closed (dec-0038).** Every declared stat now reaches the runtime,
+   and an ability can `scaling` off one. Maren has `mag: 5`, the Carved Rod grants `+4 mag` as
+   its own docs say, and Conduit Pulse hits for 10 bare / 14 with the rod — measured in the
+   engine, not asserted on the generated text. Previously the rod's +4 MAG had to be authored as
+   +4 atk, which changed what the item *meant*.
 3. **Elements and resistances.** Fire/ice/dark/earth/wind and per-enemy resistance profiles are
    central to Vanguard's encounter design. No concept exists in any schema.
 4. **Status effects.** Marsh Viper's *Fang Strike* (20% Poison), Plains Wolf's *Snarl* (ATK
@@ -100,9 +104,9 @@ status effects and NPCs.
 
 The gaps that are worth closing as a **general** tool, in rough value order:
 
-- **A `mag`-style second offence stat**, or arbitrary stats reaching the runtime. Today only
-  `atk`/`def` are consumed, so any item or entity built around a third stat silently does nothing.
-  This is the cheapest fix with the widest reach.
+- ~~A `mag`-style second offence stat~~ — **done**, see gap 2 above. It was indeed the cheapest
+  fix with the widest reach: `stat_bonus` was already generic over the stat name, so the whole
+  change was baking every declared stat instead of two and adding one `scaling` field.
 - **Status effects** as a fixed archetype library (poison / slow / weaken), the same shape as
   ability kinds. Nearly every action RPG needs them, and enemies currently have no way to be
   interesting beyond a movement pattern.

@@ -402,7 +402,7 @@ def test_gear_stats_reach_the_runtime(project):
     assert '"sword"' in gs and '"slot": "weapon"' in gs and '"atk": 2' in gs
     assert "func stat_bonus(stat: String)" in gs
     assert "func atk()" in gs and "func defense()" in gs
-    assert "base_atk: int = 4" in gs and "base_def: int = 2" in gs
+    assert '"atk": 4' in gs and '"def": 2' in gs          # baked into BASE_STATS
     # collecting equips, and only worn slots grant anything
     assert "_try_equip(item_id)" in gs
     assert 'EQUIP_SLOTS: Array = ["weapon", "armor", "accessory"]' in gs
@@ -534,7 +534,8 @@ def test_all_assets_and_sidecars(project):
     # 9 base + 4 player-walk + 3 enemy idle-anim + 3 coin spin + the level's sand tile
     # + 1 ability sprite (the firebolt's shot) + 16 directional player-walk frames
     # (4 facings x 4 frames -- the player is a humanoid, which draws all four)
-    assert len(pngs) == 37
+    # + 1 for the focus charm, the accessory that carries the scaling stat
+    assert len(pngs) == 38
     for png in pngs:
         assert (a / f"{png}.prov.json").exists()
     # provenance backend is now the archetype the sprite was built from (dec-0022)
@@ -760,3 +761,54 @@ def test_directional_frames_are_actually_different_art(project):
     first = {f: (a / f"char_player_dirwalk_{f}_0.png").read_bytes()
              for f in ("south", "north", "east", "west")}
     assert len(set(first.values())) == 4, "some facings emitted identical pixels"
+
+
+# ---- stats reaching the runtime -------------------------------------------------
+def test_every_declared_stat_is_baked_not_just_atk_and_def(project):
+    """`stats` is an open map in the schema, so an author could always write `mag: 6`.
+    Only atk/def were ever read, which made every other stat decoration that validated
+    clean."""
+    gs = (project / "scripts" / "game_state.gd").read_text(encoding="utf-8")
+    assert "const BASE_STATS: Dictionary" in gs
+    for stat in ('"atk"', '"def"', '"mag"', '"spd"'):
+        assert stat in gs, f"{stat} missing from BASE_STATS"
+    # hp/mp/mp_regen have their own fields on Game; two homes could disagree
+    assert '"hp"' not in gs.split("const BASE_STATS")[1].split("\n")[0]
+    assert "func stat(name: String) -> int:" in gs
+
+
+def test_ability_scaling_is_read_at_cast_time_not_baked(project):
+    """Gear moves stats mid-run. A power resolved at compile time would ignore the staff
+    the player is holding, which is the entire point of scaling off a stat."""
+    runner = (project / "scripts" / "ability_runner.gd").read_text(encoding="utf-8")
+    assert '"scaling": "mag"' in runner              # the slot carries it
+    assert "func _effective_power(a: Dictionary) -> int:" in runner
+    assert "Game.stat(scaling)" in runner
+    # every kind goes through it, including the projectile whose scene bakes a power
+    assert "shot.power = _effective_power(a)" in runner
+    assert runner.count("_effective_power(a)") >= 4
+
+
+def test_scaling_stat_the_caster_lacks_is_refused(tmp_path):
+    """The silent-fallback rule again (dec-0029): a scaling stat the caster does not
+    have would add +0 on every cast, forever, with nothing anywhere saying so."""
+    store = SpecStore.load(MANIFEST)
+    abilities = store.get("abilities")
+    abilities["abilities"][0]["scaling"] = "wisdom"
+    store.set_domain("abilities", abilities, {"actor": "test"})
+    bad = tmp_path / "bad_scaling.manifest.json"
+    store.save(bad)
+
+    report = SpecStore.load(bad).validate_all()
+    assert not report.ok                                  # caught at validate time...
+    assert any("wisdom" in e for e in report.crossref_errors)
+    with pytest.raises(CompileError) as exc:               # ...and again at compile time
+        compile_project(bad, tmp_path / "out")
+    assert "wisdom" in str(exc.value)
+
+
+def test_hud_shows_stats_an_ability_scales_off(project):
+    """A stat the player cannot see is indistinguishable from one that does nothing."""
+    hud = (project / "scripts" / "hud.gd").read_text(encoding="utf-8")
+    assert 'const SCALING_STATS: Array = ["mag"]' in hud
+    assert "Game.stat(str(name))" in hud

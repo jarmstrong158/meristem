@@ -25,6 +25,11 @@
             "type": "number",
             "exclusiveMinimum": 0
           },
+          "scaling": {
+            "description": "Caster stat added to `power` at cast time, e.g. \"mag\" for a magic-scaling spell. Omitted means power is the whole story. The stat must exist on the caster — a reference to one it does not have is a validation error, not a silent +0. Read at cast time, so gear that moves the stat moves the ability with it.",
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
           "cooldown": { "type": "number", "minimum": 0 },
           "cost": {
             "description": "Resource spent per use, drawn from the caster's `mp` stat. Omitted or 0 means free (cooldown is the only limit). An ability that cannot be paid for does not fire and does not burn its cooldown.",

@@ -28,6 +28,8 @@ func _ready() -> void:
 			results.append(await _check_tile_collision(a))
 		elif kind == "ability_cost":
 			results.append(await _check_ability_cost(a))
+		elif kind == "stat_scaling":
+			results.append(await _check_stat_scaling(a))
 		elif kind == "room_transition":
 			results.append(await _check_room_transition(a))
 		else:
@@ -246,6 +248,38 @@ func _check_ability_cost(a: Dictionary) -> Dictionary:
 		"expected": expected, "measured": after_spend, "fired": fired,
 		"fired_when_broke": fired_broke, "cooldown_burned_when_broke": cd_after > cd_before,
 		"ok": fired and after_spend == expected and not fired_broke and cd_after <= cd_before,
+	}
+
+## An ability that scales off a stat must actually be worth power + that stat, and
+## equipping gear that grants the stat must move it. Reads effective_power rather than
+## firing, because the number is the claim: a shot that lands for its BASE power looks
+## identical on screen to one that scaled correctly.
+func _check_stat_scaling(a: Dictionary) -> Dictionary:
+	var slot: int = int(a.get("slot", 0))
+	var player: CharacterBody2D = load("res://scenes/player.tscn").instantiate()
+	add_child(player)
+	await get_tree().physics_frame
+	var runner: Node = player.get_node_or_null("Abilities")
+	if runner == null:
+		player.queue_free()
+		return {"kind": "stat_scaling", "ok": false, "error": "no Abilities node"}
+	Game.equipped = {}
+	Game.items = {}
+	var bare: int = int(runner.effective_power(slot))
+	var ok: bool = bare == int(a.get("expected", -1))
+	var equipped_power: int = bare
+	if a.has("item"):
+		Game.collect(str(a.get("item", "")))       # collecting is what equips
+		equipped_power = int(runner.effective_power(slot))
+		ok = ok and equipped_power == int(a.get("expected_equipped", -1))
+	Game.equipped = {}
+	Game.items = {}
+	player.queue_free()
+	return {
+		"kind": "stat_scaling", "ability": a.get("ability", ""), "stat": a.get("stat", ""),
+		"expected": a.get("expected", 0), "measured": bare,
+		"expected_equipped": a.get("expected_equipped", null), "measured_equipped": equipped_power,
+		"ok": ok,
 	}
 
 ## Every door in a room must point at a scene that LOADS, and its arrival cell must

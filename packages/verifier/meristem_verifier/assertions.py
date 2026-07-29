@@ -68,7 +68,13 @@ def derive_assertions(domains: dict) -> list[dict]:
             if not ab or ab.get("kind") != "projectile":
                 continue
             hp = int(enemy.get("stats", {}).get("hp", 0))
+            # `power` alone is what the shot USED to hit for. An ability that scales off
+            # a stat hits for power + that stat, and deriving the old number here made
+            # this assertion fail the moment scaling started working -- which is how the
+            # omission was found.
             power = int(ab.get("power", 0))
+            if ab.get("scaling"):
+                power += int(player.get("stats", {}).get(ab["scaling"], 0))
             if hp > 0 and power > 0:
                 out.append({"kind": "ability_damage", "entity": enemy["id"],
                             "ability": ref, "slot": slot, "power": power,
@@ -104,6 +110,31 @@ def derive_assertions(domains: dict) -> list[dict]:
             out.append({"kind": "ability_cost", "ability": ab["id"], "slot": slot,
                         "cost": int(ab["cost"]), "pool": pool,
                         "expected": pool - int(ab["cost"])})
+
+    # Stat scaling: `stats` has always been an open map, so an author could write
+    # `mag: 6` and only atk/def were ever read. An ability that scales off a third stat
+    # is the claim that proves the whole chain -- manifest stat, gear bonus, cast-time
+    # read -- because every link is invisible from outside the engine.
+    if arch and player:
+        pstats = player.get("stats", {}) or {}
+        scaled = [(i, ability_defs[r]) for i, r in enumerate(player.get("abilities", []))
+                  if r in ability_defs and ability_defs[r].get("scaling")]
+        if scaled:
+            slot, ab = scaled[0]
+            name = ab["scaling"]
+            base = int(pstats.get(name, 0))
+            boost = next((it for it in (domains.get("items", {}) or {}).get("items", [])
+                          if it.get("slot") in ("weapon", "armor", "accessory")
+                          and int((it.get("stats", {}) or {}).get(name, 0)) > 0), None)
+            power = int(ab.get("power", 0))
+            entry = {"kind": "stat_scaling", "ability": ab["id"], "slot": slot,
+                     "stat": name, "power": power, "base": base,
+                     "expected": power + base}
+            if boost is not None:
+                entry["item"] = boost["id"]
+                entry["bonus"] = int(boost["stats"][name])
+                entry["expected_equipped"] = power + base + int(boost["stats"][name])
+            out.append(entry)
 
     # Loot: drop_tables were authorable from the start and nothing dropped on kill, so
     # "this enemy drops a sword" is the claim to prove. Only assert on a table with a
