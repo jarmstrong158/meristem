@@ -8,6 +8,22 @@ These are the expensive ones to relitigate — Phase 0 especially.
 
 ## Phase 0 — Viability, environment, licensing
 
+### dec-0040 — Hue interpolates the SHORT way around the wheel; the test that said otherwise was wrong
+**Problem:** `shading.shadow()` walked hue with a plain lerp toward blue-violet: `h = _lerp(h, 0.65, t)`. Hue is a circle, not a line, so from a warm base the walk counted UP through yellow and green. Every warm shadow the generators produced landed olive — most visibly on skin, where the shaded half of a face came out swampy. Measured: brown 23.3° → 41.0°, skin 27.5° → 44.8°.
+
+**Decision:** `_lerp_hue()` takes the short path. Warm hues now rotate backwards through red — the red-brown direction classic pixel art asks for on skin — and greens and blues are untouched, because for those the short way already was the direct way (leaf and sky ramps are byte-identical before and after). Applied to `highlight()` as well, where the same defect is latent for magenta bases.
+
+**Rejected:** a second hue target for skin, which is what the prose in the style guide implies. Unnecessary once the lerp is circular: a warm base reaches blue-violet BY rotating through red, so one helper does it rather than a parameter threaded through every call site.
+
+**The test asserted the bug.** `test_shadow_is_darker_and_cooler` checked `_hsv(sh)[0] >= _hsv(base)[0]` — "hue moved toward blue (not away)" — which is only true if hue is a line. It passed because the code shared the assumption. Replaced with the invariant that actually holds for every base: the shadow's hue is closer to 0.65 *along the wheel* than the base's is. Two regression tests pin the skin case and the no-op-for-cool-hues case.
+
+**Tradeoff:** every previously generated warm sprite changes on regeneration. That is the fix landing, not drift — but committed art baked before this will not match art baked after, and `build/` outputs should be regenerated rather than diffed against.
+
+**Lineage:** this snippet came from Vanguard's `sprite_style_guide.md` §2.3 and was ported three times — GDScript, TypeScript, Python. All three carried the bug. Fixed in `vanguard` (`scripts/data/sprite_shading.gd`, now the single definition there) and in `vanguard-web` (`src/art/shading.ts`). This is the third. The guide's GDScript snippet still shows the linear form and should be corrected at source.
+
+---
+
+
 ### dec-0039 — NPC art is keyed on the PLACED NPC, and its palette is read from the running game
 **Problem:** Meristem generated 18 generic NPC sheets keyed on Vanguard's `sprite_id`, and the overworld could not use them. A placed NPC carries hand-authored shirt/pants/hair/skin colours, so a sheet keyed on `sprite_id` would have made every `worker_cyan` in the game the same person — which is why the sprite ladder deliberately kept Vanguard's own procedural generator above them (vanguard dec-001-fcc5). The generated art was better and still could not be used.
 **Decision:** generate one sheet per **placed NPC**, keyed `{map}_{node}`. The variety is authored, not random, and there are only fifteen of them — so the tradeoff dissolves rather than being managed. Keyed on map + node and not `npc_name` because a JRPG has several NPCs called "Traveler".
