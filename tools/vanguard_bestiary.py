@@ -27,6 +27,7 @@ sys.path.insert(0, str(ROOT / "packages" / "asset-gate"))
 from asset_gate import load_contract, validate                       # noqa: E402
 from meristem_generators import (archetype_class, archetype_frames,   # noqa: E402
                                  build_archetype)
+from meristem_generators.poses import pose_band                       # noqa: E402
 
 C = load_contract(str(ROOT / "experiments" / "00-bakeoff" / "style-contract.json"))
 
@@ -346,7 +347,37 @@ def build_sheet(archetype, config):
     for col in range(6):                                     # walk cols 0-5 = anim cycle
         f = frames[col % len(frames)]
         sheet.paste(f, (col * 32, 0), f)
+    _paste_action_bands(sheet, idle)
     return sheet, idle
+
+
+# Puny layout, from Vanguard's party_battle_sprite_generator._col_to_anim:
+#   0-5 walk   6 idle   7-10 sword   11-13 bow   14-16 stave
+#   17-18 throw   19 idle   20 hurt   21-23 death
+ACTION_BANDS = {
+    "sword": range(7, 11),
+    "bow": range(11, 14),
+    "stave": range(14, 17),
+    "throw": range(17, 19),
+    "hurt": range(20, 21),
+    "death": range(21, 24),
+}
+
+
+def _paste_action_bands(sheet, idle):
+    """Fill the action columns with poses derived from the idle.
+
+    These columns used to be copies of idle -- so a sheet looked animated and
+    played as a still image through every attack, hurt and death. Poses are
+    pixel-safe transforms of the finished idle (see poses.py), which means they
+    cost no per-archetype art and cannot take a sprite off its palette.
+    """
+    for band, cols in ACTION_BANDS.items():
+        posed = pose_band(idle, band)
+        for i, col in enumerate(cols):
+            f = posed[i % len(posed)]
+            sheet.paste(Image.new("RGBA", f.size, (0, 0, 0, 0)), (col * 32, 0))
+            sheet.paste(f, (col * 32, 0), f)
 
 
 # ---- overworld sheets --------------------------------------------------------

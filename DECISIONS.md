@@ -8,6 +8,24 @@ These are the expensive ones to relitigate — Phase 0 especially.
 
 ## Phase 0 — Viability, environment, licensing
 
+### dec-0041 — Action poses are pixel-safe transforms of the idle, not new art
+**Problem:** most archetypes register `frames=None`, so a generated sheet carried one pose padded across all 24 columns. Vanguard measured it: every party member and every enemy with a sheet reported `sword 0/4  bow 0/3  stave 0/3  throw 0/2  hurt 0/1  death 0/3` — attacks, hurt reactions and deaths all played the idle image. Only `marsh_slime` animated, because `blob` is the one archetype with a frames function.
+
+**Decision:** `poses.py` derives the action bands from the finished idle by transform. Four primitives, all pixel-safe: whole-pixel `shift`, integer per-row `lean` (a shear), row-dropping `squash`, and alpha-only `fade`. Recipes per band follow style-guide §5.2 — wind-up, strike, follow-through.
+
+**Rejected: drawing poses per archetype.** Seven extra poses across every archetype is a large, ongoing art commitment, and each one is a fresh chance to drift off-palette. A transform cannot: it only moves pixels the archetype already drew. `test_poses_never_introduce_a_colour` holds that line.
+
+**Rejected: rotation for the lean.** A rotation resamples, which invents colours outside the sprite's palette and softens every edge on a 32px figure. An integer shear is a rearrangement of existing rows.
+
+**Tuning that mattered:** the first death recipe leaned 13px on a 32px sprite. It read as a corrupted sprite rather than a falling body, and long vertical props skewed worst because a shear moves their top furthest from their base. Now capped at 8px with sink and fade carrying the beat, pinned by `test_death_lean_stays_within_budget`.
+
+**Three of my own tests for this were wrong before the code was.** Measuring the silhouette's left edge caught the point where the body ends and a prop continues; measuring per-row displacement broke once `squash` changed which source row lands on row *y*. Shear coherence lives in the `lean` primitive, so it is tested there, and the recipe budget is asserted against the declaration.
+
+**Tradeoff:** poses are derived, so they are as good as the idle and no better — a sword swing moves the whole figure rather than just the arm. That is the right trade at 32px, and an archetype that wants real per-limb animation can still register a frames function and override.
+
+---
+
+
 ### dec-0040 — Hue interpolates the SHORT way around the wheel; the test that said otherwise was wrong
 **Problem:** `shading.shadow()` walked hue with a plain lerp toward blue-violet: `h = _lerp(h, 0.65, t)`. Hue is a circle, not a line, so from a warm base the walk counted UP through yellow and green. Every warm shadow the generators produced landed olive — most visibly on skin, where the shaded half of a face came out swampy. Measured: brown 23.3° → 41.0°, skin 27.5° → 44.8°.
 
